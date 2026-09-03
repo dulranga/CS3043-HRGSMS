@@ -16,3 +16,4 @@ npm-debug.log*
 
 # Vite
 frontend/.vite
+.scratch/
