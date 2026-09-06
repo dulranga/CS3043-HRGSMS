@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import RootLayout from './components/RootLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
+import UIRoutePage from './routes/UIRoutePage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -19,7 +20,13 @@ const roomsRoute = createRoute({
   component: RoomsPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, roomsRoute]);
+const uiRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/ui',
+  component: UIRoutePage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, roomsRoute, uiRoute]);
 
 export const router = createRouter({ routeTree });
 

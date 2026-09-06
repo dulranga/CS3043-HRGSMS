@@ -1,5 +1,7 @@
 # SkyNest HRGSMS - Project Context
 
+SkyNest is an internal and direct hotel booking system — supports staff management (room allocation, employee bookings) and direct guest reservations (brand-controlled, professional, not a third-party marketplace like Booking.com).
+
 ## Stack
 
 - Backend: (not covered here)
