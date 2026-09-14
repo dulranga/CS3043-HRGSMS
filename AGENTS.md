@@ -11,6 +11,10 @@ SkyNest HRGSMS is an internal and direct hotel booking system — supports staff
 
 All design decisions (colors, typography, spacing, motion, geometry, imagery) are defined in `~/DESIGN.md`. Treat `~/DESIGN.md` as the single source of truth when implementing or modifying components. Never hard-code literal values that conflict with the design system (variable radius, soft diffused shadows, quick gentle motion, geometric sans typography, light luxury palette).
 
+# Layout Architecture Reference
+
+Layout architecture (shell, containers, grids, responsive behaviors, scroll mechanics) is defined in `~/LAYOUT.md`. Refer to `~/LAYOUT.md` when building or extending pages.
+
 # Commit Rule
 
 NEVER make a commit.

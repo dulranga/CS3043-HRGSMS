@@ -3,6 +3,7 @@ import RootLayout from './components/RootLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import UIRoutePage from './routes/UIRoutePage';
+import DashboardPage from './routes/DashboardPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -26,7 +27,13 @@ const uiRoute = createRoute({
   component: UIRoutePage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, roomsRoute, uiRoute]);
+const dashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dashboard',
+  component: DashboardPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, roomsRoute, uiRoute, dashboardRoute]);
 
 export const router = createRouter({ routeTree });
 
