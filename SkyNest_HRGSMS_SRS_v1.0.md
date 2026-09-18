@@ -1,13 +1,13 @@
 ---
 title: "SkyNest Hotel Reservation and Guest Services Management System"
 subtitle: "Software Requirements Specification"
-version: "1.0"
-date: "24 July 2026"
+version: "1.2-draft"
+date: "18 September 2026"
 ---
 
 **SkyNest Hotel Reservation and Guest Services Management System**
 
-**Version 1.0 approved**
+**Version 1.2 draft — final-ER alignment with approved implementation clarifications**
 
 **Prepared by: Project Team**
 
@@ -15,7 +15,9 @@ date: "24 July 2026"
 
 Database Systems Project
 
-24 July 2026
+18 September 2026
+
+> This file retains its original filename to avoid breaking repository references. The README stack, online guest scope and booking–room assignment extension are approved working decisions; unresolved Appendix C mappings and existing migrations are not thereby approved. Where older figures or captions conflict with the updated text, the updated requirements and Table 40 plus its separately identified extension govern until diagrams are redrawn.
 
 > **Diagram assets:** Keep the `SkyNest_HRGSMS_SRS_assets` folder beside this Markdown file so that all figures render correctly.
 
@@ -96,7 +98,7 @@ Database Systems Project
 | Table 7 - User Interface Requirements                            | Table 36 - Portability Requirements                 |
 | Table 8 - Software Interfaces                                    | Table 37 - Logging Requirements                     |
 | Table 9 - Communications Interface Requirements                  | Table 38 - Business Rules                           |
-| Table 10 - Use Case - Authenticate Staff User                    | Table 39 - Entity Summary                           |
+| Table 10 - Use Case - Authenticate Staff or Online Guest        | Table 39 - Entity Summary                           |
 | Table 11 - Authentication and Access Requirements                | Table 40 - Core Data Dictionary                     |
 | Table 12 - Use Case - Maintain Room Inventory                    | Table 41 - Database Integrity Requirements          |
 | Table 13 - Room Inventory Requirements                           | Table 42 - Normalization Progress                   |
@@ -124,15 +126,17 @@ Database Systems Project
 | **Name**                      | **Date**        | **Reason for Changes**                                                                            | **Version** |
 |-------------------------------|-----------------|---------------------------------------------------------------------------------------------------|-------------|
 | Project Team                  | 24 July 2026    | Complete SRS created from the supplied project brief, IEEE-style SRS template and example design. | 1.0         |
-| Project Supervisor / Lecturer | To be completed | Review, corrections and formal approval.                                                          | 1.1         |
+| Project Team                  | 18 September 2026 | Draft alignment of entities, keys, attributes and data types with the team-supplied final ER transcription; unresolved choices listed in Appendix C. | 1.1 draft |
+| Project Team                  | 18 September 2026 | Confirm README implementation stack, online guest accounts and direct booking, and approve a booking–room assignment-history extension to preserve the final ER's room pointer. | 1.2 draft |
+| Project Supervisor / Lecturer | To be completed | Review, corrections and formal approval.                                                          | TBD         |
 
 # 1. Introduction
 
 ## 1.1 Purpose
 
-The purpose of this document is to present a complete and verifiable description of the SkyNest Hotel Reservation and Guest Services Management System (HRGSMS), Version 1.0. It describes the purpose and features of the system, its interfaces, the constraints under which it shall operate, the relational data model, and the responses expected when users or external conditions stimulate the system.
+The purpose of this document is to present a verifiable description of the SkyNest Hotel Reservation and Guest Services Management System (HRGSMS). This Version 1.2 draft aligns the database inventory with the team-supplied final ER transcription and records approved implementation clarifications separately from decisions still required for executable database design. It describes the purpose and features of the system, its interfaces, the constraints under which it shall operate, the relational data model, and the responses expected when users or external conditions stimulate the system.
 
-This SRS covers the complete university database project: requirements analysis, a normalized SQL database, a full-stack Next.js application, parameterized raw SQL data access, procedures, functions, triggers, reporting, testing, deployment and CI/CD. It is intended for stakeholders, developers, database designers, testers and evaluators and shall be the baseline for design, implementation and acceptance.
+This SRS covers the complete university database project: requirements analysis, a normalized SQL database, a React/Vite frontend with an Express/Node.js backend, parameterized raw SQL data access, procedures, functions, triggers, reporting, testing, deployment and CI/CD. It is intended for stakeholders, developers, database designers, testers and evaluators and shall be the baseline for design, implementation and acceptance.
 
 ## 1.2 Document Conventions
 
@@ -149,7 +153,7 @@ The document follows the section order of the supplied IEEE-style SRS template a
 | Lecturer / project evaluator      | Sections 1 and 2 for context; Section 4 for functional scope; Sections 5 and 6 for quality, database and deployment evidence; Appendices for terminology and models. |
 | Hotel management stakeholder      | Sections 1, 2, 4.4 to 4.9 and 5.5 business rules.                                                                                                                    |
 | Database designer / SQL developer | Sections 4, 5.5 and 6.1, especially schema, normalization, transactions, SQL objects, indexing and reporting views.                                                  |
-| Next.js developer                 | Sections 2.4 to 2.5, Section 3, Section 4, and Sections 6.2 to 6.3.                                                                                                  |
+| React/Express developer          | Sections 2.4 to 2.5, Section 3, Section 4, and Sections 6.2 to 6.3.                                                                                                  |
 | Tester / quality reviewer         | Use cases and requirements in Section 4, measurable requirements in Section 5, and test/acceptance requirements in Sections 6.4 and 6.5.                             |
 | Deployment / operations member    | Sections 2.4, 2.5, 5.3, and Sections 6.2 to 6.7.                                                                                                                     |
 
@@ -159,9 +163,9 @@ Readers seeking an overview should begin with Sections 1 and 2. Implementers sho
 
 SkyNest Hotels is a regional hotel chain with branches in Colombo, Kandy and Galle. The current desktop-based and manual processes have contributed to overbooking, delayed billing and data-entry errors. HRGSMS will replace those processes with a unified web application whose authoritative data is stored in a normalized relational database.
 
-The system shall support branch and room management, guest profiles, availability searches, reservations, check-in, active-stay service usage, partial payments, invoice generation, checkout and management reports. It shall prevent overlapping active bookings for the same room, maintain consistent room and booking states, preserve historical rates and prices, and prevent checkout until the final balance is paid.
+The system shall support branch and room management, guest profiles, availability searches, reservations, check-in, active-stay service usage, partial payments, invoice generation, checkout and management reports. Both authorized staff and online guest-account holders shall have appropriate booking workflows; online guests are limited to their linked guest records and their own reservations. It shall prevent overlapping active bookings for the same room, maintain consistent room and booking states, preserve historical rates and prices, and prevent checkout until the final balance is paid.
 
-The implementation shall use Next.js for the frontend and backend and PostgreSQL as the reference database. The application shall execute reviewed, parameterized SQL through a PostgreSQL driver. ORM frameworks, Supabase, Firebase and equivalent backend-as-a-service database abstractions are prohibited. The system shall be fully implemented, tested and deployed using a CI/CD pipeline.
+The approved implementation stack is the one documented in `README.md`: React 18 with TypeScript and Vite for the frontend, Express with TypeScript on Node.js for the backend, and PostgreSQL as the reference database. The backend shall execute reviewed, parameterized SQL through a PostgreSQL driver. ORM frameworks, Supabase, Firebase and equivalent backend-as-a-service database abstractions are prohibited. The system shall be fully implemented, tested and deployed using a CI/CD pipeline. This specification change does not require a code-stack migration.
 
 - Reduce overbooking by enforcing room/date conflicts at database level.
 
@@ -185,6 +189,8 @@ The implementation shall use Next.js for the frontend and backend and PostgreSQL
 
 4.  The approved project repository, SQL migrations, test plan, deployment records and user guide produced by the project team.
 
+5.  Final ER diagram supplied by the project team on 18 September 2026 (the transcription supplied for this revision). The entity and attribute inventory in Section 6.1 reflects that reference; its unresolved semantics are identified rather than inferred.
+
 # 2. Overall Description
 
 ## 2.1 Product Perspective
@@ -199,7 +205,7 @@ HRGSMS is a new centralized web system that replaces separate desktop and manual
 
 **Figure 2 - High-Level Component Architecture**
 
-The system environment contains browser users, the full-stack Next.js application, a raw-SQL access layer, PostgreSQL database objects, source control and CI/CD, and logging/audit facilities. Multi-table state changes shall be performed inside transactions or controlled SQL routines so the user interface cannot leave the database partially updated.
+The system environment contains browser users, a React/Vite frontend, an Express/Node.js API with a raw-SQL access layer, PostgreSQL database objects, source control and CI/CD, and logging/audit facilities. Multi-table state changes shall be performed inside backend transactions or controlled SQL routines so the user interface cannot leave the database partially updated. Figure 2 predates the approved stack and requires an updated diagram before formal SRS publication.
 
 ## 2.2 Product Functions
 
@@ -207,13 +213,13 @@ The system environment contains browser users, the full-stack Next.js applicatio
 
 **Figure 3 - User Roles and Major Use Cases**
 
-- Authenticate staff and enforce role- and branch-based permissions.
+- Authenticate staff and online guest accounts; enforce staff role/branch scope and guest ownership scope.
 
 - Maintain branches, room types, amenities, room records, statuses, blocks and rates.
 
 - Create and update guest profiles while avoiding unnecessary duplication.
 
-- Search availability and create, modify or cancel reservations.
+- Let online guests and authorized staff search availability and create reservations; permit online guests to view their own bookings and request eligible cancellation, while staff handle booking date/room modifications.
 
 - Check guests in and update room occupancy atomically.
 
@@ -235,7 +241,8 @@ The system environment contains browser users, the full-stack Next.js applicatio
 
 | **User Class**                    | **Characteristics and Main Privileges**                                                                                                                              |
 |-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Guest                             | Provides identity/contact and stay information, receives confirmations, invoices and receipts. Direct self-service is optional; staff-assisted booking is mandatory. |
+| Online Guest                      | Uses a `user_account` linked to `guest` through `guest_account` to manage their own profile, search availability, create and view reservations, and request eligible cancellation; cannot access another guest's records or staff operations. |
+| Staff-assisted Guest              | Provides identity/contact and stay information through authorized staff without requiring an online login; receives confirmations, invoices and receipts. |
 | Front Desk Staff                  | Frequent operational user. Searches availability, manages guests and bookings, checks guests in, records payments and completes checkout within an assigned branch.  |
 | Service Staff                     | Records approved service usage for checked-in bookings. Cannot alter booking dates, room rates, invoices or payments.                                                |
 | Branch Manager                    | Maintains rooms, rates, blocks and branch configuration, approves controlled discounts and views branch reports.                                                     |
@@ -247,7 +254,7 @@ The system environment contains browser users, the full-stack Next.js applicatio
 
 - Modern desktop or tablet web browser with JavaScript enabled.
 
-- Next.js application on a supported Node.js runtime hosted on Linux or a compatible platform.
+- React 18/TypeScript frontend built with Vite and an Express/TypeScript API on a supported Node.js runtime, hosted on Linux or a compatible platform.
 
 - PostgreSQL relational database on a separate protected service or host.
 
@@ -265,8 +272,8 @@ The system environment contains browser users, the full-stack Next.js applicatio
 
 | **ID** | **Constraint**                                                                                                                                                         |
 |--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| CON-01 | PostgreSQL shall be the reference database. MySQL may be substituted only with equivalent documented constraints and transaction behavior approved by the evaluator.   |
-| CON-02 | The frontend and backend shall be implemented with Next.js.                                                                                                            |
+| CON-01 | PostgreSQL shall be the database for this project; another database engine is not part of the approved implementation baseline.                         |
+| CON-02 | The frontend shall use React 18, TypeScript and Vite; the backend shall use Express with TypeScript on Node.js, as documented in `README.md`. |
 | CON-03 | The application shall use parameterized raw SQL. No ORM, Supabase, Firebase or equivalent database abstraction is permitted.                                           |
 | CON-04 | The schema shall demonstrate normalization, primary keys, foreign keys, uniqueness, domain checks, indexing, views, procedures/functions and triggers where justified. |
 | CON-05 | Concurrent requests shall not create overlapping active bookings for one room.                                                                                         |
@@ -278,7 +285,7 @@ The system environment contains browser users, the full-stack Next.js applicatio
 
 ## 2.6 User Documentation
 
-- Role-oriented user guide for front-desk staff, service staff, managers and administrators.
+- Role-oriented user guide for online guests, front-desk staff, service staff, managers and administrators.
 
 - Quick reference for booking, check-in, service entry, payment and checkout.
 
@@ -301,10 +308,10 @@ The system environment contains browser users, the full-stack Next.js applicatio
 | A/D-03 | Check-in date is inclusive and check-out date is exclusive for overlap and billing-night calculations.                                |
 | A/D-04 | Taxes, service charges, discounts, cancellation fees and late-checkout amounts are configurable rather than hard-coded.               |
 | A/D-05 | Payment information records method, amount, reference and status; direct card processing is outside the assessed scope.               |
-| A/D-06 | Staff use reliable network connectivity and approved credentials.                                                                     |
+| A/D-06 | Staff and online guests use reliable network connectivity and approved credentials.                                                   |
 | A/D-07 | The hosting platform supplies protected secrets, HTTPS and a supported PostgreSQL service.                                            |
 | A/D-08 | Legacy desktop data format is unknown; automatic migration is not mandatory unless a source format is later provided.                 |
-| A/D-09 | Guest self-service access may be added later; all mandatory functions remain available to authorized staff.                           |
+| A/D-09 | Online guest accounts and direct reservations are in scope through `guest_account`; staff-assisted reservations remain available for guests without accounts. |
 
 Out of scope for Version 1.0 are a live payment gateway, smart-lock or point-of-sale integration, dynamic pricing from machine learning, loyalty points, housekeeping payroll, inventory procurement, multi-currency settlement and native mobile applications.
 
@@ -318,11 +325,12 @@ The interface shall use a consistent, responsive layout with a top-level navigat
 
 | **Screen**                    | **Primary User**        | **Purpose**                                                                                     |
 |-------------------------------|-------------------------|-------------------------------------------------------------------------------------------------|
-| Login                         | All staff               | Authenticate and establish a secure role/branch session.                                        |
-| Dashboard                     | Role dependent          | Show arrivals, departures, occupied rooms, unpaid balances and operational notices.             |
-| Availability Search           | Guest / Front Desk      | Enter branch, dates, capacity and optional room type; display currently sellable rooms.         |
-| Booking Form                  | Front Desk              | Create or modify a reservation with guest, room, dates, agreed rate, payment method and status. |
-| Guest Profile                 | Front Desk              | Search, create and update guest identity/contact information and review history.                |
+| Login                         | Staff / Online Guest    | Authenticate staff with role/branch scope or a linked guest with own-record scope.              |
+| Guest Registration / Link     | Online Guest           | Create an account or securely link a verified existing guest profile without account takeover. |
+| Dashboard / Account Summary   | Staff / Online Guest    | Staff see branch operations; online guests see only their own reservation/account summary.      |
+| Availability Search           | Online Guest / Front Desk | Enter branch, dates, capacity and optional room type; display currently sellable rooms.       |
+| Booking Form                  | Online Guest / Front Desk | Create a direct or staff-assisted reservation; staff may modify within policy.                |
+| Guest Profile / My Bookings   | Online Guest / Front Desk | Guests manage their linked profile and view their own bookings; staff use authorized search.  |
 | Check-In                      | Front Desk              | Verify booking, guest and room readiness and perform the controlled state change.               |
 | Service Usage                 | Service Staff           | Record service, usage date/time, quantity and price snapshot for an active stay.                |
 | Billing and Payments          | Front Desk              | Display invoice lines, payments, partial-payment status and outstanding balance.                |
@@ -352,8 +360,9 @@ No specialized hotel hardware is required. The system shall operate with standar
 
 | **Interface**                     | **Data Exchanged**                                           | **Requirement**                                                                          |
 |-----------------------------------|--------------------------------------------------------------|------------------------------------------------------------------------------------------|
-| Web browser to Next.js            | HTTPS requests, HTML, CSS, JavaScript and form/JSON payloads | Protected routes shall use secure sessions and server-side authorization.                |
-| Next.js to PostgreSQL             | Parameterized SQL commands and typed result sets             | Use connection pooling and explicit transactions; ORM-generated SQL is prohibited.       |
+| Web browser to React/Vite frontend | HTTPS requests, HTML, CSS and JavaScript                    | Protected views shall not expose staff or other guests' records.                         |
+| React frontend to Express API     | HTTPS requests and JSON/form payloads                        | The API shall authenticate sessions and authorize staff role/branch or guest ownership.  |
+| Express API to PostgreSQL         | Parameterized SQL commands and typed result sets             | Use connection pooling and explicit transactions; ORM-generated SQL is prohibited.       |
 | CI/CD to PostgreSQL               | Migrations, seed scripts and automated database tests        | Every migration shall be applied to a clean database before deployment.                  |
 | Application to logging/monitoring | Structured request, error and deployment events              | Secrets and sensitive guest data shall be redacted.                                      |
 | Report export                     | CSV and print-friendly report representations                | Exported rows and totals shall match the selected screen filters.                        |
@@ -384,11 +393,11 @@ The functional requirements are organized by major system feature in accordance 
 
 ### 4.1.1 Description and Priority
 
-Description and priority: High. The feature protects all staff functions and restricts operations by role and branch. Authentication does not replace database constraints; users with valid sessions still cannot create inconsistent records.
+Description and priority: High. The feature protects staff operations by role and branch and online guest operations by linked-guest ownership. Authentication does not replace database constraints; users with valid sessions still cannot create inconsistent records.
 
 ### 4.1.2 Stimulus/Response Sequences
 
-**Table 10 - Use Case - Authenticate Staff User**
+**Table 10 - Use Case - Authenticate Staff or Online Guest**
 
 <table>
 <colgroup>
@@ -404,11 +413,11 @@ Description and priority: High. The feature protects all staff functions and res
 <tbody>
 <tr class="odd">
 <td>Use Case Name</td>
-<td>Authenticate Staff User</td>
+<td>Authenticate Staff or Online Guest</td>
 </tr>
 <tr class="even">
 <td>Primary Actors</td>
-<td>Front Desk Staff, Service Staff, Manager, Administrator, Auditor</td>
+<td>Online Guest, Front Desk Staff, Service Staff, Manager, Administrator, Auditor</td>
 </tr>
 <tr class="odd">
 <td>Trigger</td>
@@ -423,7 +432,7 @@ Description and priority: High. The feature protects all staff functions and res
 <td>1. The system validates that both credential fields are present.<br />
 2. The server retrieves the account using a parameterized SQL query.<br />
 3. The server verifies the password against the stored password hash.<br />
-4. The system checks account status and branch/role assignments.<br />
+4. The system checks account status and either the staff `officer` role/branch link or the online `guest_account`/`guest` link.<br />
 5. The system creates a secure session and redirects to the permitted dashboard.<br />
 6. The login event is recorded in the audit trail.</td>
 </tr>
@@ -435,7 +444,7 @@ After repeated failures, the account or source may be temporarily throttled.</td
 </tr>
 <tr class="odd">
 <td>Postconditions</td>
-<td>An authenticated session exists with the correct role and branch scope.</td>
+<td>An authenticated session exists with staff role/branch scope or online guest ownership scope.</td>
 </tr>
 <tr class="even">
 <td>Exception Paths</td>
@@ -451,13 +460,16 @@ Expired session: the user is redirected to login.</td>
 
 | **ID** | **Requirement**                                                                                                                            | **Priority and Verification** |
 |--------|--------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|
-| FR-001 | The system shall authenticate staff using a unique username and a securely hashed password.                                                | High; Security test           |
-| FR-002 | The system shall associate every staff account with exactly one active role and zero or one home branch, depending on the role.            | High; Database test           |
-| FR-003 | The server shall authorize every protected operation, even when the corresponding UI control is hidden.                                    | High; Authorization test      |
+| FR-001 | The system shall authenticate staff and online guests using a unique username and a securely hashed password.                             | High; Security test           |
+| FR-002 | A staff `user_account` shall be linked to an `officer` profile (`officer_id = user_id`); the officer shall have one authorized role and a branch assignment where required. | High; Database test |
+| FR-003 | The Express API shall authorize every protected operation, including guest ownership, even when the corresponding UI control is hidden.   | High; Authorization test      |
 | FR-004 | Front desk and service staff shall be limited to records belonging to their assigned branch.                                               | High; Integration test        |
 | FR-005 | The system shall expire inactive sessions after a configurable period and shall support explicit logout.                                   | Medium; Session test          |
 | FR-006 | The system shall record successful logins, failed logins, logouts and account changes in the audit log.                                    | High; Audit inspection        |
 | FR-007 | No user role shall be able to disable database consistency constraints or directly mark a booking checked out with an outstanding balance. | High; Negative test           |
+| FR-081 | An online guest account shall link through `guest_account` to its `guest` profile; guest sessions shall never inherit staff `officer` permissions. | Critical; Link and authorization test |
+| FR-082 | An online guest shall create and view reservations only for its linked guest; the API shall derive ownership from the authenticated account, not a client-supplied guest ID. | Critical; Cross-account security test |
+| FR-083 | Online account registration/linking shall verify control of the claimed guest identity/contact before creating a `guest_account` link, and shall reject duplicate or unauthorized links. | Critical; Account-takeover test |
 
 ## 4.2 Branch, Room Type, Amenity and Room Management
 
@@ -537,7 +549,7 @@ Referenced room type or branch is inactive: change is rejected.</td>
 | FR-009 | The system shall maintain room types with name, capacity, base daily rate and active status.                                    | High; Functional test         |
 | FR-010 | The system shall maintain a reusable amenity catalogue and a many-to-many relationship between room types and amenities.        | Medium; Database test         |
 | FR-011 | Each room shall belong to one branch and one room type and shall have a room number unique within its branch.                   | High; Constraint test         |
-| FR-012 | Room operational status shall be limited to approved values such as AVAILABLE, RESERVED, OCCUPIED, CLEANING and OUT_OF_SERVICE. | High; Constraint test         |
+| FR-012 | Room operational status shall be constrained to the complete Member 2 working set selected under §6.1.4: AVAILABLE, RESERVED, OCCUPIED, CLEANING and OUT_OF_SERVICE. The original `enum(14)` remains an ER annotation, not a label count; evaluator review is pending. | High; Constraint test |
 | FR-013 | The system shall support dated room blocks for maintenance, renovation or other non-sellable periods.                           | High; Availability test       |
 | FR-014 | A room referenced by booking history shall not be physically deleted; it may be deactivated.                                    | High; Negative database test  |
 | FR-015 | Changes to room rates, statuses and blocks shall be audited with user and timestamp.                                            | High; Audit inspection        |
@@ -570,24 +582,25 @@ Description and priority: High. The system stores enough information to identify
 </tr>
 <tr class="even">
 <td>Primary Actors</td>
-<td>Front Desk Staff</td>
+<td>Online Guest or Front Desk Staff</td>
 </tr>
 <tr class="odd">
 <td>Trigger</td>
-<td>Staff begins a reservation or opens guest management.</td>
+<td>Staff begins a reservation or the online guest opens their own profile.</td>
 </tr>
 <tr class="even">
 <td>Preconditions</td>
-<td>The user is authenticated for a branch.</td>
+<td>Staff is authorized for the branch, or the online account is linked to the target guest profile.</td>
 </tr>
 <tr class="odd">
 <td>Basic Flow</td>
-<td>1. The user searches by name, email, phone or identity reference.<br />
+<td>For staff: 1. The user searches by name, email, phone or identity reference.<br />
 2. The system displays possible matches without exposing unrelated sensitive details.<br />
 3. The user selects an existing guest or starts a new profile.<br />
 4. The system validates required fields and canonicalizes email/phone data.<br />
 5. The user confirms the changes.<br />
-6. The database stores the profile and records an audit event.</td>
+6. The database stores the profile and records an audit event.<br />
+For online guests: the server loads only the linked guest profile, validates permitted changes, and records the update without exposing other guests.</td>
 </tr>
 <tr class="even">
 <td>Alternative Flows</td>
@@ -612,11 +625,11 @@ Unauthorized branch staff attempts a restricted update: access is denied.</td>
 
 | **ID** | **Requirement**                                                                                             | **Priority and Verification**      |
 |--------|-------------------------------------------------------------------------------------------------------------|------------------------------------|
-| FR-016 | The system shall assign every guest a unique internal identifier.                                           | High; Database test                |
+| FR-016 | The system shall assign every guest a UUIDv7 internal identifier.                                          | High; Database test                |
 | FR-017 | A guest profile shall store full name and at least one usable contact method.                               | High; Validation test              |
-| FR-018 | Identity or passport references, when recorded, shall be unique and protected from ordinary report exports. | High; Security and constraint test |
+| FR-018 | `guest.NIC`, when recorded, shall be protected from ordinary report exports; uniqueness, validation and any passport alternative require a documented team decision before implementation. | High; Security and constraint test |
 | FR-019 | The system shall search existing guests before allowing creation of a new profile.                          | Medium; UI test                    |
-| FR-020 | The system shall show a guest booking and payment history to authorized staff.                              | Medium; Functional test            |
+| FR-020 | The system shall show guest booking and payment history to authorized staff and show only the linked guest's history to an online guest. | High; Authorization test |
 | FR-021 | Guest contact corrections shall not alter historical invoice and booking identifiers.                       | High; Regression test              |
 | FR-022 | Guest deactivation shall preserve all legally and academically required historical relations.               | High; Database test                |
 
@@ -656,7 +669,7 @@ Description and priority: Critical. The feature searches sellable inventory and 
 </tr>
 <tr class="even">
 <td>Primary Actors</td>
-<td>Guest or Front Desk Staff</td>
+<td>Online Guest or Front Desk Staff</td>
 </tr>
 <tr class="odd">
 <td>Trigger</td>
@@ -664,15 +677,15 @@ Description and priority: Critical. The feature searches sellable inventory and 
 </tr>
 <tr class="even">
 <td>Preconditions</td>
-<td>Room, room type and branch master data exist.</td>
+<td>Room, room type and branch master data exist; an online booking requires an authenticated `guest_account` linked to a guest.</td>
 </tr>
 <tr class="odd">
 <td>Basic Flow</td>
 <td>1. The system validates that check-out is after check-in and dates satisfy policy.<br />
 2. The server queries rooms whose capacity is sufficient and that have no active overlapping booking or room block.<br />
 3. The system displays available rooms, room types, amenities and rates.<br />
-4. The user selects a room and identifies or creates the guest.<br />
-5. The user selects the payment method and confirms the reservation.<br />
+4. The user selects a room. For an online booking, the server uses the authenticated account's linked guest; authorized staff may identify or create a guest for a staff-assisted booking.<br />
+5. The user confirms the reservation; a payment method is recorded only if a separate payment is actually taken.<br />
 6. The server executes the controlled booking transaction and rechecks availability.<br />
 7. The system records BOOKED status and returns a unique confirmation number.</td>
 </tr>
@@ -680,11 +693,11 @@ Description and priority: Critical. The feature searches sellable inventory and 
 <td>Alternative Flows</td>
 <td>If another user books the room before commit, the database rejects the conflict and the availability list is refreshed.<br />
 A manager may approve an authorized discount within the configured limit.<br />
-A booking date or room may be modified only after a fresh overlap check.</td>
+Authorized staff may modify a booking date or room only after a fresh overlap check.</td>
 </tr>
 <tr class="odd">
 <td>Postconditions</td>
-<td>A committed booking exists with a rate snapshot and no conflicting active booking.</td>
+<td>A committed booking and durable booking–room assignment exist with a rate snapshot and no conflicting active booking.</td>
 </tr>
 <tr class="even">
 <td>Exception Paths</td>
@@ -704,14 +717,16 @@ Database failure: the transaction is rolled back and no partial booking remains.
 | FR-024 | The system shall treat check-in as inclusive and check-out as exclusive when detecting overlap.                                                            | High; Boundary test                   |
 | FR-025 | A room shall be returned as available only when it is active, capacity is sufficient, no room block overlaps and no BOOKED or CHECKED_IN booking overlaps. | High; SQL integration test            |
 | FR-026 | The database shall enforce the no-overlap rule independently of application validation.                                                                    | Critical; Concurrent transaction test |
-| FR-027 | Every booking shall reference one guest, one room and one branch-derived room location.                                                                    | High; Foreign-key test                |
+| FR-027 | Every booking shall identify one guest and exactly one current room assignment at a time; the branch is derived from that room, and prior assignments remain queryable. | High; Foreign-key and history test |
 | FR-028 | The booking shall store the agreed daily rate as a snapshot.                                                                                               | High; Regression test                 |
 | FR-029 | The system shall generate a human-readable booking reference unique across the chain.                                                                      | High; Constraint test                 |
-| FR-030 | Booking status shall be limited to BOOKED, CHECKED_IN, CHECKED_OUT, CANCELLED and NO_SHOW.                                                                 | High; Constraint test                 |
-| FR-031 | Modifying booking dates or room shall perform the same availability and overlap checks as creation.                                                        | High; Functional test                 |
+| FR-030 | Booking status shall be constrained to the complete Member 2 working set selected under §6.1.4: BOOKED, CHECKED_IN, CHECKED_OUT, CANCELLED and NO_SHOW. The original `enum(11)` remains an ER annotation, not a label count; evaluator review is pending. | High; Constraint test |
+| FR-031 | Modifying booking dates or room shall perform the same availability and overlap checks as creation; room reassignment closes the old assignment and creates a new one atomically. | High; Functional test |
 | FR-032 | The system shall record every booking status change with old status, new status, user, timestamp and reason.                                               | High; Audit test                      |
-| FR-033 | The system shall support an optional group reference that links multiple independent room bookings.                                                        | Medium; Functional test               |
+| FR-033 | Any optional group-booking reference shall be a separately approved extension; it is not represented in the supplied ER attributes and is outside the baseline schema. | Medium; Design review |
 | FR-034 | The system shall reject a booking when guest count exceeds room-type capacity.                                                                             | High; Negative test                   |
+
+**Approved ER clarification:** The final ER places `booking_id` on `room`, not `room_id` on `booking`. The team has approved one additional `booking_room_assignment` history table because a single room pointer cannot retain successive bookings. `room.booking_id` is nullable and points only to that room's currently checked-in booking; it is not the source for future availability or historical reports. The assignment table is authoritative for booking-to-room lookup, current/future reservation conflicts and history. Its proposed fields and transaction contract are in §6.1.4–6.1.7; review the corresponding ER amendment before writing the migration. This does not authorize a `booking.room_id` column.
 
 ## 4.5 Guest Check-In and Active Stay Management
 
@@ -1045,9 +1060,10 @@ Transaction failure: booking remains CHECKED_IN and room remains OCCUPIED.</td>
 | FR-060 | Checkout shall atomically set the booking to CHECKED_OUT and room to CLEANING.                                                 | Critical; Transaction test    |
 | FR-061 | The system shall record actual checkout time and responsible user.                                                             | High; Database inspection     |
 | FR-062 | A BOOKED reservation may be cancelled according to the configured policy and shall release inventory immediately after commit. | High; Availability test       |
-| FR-063 | The cancellation record shall preserve cancellation time, user, reason and applicable fee.                                     | High; Audit test              |
+| FR-063 | Cancellation shall preserve time, actor and reason in booking status history/audit; any applicable fee shall be represented by an approved invoice-line rule without inventing a new ER column. | High; Audit and billing test |
 | FR-064 | A BOOKED reservation may be marked NO_SHOW only after the configured arrival cutoff.                                           | Medium; State-transition test |
 | FR-065 | A checked-out, cancelled or no-show booking shall not return to an active state through ordinary UI operations.                | High; Negative test           |
+| FR-084 | An online guest may request cancellation only for its own eligible BOOKED reservation; the API shall enforce the same approved policy and transaction rules as staff cancellation. | High; Ownership and policy test |
 
 ## 4.9 Management Reports and Operational Dashboards
 
@@ -1222,7 +1238,7 @@ Invalid role/branch combination: rejected.</td>
 | NFR-001 | For a database containing 100,000 bookings, a typical branch/date availability search shall complete within 2 seconds at the server under normal load. | High; Performance test              |
 | NFR-002 | Login, guest search, booking retrieval and payment posting shall normally complete within 2 seconds, excluding network latency.                        | High; Performance test              |
 | NFR-003 | Mandatory reports for a one-year range shall complete within 5 seconds for the academic dataset and within 15 seconds for the target test dataset.     | Medium; Performance test            |
-| NFR-004 | The system shall support at least 50 concurrent authenticated staff sessions without data inconsistency.                                               | Medium; Load test                   |
+| NFR-004 | The system shall support at least 50 concurrent authenticated staff/online guest sessions without data inconsistency.                                  | Medium; Load test                   |
 | NFR-005 | Long report queries shall not block booking creation for an unacceptable period.                                                                       | High; Concurrency test              |
 | NFR-006 | The application shall use connection pooling and shall release connections after each request/transaction.                                             | High; Code inspection and load test |
 
@@ -1279,7 +1295,7 @@ The following quality attributes supplement the performance, safety and security
 |---------|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------|
 | NFR-022 | A trained front-desk user shall be able to create a normal booking, check in, record payment and check out without database knowledge. | High; Usability test             |
 | NFR-023 | Primary screens shall use consistent labels, status names and date/money formats.                                                      | High; UI inspection              |
-| NFR-024 | Keyboard focus, labels and contrast shall support basic accessibility for staff users.                                                 | Medium; Accessibility inspection |
+| NFR-024 | Keyboard focus, labels and contrast shall support basic accessibility for staff and online guest users.                                 | Medium; Accessibility inspection |
 | NFR-025 | Confirmation dialogs shall be used for cancellation, void, checkout and user deactivation.                                             | High; UI test                    |
 | NFR-026 | Validation messages shall identify the problem and the corrective action.                                                              | High; UI test                    |
 
@@ -1337,6 +1353,7 @@ The following quality attributes supplement the performance, safety and security
 | BR-010 | Historical bookings, service prices, invoice lines, payments and audit evidence shall not be silently rewritten by later catalogue changes. | High; Regression and permission test |
 | BR-011 | Branch-scoped staff may operate only on records belonging to their assigned branch.                                                         | High; Authorization test             |
 | BR-012 | Cancellation, discount, tax, service charge and late-checkout rules shall be controlled configuration approved by management.               | High; Configuration test             |
+| BR-013 | An online guest may read or change only their linked guest profile and own bookings; ownership must be enforced by the server, not inferred from UI visibility. | Critical; Cross-account security test |
 
 # 6. Other Requirements
 
@@ -1360,108 +1377,75 @@ The database is the core assessed component of the project. It shall represent h
 
 **Figure 15 - Service, Billing, Security and Audit Entity-Relationship Model**
 
-The conceptual model separates stable master data (branch, room type, room, service and role), party data (guest and user account), operational events (booking, service usage and payment), financial snapshots (invoice and invoice line) and histories/audits. Relationships use primary and foreign keys. Many-to-many relations, such as room-type amenities, are resolved through junction tables.
+The ER-aligned conceptual model separates branch/room/service/role master data, `guest` and `user_account` identities, the `guest_account` and `officer` account links, booking and service events, invoices/payments, and status/audit histories. `guest_account` enables online guests; `officer` enables staff. The room-type/amenity many-to-many relation uses `room_type_amenity`. Figures 14 and 15 belong to the original SRS and must be replaced or explicitly reconciled with the team-supplied final ER diagram before formal approval; the textual inventory below records the September 2026 ER transcription. The approved `booking_room_assignment` extension is documented separately so the original ER types remain auditable. User/officer actor references remain open in Appendix C.
 
 ### 6.1.3 Proposed Relational Schema
 
 **Table 39 - Entity Summary**
 
-| **Entity**             | **Primary Key**            | **Important Foreign Keys**          | **Purpose**                                        |
-|------------------------|----------------------------|-------------------------------------|----------------------------------------------------|
-| branch                 | branch_id                  | None                                | Hotel branch master data.                          |
-| room_type              | room_type_id               | None                                | Capacity, base rate and room category.             |
-| amenity                | amenity_id                 | None                                | Reusable amenity catalogue.                        |
-| room_type_amenity      | (room_type_id, amenity_id) | room_type_id, amenity_id            | Resolves room-type/amenity many-to-many relation.  |
-| room                   | room_id                    | branch_id, room_type_id             | Physical hotel room and operational status.        |
-| room_block             | block_id                   | room_id, created_by                 | Maintenance or other non-sellable interval.        |
-| guest                  | guest_id                   | None                                | Guest identity and contact data.                   |
-| booking                | booking_id                 | guest_id, room_id, created_by       | Reservation and stay interval with rate snapshot.  |
-| booking_status_history | history_id                 | booking_id, changed_by              | Immutable booking-state transitions.               |
-| room_status_history    | room_history_id            | room_id, changed_by                 | Operational room-state transitions.                |
-| service                | service_id                 | None                                | Chargeable service catalogue.                      |
-| service_usage          | usage_id                   | booking_id, service_id, recorded_by | Service event with price snapshot.                 |
-| invoice                | invoice_id                 | booking_id                          | Final or provisional invoice header.               |
-| invoice_line           | invoice_line_id            | invoice_id                          | Room, service, tax, discount and adjustment lines. |
-| payment                | payment_id                 | booking_id, recorded_by             | Partial or full payment event.                     |
-| role                   | role_id                    | None                                | Controlled staff role list.                        |
-| user_account           | user_id                    | role_id, branch_id                  | Authentication and authorization record.           |
-| audit_log              | audit_id                   | user_id                             | Append-only evidence of critical changes.          |
-| system_config          | config_key                 | updated_by                          | Versioned business settings.                       |
+| **Entity** | **Primary key** | **ER foreign-key attributes** | **Purpose** |
+|---|---|---|---|
+| guest_account | guest_account_id | guest_id, user_id | Link between a guest and a login account. |
+| guest | guest_id | — | Guest identity and contact data. |
+| booking | booking_id | guest_id, created_by (actor target TBD) | Reservation, stay interval and rate snapshot; no `room_id` appears on this ER entity. |
+| payment | payment_id | booking_id, recorded_by (actor target TBD) | Payment event. |
+| booking_status_history | history_id | booking_id, changed_by (actor target TBD) | Booking-state transition. |
+| invoice | invoice_id | booking_id | Invoice header. |
+| invoice_line | invoice_line_id | invoice_id | Invoice charge/adjustment line. |
+| service | service_id | — | Chargeable-service catalogue. |
+| service_usage | usage_id | booking_id, service_id, recorded_by, voided_by (actor targets TBD) | Service event and price snapshot. |
+| room | room_id | branch_id, booking_id, room_type_id | Physical room; nullable `booking_id` points only to its currently checked-in booking. |
+| room_status_history | room_history_id | room_id, changed_by (actor target TBD) | Room-state transition. |
+| room_type | room_type_id | — | Capacity and base rate. |
+| room_type_amenity | (room_type_id, amenity_id) | room_type_id, amenity_id | Room-type/amenity junction. |
+| amenity | amenity_id | — | Reusable amenity catalogue. |
+| room_block | block_id | room_id, created_by (actor target TBD) | Non-sellable room interval. |
+| branch | branch_id | — | Hotel branch. |
+| audit_log | audit_id | user_id | Audit evidence. |
+| system_config | config_key | updated_by (actor target TBD) | Current effective-dated configuration; version history is unresolved. |
+| user_account | user_id | — | Login identity; role/branch are on `officer`, not here. |
+| officer | officer_id | officer_id → user_account.user_id, branch_id, role_id | Staff profile, branch and role. |
+| role | role_id | — | Staff role catalogue. |
 
 ### 6.1.4 Data Dictionary
 
-The following dictionary lists the most important fields. Implementation scripts may add technical timestamps, soft-delete flags and generated display references, but shall not remove the specified keys or business constraints.
+The following dictionary transcribes **all 21 entities and their attributes** from the supplied final ER reference. The ER types are deliberately shown as written; this is not yet executable PostgreSQL DDL. A field's presence or `FK` marking does not settle nullability, uniqueness, default, delete action, enum labels or actor-target cardinality unless another requirement states it. The separately approved assignment-history extension appears immediately after Table 40. Other extra physical columns or renamed ER attributes require a documented team-approved design amendment.
 
 **Table 40 - Core Data Dictionary**
 
-| **Entity**    | **Column and Type**               | **Constraints**                      | **Meaning**                                |
-|---------------|-----------------------------------|--------------------------------------|--------------------------------------------|
-| branch        | branch_id BIGINT                  | PK, generated                        | Internal branch identifier.                |
-| branch        | name VARCHAR(100)                 | UNIQUE, NOT NULL                     | Branch name.                               |
-| branch        | city VARCHAR(80)                  | NOT NULL                             | Colombo, Kandy or Galle for baseline data. |
-| branch        | address TEXT                      | NOT NULL                             | Operational address.                       |
-| branch        | active BOOLEAN                    | NOT NULL DEFAULT TRUE                | Controls use in new bookings.              |
-| room_type     | room_type_id BIGINT               | PK, generated                        | Room category identifier.                  |
-| room_type     | name VARCHAR(60)                  | UNIQUE, NOT NULL                     | Single, Double, Suite or other category.   |
-| room_type     | capacity SMALLINT                 | CHECK \> 0                           | Maximum guest count.                       |
-| room_type     | base_daily_rate NUMERIC(12,2)     | CHECK \>= 0                          | Current catalogue rate.                    |
-| room          | room_id BIGINT                    | PK, generated                        | Physical room identifier.                  |
-| room          | branch_id BIGINT                  | FK branch, NOT NULL                  | Owning branch.                             |
-| room          | room_type_id BIGINT               | FK room_type, NOT NULL               | Current room type.                         |
-| room          | room_number VARCHAR(20)           | NOT NULL; UNIQUE with branch_id      | Human room number.                         |
-| room          | operational_status VARCHAR(20)    | CHECK approved values                | Physical room state.                       |
-| guest         | guest_id BIGINT                   | PK, generated                        | Guest identifier.                          |
-| guest         | full_name VARCHAR(150)            | NOT NULL                             | Guest legal/display name.                  |
-| guest         | email VARCHAR(254)                | NULL allowed                         | Contact email.                             |
-| guest         | phone VARCHAR(30)                 | NULL allowed                         | Contact phone.                             |
-| guest         | identity_ref VARCHAR(80)          | UNIQUE when present                  | Protected identity/passport reference.     |
-| booking       | booking_id BIGINT                 | PK, generated                        | Booking identifier.                        |
-| booking       | booking_ref VARCHAR(30)           | UNIQUE, NOT NULL                     | Human-readable confirmation.               |
-| booking       | guest_id BIGINT                   | FK guest, NOT NULL                   | Primary guest.                             |
-| booking       | room_id BIGINT                    | FK room, NOT NULL                    | Reserved room.                             |
-| booking       | check_in_date DATE                | NOT NULL                             | Inclusive stay start.                      |
-| booking       | check_out_date DATE               | NOT NULL; CHECK \> check_in_date     | Exclusive stay end.                        |
-| booking       | guest_count SMALLINT              | CHECK \> 0                           | Occupancy count.                           |
-| booking       | rate_snapshot NUMERIC(12,2)       | CHECK \>= 0                          | Agreed nightly rate.                       |
-| booking       | status VARCHAR(20)                | CHECK approved states                | Booking lifecycle state.                   |
-| booking       | actual_check_in TIMESTAMPTZ       | Nullable                             | Recorded check-in time.                    |
-| booking       | actual_check_out TIMESTAMPTZ      | Nullable                             | Recorded checkout time.                    |
-| service       | service_id BIGINT                 | PK, generated                        | Service identifier.                        |
-| service       | name VARCHAR(100)                 | UNIQUE, NOT NULL                     | Service catalogue name.                    |
-| service       | category VARCHAR(60)              | NOT NULL                             | Room service, spa, laundry, minibar, etc.  |
-| service       | current_price NUMERIC(12,2)       | CHECK \>= 0                          | Current catalogue unit price.              |
-| service_usage | usage_id BIGINT                   | PK, generated                        | Service event identifier.                  |
-| service_usage | booking_id BIGINT                 | FK booking, NOT NULL                 | Active stay charged.                       |
-| service_usage | service_id BIGINT                 | FK service, NOT NULL                 | Consumed service.                          |
-| service_usage | used_at TIMESTAMPTZ               | NOT NULL                             | Usage date and time.                       |
-| service_usage | quantity NUMERIC(10,2)            | CHECK \> 0                           | Units consumed.                            |
-| service_usage | unit_price_snapshot NUMERIC(12,2) | CHECK \>= 0                          | Price at usage time.                       |
-| invoice       | invoice_id BIGINT                 | PK, generated                        | Invoice identifier.                        |
-| invoice       | booking_id BIGINT                 | FK booking, UNIQUE                   | One active final invoice per booking.      |
-| invoice       | invoice_number VARCHAR(30)        | UNIQUE, NOT NULL                     | Display invoice number.                    |
-| invoice       | total_amount NUMERIC(12,2)        | CHECK \>= 0                          | Snapshot total.                            |
-| invoice       | status VARCHAR(20)                | CHECK approved values                | DRAFT, FINAL, PAID or VOID.                |
-| invoice_line  | invoice_line_id BIGINT            | PK, generated                        | Charge line identifier.                    |
-| invoice_line  | invoice_id BIGINT                 | FK invoice, NOT NULL                 | Owning invoice.                            |
-| invoice_line  | line_type VARCHAR(30)             | CHECK approved types                 | ROOM, SERVICE, TAX, DISCOUNT, etc.         |
-| invoice_line  | description VARCHAR(255)          | NOT NULL                             | Human-readable explanation.                |
-| invoice_line  | amount NUMERIC(12,2)              | Signed amount                        | Positive charge or negative discount.      |
-| payment       | payment_id BIGINT                 | PK, generated                        | Payment identifier.                        |
-| payment       | booking_id BIGINT                 | FK booking, NOT NULL                 | Booking paid.                              |
-| payment       | amount NUMERIC(12,2)              | CHECK \> 0                           | Payment amount.                            |
-| payment       | method VARCHAR(30)                | CHECK approved methods               | Cash, card-recorded, bank transfer, etc.   |
-| payment       | status VARCHAR(20)                | CHECK approved values                | PENDING, SUCCESS, FAILED or VOID.          |
-| user_account  | user_id BIGINT                    | PK, generated                        | Staff user identifier.                     |
-| user_account  | username VARCHAR(80)              | UNIQUE, NOT NULL                     | Login name.                                |
-| user_account  | password_hash TEXT                | NOT NULL                             | One-way password hash.                     |
-| user_account  | role_id BIGINT                    | FK role, NOT NULL                    | Authorization role.                        |
-| user_account  | branch_id BIGINT                  | FK branch, nullable                  | Branch scope where applicable.             |
-| audit_log     | audit_id BIGINT                   | PK, generated                        | Audit record identifier.                   |
-| audit_log     | user_id BIGINT                    | FK user_account, nullable for system | Responsible principal.                     |
-| audit_log     | entity_name VARCHAR(80)           | NOT NULL                             | Affected table/domain entity.              |
-| audit_log     | entity_id VARCHAR(80)             | NOT NULL                             | Affected record identifier.                |
-| audit_log     | action VARCHAR(40)                | NOT NULL                             | INSERT, UPDATE, STATUS_CHANGE, VOID, etc.  |
-| audit_log     | changed_at TIMESTAMPTZ            | NOT NULL                             | Audit timestamp.                           |
+| **Entity** | **ER primary key and type** | **Other ER attributes and types** | **ER foreign keys and type** |
+|---|---|---|---|
+| `guest_account` | `guest_account_id UUIDv7` | `created_at timestamp`, `updated_at timestamp` | `guest_id UUIDv7 → guest.guest_id`; `user_id UUIDv7 → user_account.user_id` |
+| `guest` | `guest_id UUIDv7` | `full_name varchar(255)`, `email varchar(255)`, `phone varchar(255)`, `NIC varchar(255)`, `active bool`, `created_at timestamp`, `updated_at timestamp` | — |
+| `booking` | `booking_id UUIDv7` | `booking_ref varchar(255)`, `check_in_date date`, `check_out_date date`, `booking_channel enum(4)`, `guest_count smallint`, `rate_snapshot decimal`, `status enum(11)`, `actual_check_in timestamp`, `actual_check_out timestamp`, `created_at timestamp`, `updated_at timestamp` | `guest_id UUIDv7 → guest.guest_id`; `created_by UUIDv7 → actor target TBD` |
+| `payment` | `payment_id UUIDv7` | `amount decimal`, `method enum(13)`, `status enum(7)`, `reference varchar(255)`, `paid_at timestamp`, `recorded_at timestamp` | `booking_id UUIDv7 → booking.booking_id`; `recorded_by UUIDv7 → actor target TBD` |
+| `booking_status_history` | `history_id UUIDv7` | `old_status enum(11)`, `new_status enum(11)`, `changed_at timestamp`, `reason varchar(255)` | `booking_id UUIDv7 → booking.booking_id`; `changed_by UUIDv7 → actor target TBD` |
+| `invoice` | `invoice_id UUIDv7` | `invoice_number varchar(255)`, `status enum(5)`, `issued_at timestamp`, `created_at timestamp` | `booking_id UUIDv7 → booking.booking_id` |
+| `invoice_line` | `invoice_line_id UUIDv7` | `line_type enum(16)`, `description varchar(255)`, `amount decimal` | `invoice_id UUIDv7 → invoice.invoice_id` |
+| `service` | `service_id UUIDv7` | `name varchar(255)`, `category varchar(255)`, `current_price decimal`, `active bool` | — |
+| `service_usage` | `usage_id UUIDv7` | `used_at timestamp`, `quantity decimal`, `unit_price_snapshot decimal`, `voided bool`, `voided_at timestamp`, `recorded_at timestamp` | `booking_id UUIDv7 → booking.booking_id`; `service_id UUIDv7 → service.service_id`; `recorded_by UUIDv7 → actor target TBD`; `voided_by UUIDv7 → actor target TBD` |
+| `room` | `room_id UUIDv7` | `room_number varchar(255)`, `operational_status enum(14)`, `active bool` | `branch_id UUIDv7 → branch.branch_id`; `booking_id UUIDv7 → booking.booking_id`; `room_type_id UUIDv7 → room_type.room_type_id` |
+| `room_status_history` | `room_history_id UUIDv7` | `old_status enum(14)`, `new_status enum(14)`, `changed_at timestamp` | `room_id UUIDv7 → room.room_id`; `changed_by UUIDv7 → actor target TBD` |
+| `room_type` | `room_type_id UUIDv7` | `name varchar(255)`, `capacity smallint`, `base_daily_rate decimal`, `active bool` | — |
+| `room_type_amenity` | `(room_type_id UUIDv7, amenity_id UUIDv7)` | — | Both PK components are FKs to `room_type.room_type_id` and `amenity.amenity_id` respectively. |
+| `amenity` | `amenity_id UUIDv7` | `name varchar(255)`, `description varchar(255)`, `active bool` | — |
+| `room_block` | `block_id UUIDv7` | `start_date date`, `end_date date`, `reason varchar(255)`, `created_at timestamp` | `room_id UUIDv7 → room.room_id`; `created_by UUIDv7 → actor target TBD` |
+| `branch` | `branch_id UUIDv7` | `name varchar(255)`, `city varchar(255)`, `address text(65535)`, `active bool`, `created_at timestamp`, `updated_at timestamp` | — |
+| `audit_log` | `audit_id UUIDv7` | `entity_name varchar(255)`, `entity_id varchar(255)`, `action enum(13)`, `before_value text(65535)`, `after_value text(65535)`, `changed_at timestamp`, `ip_address varchar(255)` | `user_id UUIDv7 → user_account.user_id` |
+| `system_config` | `config_key varchar(255)` | `config_value text(65535)`, `effective_from date`, `updated_at timestamp` | `updated_by UUIDv7 → actor target TBD` |
+| `user_account` | `user_id UUIDv7` | `username varchar(255)`, `password_hash text(65535)`, `active bool`, `created_at timestamp`, `updated_at timestamp`, `last_login_at timestamp` | — |
+| `officer` | `officer_id UUIDv7` | `full_name varchar(255)`, `email varchar(255)`, `phone varchar(255)`, `NIC varchar(255)`, `active bool`, `created_at timestamp`, `updated_at timestamp` | `officer_id UUIDv7 → user_account.user_id` (PK/FK); `branch_id UUIDv7 → branch.branch_id`; `role_id UUIDv7 → role.role_id` |
+| `role` | `role_id UUIDv7` | `role_name varchar(255)`, `description varchar(255)` | — |
+
+**Approved extension to the final ER (not one of its 21 transcribed entities):** Add `booking_room_assignment` with `assignment_id UUIDv7` as primary key, `booking_id UUIDv7 → booking.booking_id`, `room_id UUIDv7 → room.room_id`, `assigned_at timestamp` and nullable `unassigned_at timestamp`. `assigned_at`/`unassigned_at` preserve each assignment period; ending an assignment never deletes its row. At most one assignment per booking may have `unassigned_at IS NULL`. A BOOKED or CHECKED_IN booking must have exactly one such open assignment; CHECKED_OUT, CANCELLED and NO_SHOW bookings retain closed assignment history. A reassignment closes the old row and inserts the new one within one transaction. The booking's branch is the assigned room's branch. This is an approved conceptual extension, not a claim that the supplied diagram already contains these attributes. The chosen physical timestamp/UUIDv7 mapping appears below; its implementation still needs tests.
+
+`room.booking_id` is a nullable, derived current-stay pointer. It must equal the open assignment's booking only while that booking is CHECKED_IN in that room, and must be null when no booking is currently checked in. Future BOOKED reservations never overwrite it. Check-in sets it; checkout, cancellation/no-show if applicable, or a controlled room move clears/updates it in the same transaction as status and assignment changes. The database shall reject or roll back inconsistent direct writes; availability and historical reporting read the assignment table, not this pointer.
+
+**PostgreSQL mapping and decision gate:** `UUIDv7` describes the ID *version*; the physical PostgreSQL type is `uuid`. `decimal` is exact numeric, but the ER itself gives no precision or scale. `enum(n)` is ER notation, **not** a `varchar(n)` length or a ready-to-create PostgreSQL type. `text(65535)` is ER notation, not a PostgreSQL column type declaration; map it to `text` with an explicit length check only if the 65,535 limit is intended. Preserve the ER spelling `NIC` in design reviews; its physical SQL identifier/casing remains open. The selected Member 2 mappings and remaining decisions appear below and in Appendix C.
+
+**Selected working PostgreSQL mapping (18 September 2026):** At Imandi's request, the implementation selects PostgreSQL 18 with native `uuidv7()` defaults and UUID-version checks; ER event `timestamp` maps to UTC `timestamptz` with Asia/Colombo display; `room_type.base_daily_rate` and `booking.rate_snapshot` map to non-negative LKR `numeric(12,2)`. PostgreSQL rounds `numeric` ties away from zero when quantizing to two decimals. Member 2's complete implementation labels are booking channel `DIRECT_ONLINE`, `FRONT_DESK`, `PHONE`, `EMAIL`; booking status `BOOKED`, `CHECKED_IN`, `CHECKED_OUT`, `CANCELLED`, `NO_SHOW`; room status `AVAILABLE`, `RESERVED`, `OCCUPIED`, `CLEANING`, `OUT_OF_SERVICE`. These are named PostgreSQL enums; the source ER's `enum(n)` number is not treated as a label count or `varchar` length. The exact transitions, actor and API contract are in [M2-S01](member_tasks/m2_s01_reservation_contract.md). This is a documented physical mapping for the team draft, not a rewrite of Table 40 or a claim of evaluator approval. Other owners' enum sets and remaining Appendix C mappings stay open.
+
+**Business constraints retained from the SRS:** Unique branch-scoped room numbers and human references, positive capacity/guest count/quantity, non-negative catalogue prices and rate snapshots, valid stay/block intervals, immutable historical amounts, and protected audit/history records remain requirements even where the ER omits constraint symbols. The ER does not declare `invoice.total_amount`, `booking.room_id`, `user_account.role_id`, `user_account.branch_id` or `guest.identity_ref`; these former SRS fields are **not** part of the ER-aligned baseline. Their behavior must be derived from ER fields or explicitly approved as an ER amendment rather than quietly recreated. The ER also does not establish uniqueness for `invoice.booking_id` or `guest.NIC`; those decisions remain open.
 
 ### 6.1.5 Keys and Integrity Constraints
 
@@ -1470,17 +1454,17 @@ The following dictionary lists the most important fields. Implementation scripts
 | **ID**  | **Requirement**                                                                                                        | **Priority and Verification**        |
 |---------|------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
 | DBR-001 | Every base table shall have a declared primary key.                                                                    | High; Schema inspection              |
-| DBR-002 | All relationships shown in the ER models shall be implemented with foreign keys and appropriate update/delete actions. | High; Schema inspection              |
+| DBR-002 | Approved final-ER and `booking_room_assignment` relationships shall use type-matched foreign keys and reviewed update/delete actions; ambiguous actor targets must be resolved before dependent DDL. | High; Schema inspection |
 | DBR-003 | Room number shall be unique within a branch.                                                                           | High; Constraint test                |
 | DBR-004 | Booking check_out_date shall be greater than check_in_date.                                                            | High; Constraint test                |
-| DBR-005 | Active bookings for the same room shall not have overlapping \[check_in, check_out) date ranges.                       | Critical; Concurrent constraint test |
+| DBR-005 | Open assignments for active bookings on the same physical room shall not have overlapping \[check_in, check_out) date ranges; closed assignment rows remain historical evidence. | Critical; Concurrent constraint test |
 | DBR-006 | Guest count shall not exceed the room-type capacity at booking/check-in time.                                          | High; Procedure test                 |
-| DBR-007 | Money columns shall use exact NUMERIC/DECIMAL types rather than floating-point types.                                  | High; Schema inspection              |
+| DBR-007 | Money and quantity columns shall use exact `decimal`/PostgreSQL `numeric`, not floating point; precision, scale and rounding policy shall be agreed under TBD-08. | High; Schema inspection |
 | DBR-008 | Rates and prices used for historical charges shall be stored as snapshots.                                             | Critical; Regression test            |
 | DBR-009 | A service usage record shall reference a booking whose state is CHECKED_IN at insert time.                             | High; Trigger/procedure test         |
 | DBR-010 | A booking may become CHECKED_OUT only when its outstanding balance is zero.                                            | Critical; Procedure and trigger test |
 | DBR-011 | Critical history and audit records shall use restricted delete/update permissions.                                     | High; Permission test                |
-| DBR-012 | Reference values such as statuses and methods shall be constrained by lookup tables or CHECK constraints.              | High; Schema inspection              |
+| DBR-012 | ER `enum(n)` fields shall be constrained by approved complete value sets and consistent history/transition rules; counts alone are insufficient to create constraints. | High; Schema inspection |
 
 ### 6.1.6 Normalization Analysis
 
@@ -1493,11 +1477,11 @@ The design targets Third Normal Form (3NF) and, where practical, Boyce-Codd Norm
 | Unnormalized form    | One reservation form contains repeating service and payment groups.                                       | Identify independent entities and repeating events.                                                                                          |
 | First Normal Form    | Repeating groups and multi-valued amenities violate atomicity.                                            | Create service_usage, payment and room_type_amenity rows; each cell is atomic.                                                               |
 | Second Normal Form   | Service name/price and amenity description depend on only part of a composite relation.                   | Move service details to service and amenity details to amenity.                                                                              |
-| Third Normal Form    | Branch address depends on branch, and capacity/base rate depend on room type rather than room or booking. | Create branch and room_type relations; keep only foreign keys in room.                                                                       |
+| Third Normal Form    | Branch address depends on branch, and capacity/base rate depend on room type rather than room or booking. | Create branch and room_type relations; store their foreign keys in room. Keep assignment history separately from the room's current-stay pointer. |
 | BCNF review          | Username, room number within branch and invoice number are candidate keys.                                | Declare UNIQUE constraints so every determinant is a candidate key.                                                                          |
 | Controlled snapshots | Rate and price snapshots duplicate current catalogue values.                                              | Retain deliberately because they describe the historical transaction and are functionally dependent on the event, not the current catalogue. |
 
-Derived availability, occupancy, revenue and balance values should normally be exposed through SQL views or functions rather than duplicated in manually editable columns. Invoice totals may be stored as an immutable financial snapshot after finalization, but they must be generated from invoice lines and protected against silent edits.
+Derived availability, occupancy, revenue and balance values should normally be exposed through SQL views or functions rather than duplicated in manually editable columns. The ER contains no `invoice.total_amount`; totals must be computed from protected invoice lines unless the team formally amends the ER to add a snapshot field.
 
 ### 6.1.7 Transaction Management, ACID and Concurrency
 
@@ -1519,11 +1503,12 @@ Derived availability, occupancy, revenue and balance values should normally be e
 | **ID**  | **Requirement**                                                                                                                   | **Priority and Verification**         |
 |---------|-----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
 | DBR-013 | Booking creation shall execute as one transaction and shall recheck availability immediately before insert.                       | Critical; Concurrent test             |
-| DBR-014 | PostgreSQL implementation shall use an exclusion constraint on room and date range, or an equivalently strong database mechanism. | Critical; Schema and concurrency test |
+| DBR-014 | PostgreSQL shall enforce active same-room/date-range conflict protection across `booking_room_assignment` and `booking` using an approved database-side locking/constraint mechanism; the Express availability check alone is insufficient. | Critical; Schema and concurrency test |
 | DBR-015 | Check-in and checkout shall lock the target booking and room records until commit.                                                | Critical; Transaction test            |
 | DBR-016 | Payment posting shall re-read invoice total and successful payment sum before accepting an amount.                                | Critical; Concurrent payment test     |
 | DBR-017 | Deadlock or serialization failures shall be rolled back and may be retried safely by the application.                             | High; Fault test                      |
 | DBR-018 | No transaction shall leave booking status, room status and status-history records inconsistent.                                   | Critical; Fault-injection test        |
+| DBR-032 | The database shall permit at most one open assignment per booking and keep `room.booking_id` synchronized with the currently checked-in assignment; direct inconsistent writes shall fail. | Critical; Constraint and transaction test |
 
 ### 6.1.8 Stored Procedures, Functions and Triggers
 
@@ -1531,12 +1516,12 @@ Derived availability, occupancy, revenue and balance values should normally be e
 
 | **Object**                 | **Type**                           | **Responsibility**                                                                  |
 |----------------------------|------------------------------------|-------------------------------------------------------------------------------------|
-| sp_create_booking          | Procedure / transactional function | Validate room, guest count, dates and conflicts; insert booking and history.        |
-| sp_modify_booking          | Procedure / transactional function | Change room or dates after complete availability validation.                        |
-| sp_check_in_booking        | Procedure                          | Lock booking/room, validate state, set CHECKED_IN/OCCUPIED and write histories.     |
+| sp_create_booking          | Procedure / transactional function | Validate room, guest count, dates and conflicts; insert booking, open assignment and status history. |
+| sp_modify_booking          | Procedure / transactional function | Change room or dates after availability validation; preserve old assignment on room move. |
+| sp_check_in_booking        | Procedure                          | Lock booking/room, validate state, set CHECKED_IN/OCCUPIED, set current-stay pointer and write histories. |
 | sp_record_service_usage    | Procedure                          | Verify active stay and store catalogue price snapshot.                              |
 | sp_record_payment          | Procedure                          | Validate payment and current balance; insert payment and audit.                     |
-| sp_checkout_booking        | Procedure                          | Finalize invoice, enforce zero balance, set CHECKED_OUT/CLEANING.                   |
+| sp_checkout_booking        | Procedure                          | Finalize invoice, enforce zero balance, close assignment, clear current-stay pointer and set CHECKED_OUT/CLEANING. |
 | fn_billable_nights         | Function                           | Return check_out_date - check_in_date with approved adjustments.                    |
 | fn_room_charge             | Function                           | Return rate_snapshot multiplied by billable nights.                                 |
 | fn_service_total           | Function                           | Return sum of valid service usage charges.                                          |
@@ -1548,6 +1533,10 @@ Derived availability, occupancy, revenue and balance values should normally be e
 
 Triggers shall be used for cross-cutting integrity and audit safeguards, not to hide all business logic. Procedures and functions shall have clear input/output contracts and shall raise meaningful database errors that the application maps to safe user messages.
 
+`sp_create_booking`, `sp_modify_booking`, `sp_check_in_booking`, `sp_checkout_booking` and availability/reporting SQL shall use `booking_room_assignment` as the durable room link. Members 2–4 must jointly review locking, pointer synchronization and status transitions before implementing these objects. Actor parameters/FKs also depend on TBD-11. These object names express required behavior, not executable SQL.
+
+**M2-S01 working handoff (18 September 2026):** Imandi reports that Members 1, 3 and 4 agree to use the reservation ownership and transaction boundaries recorded in [the Member 2 reservation contract](member_tasks/m2_s01_reservation_contract.md) and cross-referenced in their task plans. Member 2 owns booking/assignment schema and reservation writes; Member 3 owns check-in and room-status history; Member 4 owns checkout, cancellation and no-show orchestration; Member 1 supplies identity, authorization, actor and audit contracts. Shared actor FKs target `user_account.user_id`, including online actions, with a dedicated non-login account for system actions and no hard deletion of referenced accounts. New JSON routes use `/api/*`; existing `GET /rooms` remains a compatibility alias during migration. The precise database overlap guard and lock order still require review before M2-S06; other owners' Appendix C decisions remain open.
+
 ### 6.1.9 Indexing and Query Performance
 
 **Table 46 - Index Requirements**
@@ -1555,7 +1544,7 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 | **ID**  | **Requirement**                                                                                  | **Priority and Verification** |
 |---------|--------------------------------------------------------------------------------------------------|-------------------------------|
 | DBR-019 | Create a unique index on branch_id and room_number.                                              | High; Schema inspection       |
-| DBR-020 | Index booking by room_id, check_in_date and check_out_date for availability checks.              | High; Query-plan inspection   |
+| DBR-020 | Index `booking_room_assignment` by room/open state and booking/date lookup for availability; do not invent a `booking.room_id` column. | High; Query-plan inspection |
 | DBR-021 | Index booking by guest_id and created_at for guest history.                                      | Medium; Query-plan inspection |
 | DBR-022 | Index booking by status and stay dates for arrival/departure dashboards.                         | High; Performance test        |
 | DBR-023 | Index service_usage by booking_id, used_at and service_id.                                       | High; Query-plan inspection   |
@@ -1569,7 +1558,7 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 
 | **View**                  | **Purpose**                                                                        |
 |---------------------------|------------------------------------------------------------------------------------|
-| v_room_availability       | Derives sellable rooms for a date interval from rooms, blocks and active bookings. |
+| v_room_availability       | Derives sellable rooms for a date interval from rooms, blocks, open assignments and active booking dates. |
 | v_current_occupancy       | Shows current room/booking/guest occupancy by branch.                              |
 | v_guest_billing_summary   | Shows invoice total, successful payments and outstanding balance.                  |
 | v_service_usage_breakdown | Aggregates quantity and revenue by branch, room, booking and service.              |
@@ -1595,6 +1584,8 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 | Payments              | At least 3 partial-payment records that leave or later clear an outstanding balance.   |
 | Availability / blocks | Room blocks or status records sufficient to demonstrate an unavailable room.           |
 | Service usage         | Usage records across multiple rooms and service categories.                            |
+
+Seed scripts must use UUIDv7 identifiers and the selected Member 2 enum labels; other owners' enum labels must be approved before their seeds. Seeds must also represent staff `user_account`/`officer`/`role` links, at least one online `user_account`/`guest_account`/`guest` link, and booking-room assignment history without inventing a second role/branch location.
 
 ### 6.1.12 Backup, Retention and Recovery
 
@@ -1671,7 +1662,7 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 |-------------------|-----------------------------------------------------------------------------------------------|
 | Unit tests        | Pure billing calculations, validation helpers, authorization decisions and formatting.        |
 | Database tests    | DDL constraints, foreign keys, overlap prevention, procedures, functions, triggers and views. |
-| Integration tests | Next.js server functions against a real temporary PostgreSQL database.                        |
+| Integration tests | Express API routes and SQL access against a real temporary PostgreSQL database.                |
 | Concurrency tests | Simultaneous booking of the same room; simultaneous final payments; check-in/checkout races.  |
 | Security tests    | SQL injection attempts, role bypass attempts, secret leakage and invalid sessions.            |
 | UI tests          | Critical happy paths and validation/error behavior.                                           |
@@ -1688,17 +1679,18 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 
 | **Requirement Group** | **Primary Design Element**                                  | **Verification Evidence**                           |
 |-----------------------|-------------------------------------------------------------|-----------------------------------------------------|
-| FR-001 to FR-007      | Authentication middleware, user_account, role and audit_log | Security and authorization tests                    |
-| FR-008 to FR-015      | branch, room_type, amenity, room and room_block             | Constraint and availability tests                   |
-| FR-016 to FR-022      | guest and protected guest routes                            | Validation and privacy tests                        |
-| FR-023 to FR-034      | booking, overlap constraint and sp_create_booking           | Boundary and concurrency tests                      |
+| FR-001 to FR-007      | Express authentication middleware, user_account, officer, guest_account, role, branch and audit_log | Staff and online guest authorization tests |
+| FR-008 to FR-015      | branch, room_type, amenity, room_type_amenity, room, room_block and room_status_history | Constraint and availability tests |
+| FR-016 to FR-022      | guest, required online guest_account link and protected profile/history routes | Validation and privacy tests |
+| FR-023 to FR-034      | booking, booking_status_history, booking_room_assignment and database overlap protection | Boundary and concurrency tests |
 | FR-035 to FR-041      | check-in procedure and state histories                      | Transaction and fault tests                         |
 | FR-042 to FR-048      | service and service_usage with price snapshot               | Calculation and regression tests                    |
 | FR-049 to FR-058      | invoice, invoice_line, payment and balance functions        | Financial calculation tests                         |
 | FR-059 to FR-065      | checkout/cancellation procedures and state guards           | State-transition and failure tests                  |
 | FR-066 to FR-073      | reporting views and exports                                 | Independent SQL reconciliation                      |
-| FR-074 to FR-080      | roles, system_config and protected audit log                | Permission and audit tests                          |
-| DBR-001 to DBR-031    | DDL, SQL routines, indexes, views and backup controls       | Schema, integration and recovery tests              |
+| FR-074 to FR-080      | role, officer, system_config and protected audit_log        | Permission and audit tests                          |
+| FR-081 to FR-084      | guest_account ownership, online booking and cancellation paths | Cross-account and policy tests |
+| DBR-001 to DBR-032    | DDL, SQL routines, indexes, views and backup controls       | Schema, integration and recovery tests              |
 | NFR / DR groups       | Architecture, security controls, deployment and pipeline    | Performance, security, pipeline and review evidence |
 
 ## 6.5 Acceptance Criteria
@@ -1719,9 +1711,11 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 
 12. The clean setup scripts create the database and load the required minimum seed data.
 
-13. The Next.js application uses raw parameterized SQL and no ORM, Supabase or Firebase.
+13. The README-stack React/Vite frontend and Express/Node.js API use raw parameterized SQL and no ORM, Supabase or Firebase.
 
 14. The CI/CD pipeline tests and deploys the complete system to a reachable environment.
+
+15. Before database acceptance, the team has implemented the approved `booking_room_assignment` extension, closed TBD-07–TBD-11 and TBD-14, reconciled the original 21 ER entities with Table 40 and the extension with its separate contract, and demonstrated that a room retains multiple non-overlapping historical stays without losing its current-stay pointer.
 
 ### 6.5.1 Key Acceptance Test Catalogue
 
@@ -1741,10 +1735,16 @@ Triggers shall be used for cross-cutting integrity and audit safeguards, not to 
 | AT-10       | Attempt SQL injection through login or guest search.                     | The input is treated as data and no unauthorized action occurs.                    |
 | AT-11       | Run all migrations and seed data on a clean CI database.                 | Setup and automated tests complete successfully.                                   |
 | AT-12       | Restore the latest backup to an isolated database.                       | Schema and verification queries succeed.                                           |
+| AT-13       | Compare all implemented ER PK/FK columns and declared data types with Table 40. | UUIDv7 IDs/FKs, lengths, exact decimal mappings and shared-key links agree; every documented deviation has approval. |
+| AT-14       | Create sequential stays, reassign a booking and attempt a concurrent overlap for one room. | Historical room assignments remain queryable, legitimate adjacent stays succeed and exactly one conflicting booking commits. |
+| AT-15       | Register/link an online guest, book and view own stay, then request another guest's profile or booking by guessed ID. | Own data works; all cross-guest reads/writes fail server-side. |
+| AT-16       | Create a future BOOKED reservation while another stay is checked in to the room. | Future assignment is retained; `room.booking_id` still points to the checked-in stay until checkout. |
 
 ## 6.6 Migration and Initialization
 
 Because the old desktop data format is not defined in the project brief, automatic legacy import is not mandatory. The team shall provide schema migration files and a deterministic seed script. If legacy data is later supplied, it shall be loaded into staging tables, validated, deduplicated and transformed through reviewed SQL before being inserted into production tables.
+
+For the ER-aligned schema, create parent tables and the approved UUIDv7 generation mechanism before dependent foreign keys: `branch`, `role`, `user_account`, `guest`, `room_type`, `amenity` and `service` precede their dependents; `officer` uses the same key as `user_account`; `guest_account` links guest and account; `room_type_amenity` links catalogue parents. As drawn, `room.booking_id` references `booking`, so `booking` must exist before that nullable FK can be installed. After `booking` and `room`, add the approved `booking_room_assignment` extension, its FKs/open-assignment rule and database-side overlap protection. Seed and transaction code must maintain the pointer and assignment invariants. Shared tables have one migration owner each, with consuming members integrating by agreed FK contracts. Do not rewrite an already-released migration merely to satisfy this draft; use a reviewed corrective migration after impact analysis.
 
 ## 6.7 Localization, Legal and Policy Considerations
 
@@ -1767,7 +1767,7 @@ Because the old desktop data format is not defined in the project brief, automat
 | ACID                         | Atomicity, Consistency, Isolation and Durability properties of database transactions.                 |
 | Active booking               | A BOOKED or CHECKED_IN reservation that participates in conflict detection.                           |
 | Audit log                    | Append-only evidence of significant user, financial and configuration actions.                        |
-| Booking                      | A reservation connecting a guest to a room for a check-in/check-out interval.                         |
+| Booking                      | A reservation for a guest and assigned room over a check-in/check-out interval; `booking_room_assignment` preserves the room link and assignment history. |
 | CI/CD                        | Continuous Integration and Continuous Delivery or Deployment.                                         |
 | Database migration           | A version-controlled SQL change that advances the schema or controlled data state.                    |
 | Exclusion constraint         | A PostgreSQL constraint capable of rejecting overlapping room/date ranges.                            |
@@ -1810,10 +1810,20 @@ The following analysis models are included in the main body near the requirement
 
 **Table 57 - To Be Determined Items**
 
+Working team decisions (18 September 2026): former TBD-05 is settled—online guest accounts, direct availability search, own-profile/booking access and direct reservation creation are in scope; eligible own-booking cancellation follows the approved policy. Former TBD-06 is settled conceptually—add `booking_room_assignment` as the explicit final-ER extension, retain nullable `room.booking_id` as the current checked-in stay pointer, and use the assignment table for history and overlap. At Imandi's request, the Member 2 value/type/actor/route mappings in [M2-S01](member_tasks/m2_s01_reservation_contract.md) were selected with her report that Members 1, 3 and 4 agree to follow her contract. These mappings require implementation tests and evaluator review; other owners' unresolved details remain listed below.
+
 | **TBD ID** | **Item**                                                                              | **Owner / Closure Condition**                                     |
 |------------|---------------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | TBD-01     | Final team member names and registration numbers.                                     | Team leader before formal submission.                             |
 | TBD-02     | Final production hosting provider, domain and database service.                       | Deployment lead after environment approval.                       |
 | TBD-03     | Approved tax, service charge, discount, cancellation and late-checkout policy values. | Stakeholder or lecturer approval before production configuration. |
 | TBD-04     | Exact backup schedule, retention duration, recovery point and recovery time targets.  | Database lead before deployment.                                  |
-| TBD-05     | Scope of direct guest self-service booking.                                           | Team and lecturer scope decision.                                 |
+| TBD-07     | Member 2 booking-channel/status and room-status labels plus normal transitions are selected in M2-S01. Payment method/status, invoice status/line type and audit-action labels still need their owners' complete sets and constraint tests; evaluator review of the ER notation remains. | Members 1 and 4 with Member 3 for service/room transitions; close before dependent status DDL/API. |
+| TBD-08     | Member 2 rates use LKR `numeric(12,2)` with non-negative values and PostgreSQL half-tie rounding away from zero. Quantity scale, other monetary sign/line rules and billing reconciliation still require Members 3/4's contracts and tests. | Members 3–4 with database lead before service/financial DDL. |
+| TBD-09     | PostgreSQL 18 with native `uuidv7()` and UUIDv7 checks is selected; the configured development database is 18.6. Apply the same typed-key contract to every owner table and test clean/upgrade migrations without mixed keys. | Database/deployment lead and all schema owners; implementation verification remains. |
+| TBD-10     | ER event `timestamp` maps to UTC `timestamptz` with Asia/Colombo display. Interpretation of `text(65535)`, physical SQL casing of ER `NIC`, NIC uniqueness and passport identity remain open. | Member 1/database lead with consumers; round-trip and identity tests required. |
+| TBD-11     | Actor FKs target `user_account.user_id`; user events require non-null authenticated actors, system events use a dedicated non-login account, not null; not-yet-occurred event fields such as `voided_by` stay null. Referenced accounts cannot be hard-deleted. Guest-account cardinality and system-principal implementation remain open. | Member 1 publishes/tests shared account contract with consumers. |
+| TBD-12     | New JSON endpoints use `/api/*`; keep existing `GET /rooms` as a compatibility alias until callers migrate to `/api/rooms`. | Backend owners implement and test the alias when adding endpoints. |
+| TBD-13     | Original SRS figures—including component/deployment and ER Figures 2, 14–15 and 19—may conflict with the approved stack, online guest scope or assignment extension; the referenced `SkyNest_HRGSMS_SRS_assets` folder is absent from this checkout. | Documentation owner; redraw/reconcile figures and provide renderable assets before formal SRS approval. |
+| TBD-14     | M2-S02's `room_type_amenity` parent FKs use `ON UPDATE/DELETE RESTRICT` so linked catalogue records are deactivated instead of hard-deleted. Invoice-per-booking cardinality, uniqueness of `guest.NIC` and other ER-unstated natural keys, other FK actions and cancellation-fee representation remain open. | Members 1, 2 and 4 with database lead; approve remaining constraints and integration tests without inventing ER attributes. |
+| TBD-15     | `system_config.config_key` alone is the ER PK, so multiple effective-dated rows per key cannot be stored as drawn; role permissions also lack an ER relation. | Members 1 and 5 with Member 4 for policy use; decide whether current-value-plus-audit is sufficient or an ER amendment is required before configuration/authorization DDL. |

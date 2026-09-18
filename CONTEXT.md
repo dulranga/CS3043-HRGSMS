@@ -4,11 +4,13 @@ SkyNest is an internal and direct hotel booking system — supports staff manage
 
 ## Stack
 
-- Backend: (not covered here)
+- Backend: Express.js + TypeScript on Node.js, with PostgreSQL accessed through raw parameterized SQL (see `README.md` and the SRS for requirements)
 - Frontend: Vite + React 18 + TypeScript
 - Styling: Tailwind CSS v4 (`@tailwindcss/vite`)
 - Components: shadcn/ui (pre-built from `src/components/ui/`)
 - Routing: `@tanstack/react-router`
+
+The final-ER SRS includes online guest accounts and direct reservations alongside staff workflows. Its separate `booking_room_assignment` extension preserves booking/room history; `room.booking_id` is only a nullable current checked-in stay pointer. Consult the SRS and `member_summary_table.md` before database or member-owned feature work.
 
 ## Key Files
 
