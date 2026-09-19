@@ -8,6 +8,15 @@ No entries yet.
 
 ## Member 2 — Imandi
 
+### 19 September 2026 — M2-S04
+
+- Added `backend/migrations/m2_003_room_inventory.sql` with the approved five-value room-status enum, Table 40's `room` and `room_block` attributes, UUIDv7 checks, active/AVAILABLE defaults, a nullable current-stay `booking_id`, nonblank room numbers, `(branch_id, room_number)` uniqueness, required nonblank block reasons and half-open block intervals enforced by `end_date > start_date`.
+- Added restricted room FKs to Member 1's `branch`, M2-S02 `room_type` and M2-S03 `booking`, plus restricted room-block FKs to `room` and Member 1's actor `user_account`. No assignment table, overlap rule, current-pointer trigger, API or UI work was included.
+- Added `backend/tests/m2Rooms.test.cjs` and `test:m2-rooms`. The rolled-back test schema creates minimal Member 1 parents, applies M2-S02 through M2-S04 in order, checks column and enum metadata, accepts a null and valid booking pointer, permits the same room number in different branches, and rejects same-branch duplicates, blank values, invalid room states, non-v7 IDs, missing branch/type/booking/room/actor FKs, invalid block intervals and deletion of a room with a block.
+- Verification: `npm run test:m2-rooms --workspace backend`, `npm run test:m2-booking --workspace backend` and `npm run test:m2-catalogue --workspace backend` each passed (1 test each). `npm run build:backend`, `node --check backend/tests/m2Rooms.test.cjs` and `git diff --check` passed. The scratch schema rolled back, so the application schema was not modified.
+- Remaining handoffs: Member 1 must supply matching `branch` and `user_account` migrations in the ordered chain. M2-S05 adds durable assignments; M2-S06 enforces assignment overlaps and ensures the nullable room pointer represents only the current checked-in booking.
+- Lecture concepts applied: candidate/composite uniqueness for branch-scoped room numbers, typed referential integrity with restricted parent deletion, normalized master/event tables, domain checks for valid intervals, and ACID rollback for isolated migration verification.
+
 ### 19 September 2026 — M2-S03
 
 - Added `backend/migrations/m2_002_booking.sql` with named booking-channel and booking-status enums, Table 40's `booking` and `booking_status_history` attributes, UUIDv7 PK checks, unique nonblank booking references, valid stay and actual-time ordering, positive guest counts, non-negative finite LKR `numeric(12,2)` snapshots, approved status-transition rows, and restricted FKs to Member 1's guest/user keys and booking history parent.

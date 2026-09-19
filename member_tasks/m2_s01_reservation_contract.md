@@ -2,7 +2,7 @@
 
 Imandi has stated that Members 1, 3 and 4 agree to use Member 2's reservation contract and has delegated its shared implementation choices. The values below are explicit team working decisions made for this implementation, subject to evaluator review of the Version 1.2 draft. Table 40 remains the transcription of the source ER; the mapping here must be used consistently by dependent migrations and APIs.
 
-Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Appendix C; `member_summary_table.md`; Member 1, 3 and 4 task plans. M2-S03 now supplies the booking and booking-status-history migration; Member 1's real guest/actor parents and the room-assignment migration remain prerequisites for operational booking writes. The API still has only the placeholder `GET /rooms` route.
+Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Appendix C; `member_summary_table.md`; Member 1, 3 and 4 task plans. M2-S03 supplies the booking and booking-status-history migration, and M2-S04 supplies room and room-block storage. Member 1's real branch/guest/actor parents and the room-assignment migration remain prerequisites for operational booking writes. The API still has only the placeholder `GET /rooms` route.
 
 ## Existing reservation invariants
 
@@ -26,6 +26,8 @@ Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Append
 | API prefix | New JSON API endpoints use `/api/*`. Preserve existing `GET /rooms` as a compatibility alias while callers migrate to `/api/rooms`; it currently returns only a placeholder. | Backend owners add routes without silently breaking the current path. |
 
 For M2-S02, catalogue names are required, non-blank `varchar(255)` values; `amenity.description` may be null. Neither catalogue name receives an unapproved uniqueness constraint. `capacity` is positive `smallint`; the rate is non-negative and finite. Both PKs are UUIDv7, and the link table has only its two UUID FKs as composite PK. Link FKs use restricted parent deletion; catalogue records with references are deactivated instead of deleted. These constraints preserve Table 40's attributes without introducing new columns.
+
+For M2-S04, room numbers are required non-blank `varchar(255)` values and unique within a branch. Every room requires a branch and room type, defaults to active/AVAILABLE, and may have a null `booking_id`; that pointer is populated only for a current checked-in stay. A room block requires a non-blank reason, creator and half-open `[start_date,end_date)` interval with `end_date > start_date`. Parent deletion is restricted. M2-S06 remains responsible for enforcing assignment overlap and current-pointer consistency.
 
 ## Shared transition and write contract
 
