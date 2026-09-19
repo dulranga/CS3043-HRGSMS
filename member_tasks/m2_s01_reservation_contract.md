@@ -2,7 +2,7 @@
 
 Imandi has stated that Members 1, 3 and 4 agree to use Member 2's reservation contract and has delegated its shared implementation choices. The values below are explicit team working decisions made for this implementation, subject to evaluator review of the Version 1.2 draft. Table 40 remains the transcription of the source ER; the mapping here must be used consistently by dependent migrations and APIs.
 
-Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Appendix C; `member_summary_table.md`; Member 1, 3 and 4 task plans. Current code has a placeholder `GET /rooms` and no reservation migration.
+Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Appendix C; `member_summary_table.md`; Member 1, 3 and 4 task plans. M2-S03 now supplies the booking and booking-status-history migration; Member 1's real guest/actor parents and the room-assignment migration remain prerequisites for operational booking writes. The API still has only the placeholder `GET /rooms` route.
 
 ## Existing reservation invariants
 

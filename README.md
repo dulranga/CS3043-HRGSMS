@@ -122,6 +122,8 @@ npm run start    # Run compiled JavaScript (use after build)
 
 For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
 
+For the Member 2 booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` prerequisite tables, applies `backend/migrations/m2_002_booking.sql` in the same isolated transaction, verifies the booking/history contract, and rolls everything back. The real migration depends on Member 1's matching parent tables, and application booking writes remain disabled until `booking_room_assignment` is implemented.
+
 ## 🔌 API Endpoints
 
 The backend runs on `http://localhost:4000` and exposes:
