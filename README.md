@@ -12,7 +12,11 @@ CS3043-HRGSMS/
 ├── DESIGN.md           # Design system reference
 ├── LAYOUT.md           # Layout architecture reference
 ├── CONTEXT.md          # Project context and stack overview
-└── SkyNest_HRGSMS_SRS_v1.0.md  # Software Requirements Specification
+├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.2 draft ER-aligned SRS (legacy filename)
+├── member_summary_table.md    # Draft member ownership and handoffs
+├── member_tasks/             # One-commit-sized plans and workflow for each member
+├── memory.md                 # Verified cross-task project decisions
+└── member_work_log.md         # Shared actual-work log, organized by member
 ```
 
 ## 🛠️ Tech Stack
@@ -29,11 +33,18 @@ CS3043-HRGSMS/
 - CORS enabled for cross-origin requests
 - Node.js runtime
 
+**Database:**
+- PostgreSQL 18 with native UUIDv7 generation (`uuidv7()`)
+- Parameterized raw SQL; Member 2's rate fields use exact LKR `numeric(12,2)`
+
+The SRS uses this stack, not Next.js. It covers both staff-assisted reservations and direct online guest bookings through linked `guest_account` records. Database attributes/types and the approved booking–room assignment-history extension are specified in the SRS; documentation changes alone do not apply migrations.
+
 ## 📋 Prerequisites
 
 Before you begin, ensure you have installed:
 - **Node.js** (v18 or higher) — [Download](https://nodejs.org/)
 - **npm** (comes with Node.js)
+- **PostgreSQL 18** for database migrations and integration tests
 - A code editor (VS Code recommended)
 
 Verify installation:
@@ -109,6 +120,12 @@ npm run build    # Compile TypeScript to dist/
 npm run start    # Run compiled JavaScript (use after build)
 ```
 
+For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
+
+For the Member 2 booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` prerequisite tables, applies `backend/migrations/m2_002_booking.sql` in the same isolated transaction, verifies the booking/history contract, and rolls everything back. The real migration depends on Member 1's matching parent tables, and application booking writes remain disabled until `booking_room_assignment` is implemented.
+
+For the Member 2 room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies all three Member 2 migrations in order with minimal rolled-back Member 1 parent fixtures, then verifies room states, branch-scoped room numbers, the nullable current-stay pointer, foreign keys and dated room blocks. The real migration depends on Member 1's matching `branch` and `user_account` tables; assignment/pointer consistency remains M2-S06 work.
+
 ## 🔌 API Endpoints
 
 The backend runs on `http://localhost:4000` and exposes:
@@ -122,7 +139,11 @@ The backend runs on `http://localhost:4000` and exposes:
 - **DESIGN.md** — Complete design system (colors, typography, spacing, shadows, motion)
 - **LAYOUT.md** — Layout architecture and responsive design guidelines
 - **CONTEXT.md** — Project context and technology stack details
-- **SkyNest_HRGSMS_SRS_v1.0.md** — Full Software Requirements Specification
+- **SkyNest_HRGSMS_SRS_v1.0.md** — ER-aligned SRS draft; unresolved design decisions are in Appendix C
+- **member_summary_table.md** — Proposed member tasks, table ownership and cross-team handoffs
+- **member_tasks/** — Five member-specific subtask checklists and completion workflows
+- **memory.md** — Durable verified project decisions; recheck against current files before use
+- **member_work_log.md** — Shared record of what each member's completed or partial tasks changed and verified
 
 Always refer to these documents when making design or layout decisions.
 
