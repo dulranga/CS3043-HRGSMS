@@ -8,6 +8,15 @@ No entries yet.
 
 ## Member 2 — Imandi
 
+### 20 September 2026 — M2-S06
+
+- Added `backend/migrations/m2_005_assignment_guards.sql`. A non-unique partial `(room_id, booking_id)` index supports open-room checks; assignment writes and booking date/status changes acquire transaction advisory locks derived from room UUIDs. `m2_lock_room_ids(uuid[])` sorts distinct IDs for multi-room operations, and the overlap guard compares active BOOKED/CHECKED_IN stays as half-open PostgreSQL `daterange` values so adjacent stays remain valid.
+- Added deferred constraint triggers over `booking`, `booking_room_assignment` and `room`. They validate the final transaction state: every active booking has exactly one open assignment, terminal bookings have none, a CHECKED_IN booking owns its assigned OCCUPIED room pointer, and other bookings own no pointer. Deferral permits coordinated check-in, checkout, cancellation and reassignment writes inside one transaction while rejecting invalid commits.
+- Added `backend/tests/m2Guards.test.cjs` and `test:m2-guards`. Direct-write cases reject overlaps, overlapping date edits, invalid pointer/status combinations, missing active assignments and terminal open assignments; adjacent stays and coordinated valid transitions pass. A committed scratch schema and two sessions verify that the second simultaneous overlapping room assignment blocks on the room lock and then receives SQLSTATE `23P01` after the first commits.
+- Verification: `npm run test:m2-guards --workspace backend` passed (2 tests). The M2-S02 catalogue, M2-S03 booking, M2-S04 room and M2-S05 assignment suites all passed (5 regression tests total across those commands). `npm run build:backend`, `node --check backend/tests/m2Guards.test.cjs` and `git diff --check` passed. Scratch schemas were rolled back or removed; no migration was applied to the application schema.
+- Remaining handoffs: Member 1's real parent migrations and ordered runner are still required. M2-S09/M2-S10 own availability and booking APIs, including capacity/block checks and safe conflict/retry responses. Members 3/4 still own atomic transition procedures, status histories, authorization/audit integration and their separate business gates.
+- Lecture concepts applied: half-open interval predicates, supporting partial indexes, deferred integrity checks for atomic multi-table state, transaction-scoped locks, deterministic lock ordering and two-session ACID concurrency verification.
+
 ### 20 September 2026 — M2-S05
 
 - Added `backend/migrations/m2_004_booking_room_assignment.sql` for the approved ER extension. It creates UUIDv7 assignment IDs, required restricted FKs to `booking` and `room`, UTC `timestamptz` assignment events, a close-after-open check and a partial unique index on `booking_id` where `unassigned_at IS NULL`.
