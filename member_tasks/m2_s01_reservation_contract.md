@@ -2,7 +2,7 @@
 
 Imandi has stated that Members 1, 3 and 4 agree to use Member 2's reservation contract and has delegated its shared implementation choices. The values below are explicit team working decisions made for this implementation, subject to evaluator review of the Version 1.2 draft. Table 40 remains the transcription of the source ER; the mapping here must be used consistently by dependent migrations and APIs.
 
-Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Appendix C; `member_summary_table.md`; Member 1, 3 and 4 task plans. M2-S03 supplies the booking and booking-status-history migration, and M2-S04 supplies room and room-block storage. Member 1's real branch/guest/actor parents and the room-assignment migration remain prerequisites for operational booking writes. The API still has only the placeholder `GET /rooms` route.
+Sources: SRS §4.2, §4.4–§4.5, §4.8, Table 40, §6.1.4–§6.1.8 and Appendix C; `member_summary_table.md`; Member 1, 3 and 4 task plans. M2-S03 supplies booking/status storage, M2-S04 supplies room/block storage and M2-S05 supplies durable assignment history with one open row per booking. Member 1's real branch/guest/actor parents and M2-S06 overlap/pointer guards remain prerequisites for operational booking writes. The API still has only the placeholder `GET /rooms` route.
 
 ## Existing reservation invariants
 
@@ -29,6 +29,8 @@ For M2-S02, catalogue names are required, non-blank `varchar(255)` values; `amen
 
 For M2-S04, room numbers are required non-blank `varchar(255)` values and unique within a branch. Every room requires a branch and room type, defaults to active/AVAILABLE, and may have a null `booking_id`; that pointer is populated only for a current checked-in stay. A room block requires a non-blank reason, creator and half-open `[start_date,end_date)` interval with `end_date > start_date`. Parent deletion is restricted. M2-S06 remains responsible for enforcing assignment overlap and current-pointer consistency.
 
+For M2-S05, assignment IDs are UUIDv7 and both booking/room parents are required with restricted deletion. `assigned_at` defaults to the current instant; `unassigned_at` is null while open and must be later than `assigned_at` when closed. A partial unique index on `booking_id WHERE unassigned_at IS NULL` makes the one-open-assignment rule concurrency safe while retaining any number of closed history rows. There is deliberately no equivalent open-row uniqueness on `room_id`, because different future bookings may be assigned to one room when their stay dates do not overlap; M2-S06 enforces that date rule.
+
 ## Shared transition and write contract
 
 | Operation | Required atomic writes and checks | Owning member / supplied interface |
@@ -50,7 +52,7 @@ The operation owner writes exactly one `booking_status_history` row for each tra
 | TBD-08 | The two Member 2 rate columns use `numeric(12,2)` LKR. Member 3 quantity scale and Member 4 amount sign/line rounding and reconciliation details still need their owner contracts. | Members 3 and 4 before service/billing DDL. |
 | TBD-10 | `timestamptz`/UTC is selected. `text(65535)`, physical `NIC` casing and identity uniqueness/passport policy remain with Member 1. | Member 1 before identity/config DDL. |
 | TBD-11 | The actor target and system-account policy are selected. Member 1 must create/authenticate the system principal and settle guest-account cardinality. | Member 1 before account/guest implementation. |
-| Assignment/pointer guard | One database-side same-room overlap approach, exactly-one-open-assignment rule, current-pointer consistency, lock order, history writer and retry behavior. | Member 2 leads; Members 3/4 review before M2-S05/S06 and their transition implementations. |
+| Assignment/pointer guard | M2-S05 implements the concurrency-safe at-most-one-open-assignment structure. M2-S06 still needs the same-room date-overlap approach, active-status/exactly-one lifecycle enforcement, current-pointer consistency, lock order, history writer and retry behavior. | Member 2 leads; Members 3/4 review before M2-S06 and their transition implementations. |
 
 No M1-S01, M3-S01 or M4-S01 checklist item is completed by this handoff alone: each has additional scope and verification. Appendix C remains open for the areas listed above. M2-S02 can use the chosen UUIDv7/rate contract but the shared ordered migration runner remains Member 1's M1-S02 scope; Member 2 tests its SQL in an isolated schema for now.
 
