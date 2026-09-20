@@ -126,6 +126,8 @@ For the Member 2 booking schema, run `npm run test:m2-booking --workspace backen
 
 For the Member 2 room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies all three Member 2 migrations in order with minimal rolled-back Member 1 parent fixtures, then verifies room states, branch-scoped room numbers, the nullable current-stay pointer, foreign keys and dated room blocks. The real migration depends on Member 1's matching `branch` and `user_account` tables; assignment/pointer consistency remains M2-S06 work.
 
+For the Member 2 booking-room assignment history, run `npm run test:m2-assignments --workspace backend`. It applies M2-S02 through M2-S05 with minimal Member 1 parent fixtures, verifies sequential reassignment history and invalid rows, then uses two database sessions to prove that simultaneous open assignments for one booking cannot both commit. Same-room stay-date overlap and current-pointer consistency remain M2-S06 work.
+
 ## 🔌 API Endpoints
 
 The backend runs on `http://localhost:4000` and exposes:
