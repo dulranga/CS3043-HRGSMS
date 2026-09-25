@@ -115,10 +115,29 @@ npm run preview  # Preview production build
 ```bash
 cd backend
 
-npm run dev      # Start with tsx watch (auto-reload on file changes)
-npm run build    # Compile TypeScript to dist/
-npm run start    # Run compiled JavaScript (use after build)
+npm run dev              # Start with tsx watch (auto-reload on file changes)
+npm run build            # Compile TypeScript to dist/
+npm run start            # Run compiled JavaScript (use after build)
+npm run migrate          # Apply pending SQL migrations using PG_URL
+npm run test:migrations  # Apply migrations to an isolated temp schema and assert
 ```
+
+### Database migrations
+
+Version-controlled SQL migrations live in `backend/migrations/` and are applied in order by
+`backend/src/migrations/migrate.ts`. Name every file `<version>_<name>.sql`, for example
+`0001_create_branch_and_role.sql`; the runner rejects malformed names and duplicate versions.
+
+- `npm run migrate` (or `node dist/migrations/cli.js` after a build) applies pending files against
+  `PG_URL`, recording each in `schema_migrations`. Every file runs inside its own transaction, so a
+  failure rolls back that file only and stops the run; a session advisory lock serialises concurrent
+  runners.
+- Set `MIGRATIONS_DIR` to override the folder and `PG_SCHEMA` to apply into an isolated schema
+  instead of `public`.
+- `npm run test:migrations` proves the workflow against a clean temporary PostgreSQL schema: it
+  applies fixture migrations, asserts the resulting objects, checks re-runs are skipped and verifies
+  a failing migration is rolled back and not recorded. Set `PG_TEST_URL` to target a disposable
+  database in CI; otherwise `PG_URL` from `backend/.env` is used.
 
 For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
 

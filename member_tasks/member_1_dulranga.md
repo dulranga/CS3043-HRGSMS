@@ -14,7 +14,7 @@ Planning checklist, not evidence that any task is implemented. Each `M1-Sxx` is 
 | Status | ID | Deliverable and completion check |
 |---|---|---|
 | [ ] | M1-S01 | Publish the shared UUIDv7/PostgreSQL-version, timestamp, `NIC`, guest-link cardinality and actor-FK contract with Members 2–4 (TBD-09–TBD-11). Done when the SRS/member handoff states exact choices and tests to enforce them; no schema guesses. |
-| [ ] | M1-S02 | Add a repeatable ordered migration/test-database workflow for the existing Express/PostgreSQL repo. Done when a clean temporary DB can apply migrations and run one smoke assertion; do not alter unrelated schema. |
+| [x] | M1-S02 | Add a repeatable ordered migration/test-database workflow for the existing Express/PostgreSQL repo. Done when a clean temporary DB can apply migrations and run one smoke assertion; do not alter unrelated schema. |
 | [ ] | M1-S03 | Create `branch` and `role` per Table 40, with approved keys/constraints and minimal fictional seed data. Done when clean migration and invalid/duplicate-key tests pass. Depends on M1-S01/S02. |
 | [ ] | M1-S04 | Create `user_account` and shared-key `officer` with approved role/branch FKs. Done when PK/FK, role/branch and deactivation tests pass. Depends on M1-S03. |
 | [ ] | M1-S05 | Create `guest` and `guest_account` with approved link uniqueness/nullability and protected `NIC` mapping. Done when valid links work and duplicate/takeover-prone links fail. Depends on M1-S04. |
@@ -41,3 +41,5 @@ Use [Imandi's reservation contract](m2_s01_reservation_contract.md) for the agre
 ## Completion notes
 
 When checking a row, add a brief evidence note here and the detailed entry under Member 1 in `member_work_log.md`. No subtasks are marked complete by this plan.
+
+- **M1-S02 (20 September 2026):** Added `backend/src/migrations/{migrate,cli}.ts` and `backend/tests/migrationRunner.test.ts`; `npm run build` passes and `npm run test:migrations` reports 3 pass / 0 fail (apply + smoke assertion, idempotent re-run, failing-migration rollback) on a clean temporary schema. Also added the missing `@types/pg` devDependency because the backend build was already broken. `backend/migrations/` stays empty until M1-S03. Details in `member_work_log.md`.
