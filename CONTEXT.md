@@ -10,11 +10,11 @@ SkyNest is an internal and direct hotel booking system — supports staff manage
 - Components: shadcn/ui (pre-built from `src/components/ui/`)
 - Routing: `@tanstack/react-router`
 
-The final-ER SRS includes online guest accounts and direct reservations alongside staff workflows. Its separate `booking_room_assignment` extension preserves booking/room history; `room.booking_id` is only a nullable current checked-in stay pointer. Consult the SRS and `member_summary_table.md` before database or member-owned feature work.
+The Version 1.4 draft SRS includes online guest accounts and direct reservations alongside staff workflows. In its target design, `booking_room_assignment` is the sole stored physical-room link for room lines; `room.booking_id` is a legacy column to be removed by corrective migrations. Existing migrations still implement the earlier single-room model. Consult the SRS and `member_summary_table.md` before database or member-owned feature work.
 
 ## Key Files
 
-- `frontend/src/index.css` — Tailwind v4 theme (dark tokens, radius, fonts)
+- `frontend/src/index.css` — Tailwind v4 theme (locked light Mono palette, radius, fonts; see `DESIGN.md`)
 - `frontend/src/lib/utils.ts` — `cn()` (clsx + tailwind-merge)
 - `frontend/src/components/ui/` — shadcn components (button, card, input, label, form, form-field context)
 - `frontend/vite.config.ts` — tailwind plugin + `@/` alias

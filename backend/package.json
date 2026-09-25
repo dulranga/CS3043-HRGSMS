@@ -10,7 +10,8 @@
         "test:m2-rooms": "node --test tests/m2Rooms.test.cjs",
         "migrate": "tsx src/migrations/cli.ts",
         "test:migrations": "node --import tsx --test tests/migrationRunner.test.ts",
-        "test:m2-catalogue": "node --test tests/m2Catalogue.test.cjs"
+        "test:m2-catalogue": "node --test tests/m2Catalogue.test.cjs",
+        "test:m2-assignments": "node --test tests/m2Assignments.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",

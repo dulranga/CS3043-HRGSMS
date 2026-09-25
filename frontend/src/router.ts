@@ -4,6 +4,8 @@ import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import UIRoutePage from './routes/UIRoutePage';
 import DashboardPage from './routes/DashboardPage';
+import AdminConfigPage from './routes/AdminConfigPage';
+import AuditLogPage from './routes/AuditLogPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -33,7 +35,27 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, roomsRoute, uiRoute, dashboardRoute]);
+
+const adminConfigRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/config',
+  component: AdminConfigPage,
+});
+
+const auditLogRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/audit',
+  component: AuditLogPage,
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  roomsRoute,
+  uiRoute,
+  dashboardRoute,
+  adminConfigRoute,
+  auditLogRoute,
+]);
 
 export const router = createRouter({ routeTree });
 

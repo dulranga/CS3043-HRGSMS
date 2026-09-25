@@ -12,7 +12,7 @@ CS3043-HRGSMS/
 ├── DESIGN.md           # Design system reference
 ├── LAYOUT.md           # Layout architecture reference
 ├── CONTEXT.md          # Project context and stack overview
-├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.2 draft ER-aligned SRS (legacy filename)
+├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.4 draft SRS (legacy filename)
 ├── member_summary_table.md    # Draft member ownership and handoffs
 ├── member_tasks/             # One-commit-sized plans and workflow for each member
 ├── memory.md                 # Verified cross-task project decisions
@@ -37,7 +37,7 @@ CS3043-HRGSMS/
 - PostgreSQL 18 with native UUIDv7 generation (`uuidv7()`)
 - Parameterized raw SQL; Member 2's rate fields use exact LKR `numeric(12,2)`
 
-The SRS uses this stack, not Next.js. It covers both staff-assisted reservations and direct online guest bookings through linked `guest_account` records. Database attributes/types and the approved booking–room assignment-history extension are specified in the SRS; documentation changes alone do not apply migrations.
+The SRS uses this stack, not Next.js. It covers staff-assisted and direct online guest bookings through linked `guest_account` records. Its amended target permits multiple separately dated/priced room lines under one booking, with room-assignment history; existing migrations still implement the earlier single-room model. Documentation changes alone do not apply migrations.
 
 ## 📋 Prerequisites
 
@@ -141,9 +141,11 @@ Version-controlled SQL migrations live in `backend/migrations/` and are applied 
 
 For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
 
-For the Member 2 booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` prerequisite tables, applies `backend/migrations/m2_002_booking.sql` in the same isolated transaction, verifies the booking/history contract, and rolls everything back. The real migration depends on Member 1's matching parent tables, and application booking writes remain disabled until `booking_room_assignment` is implemented.
+For the Member 2 legacy booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` prerequisite tables, applies `backend/migrations/m2_002_booking.sql` in an isolated transaction, verifies the old booking/history contract, and rolls everything back. The real migration depends on Member 1's parent tables; application booking writes remain gated by the new room-line, assignment and overlap/lifecycle work, not this legacy test alone.
 
-For the Member 2 room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies all three Member 2 migrations in order with minimal rolled-back Member 1 parent fixtures, then verifies room states, branch-scoped room numbers, the nullable current-stay pointer, foreign keys and dated room blocks. The real migration depends on Member 1's matching `branch` and `user_account` tables; assignment/pointer consistency remains M2-S06 work.
+For the Member 2 legacy room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies the first three Member 2 migrations with minimal rolled-back Member 1 parent fixtures, then verifies the existing five room states, branch-scoped room numbers, nullable pointer, foreign keys and dated room blocks. The Version 1.4 SRS target requires M2-S22/S23 corrective migrations and updated tests before this schema is accepted.
+
+For the Member 2 legacy booking-room assignment history, run `npm run test:m2-assignments --workspace backend`. It applies M2-S02 through M2-S05 with minimal Member 1 parent fixtures and verifies the old one-open-assignment-per-booking rule. The new SRS target requires M2-S24–S27 to backfill room lines and replace that rule with one open assignment per active line, plus M2-S22/S23 room corrections and M2-S06 overlap/lifecycle guards. This existing test is not evidence that multi-room booking works.
 
 ## 🔌 API Endpoints
 
