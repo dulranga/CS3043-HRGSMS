@@ -8,6 +8,21 @@ No entries yet.
 
 ## Member 2 — Imandi
 
+### 26 September 2026 — M2-S24 forward correction for M2-S03
+
+- Preserved the completed `m2_002_booking.sql` migration as historical evidence, as required by SRS §6.6. Added `backend/migrations/m2_006_booking_room_line.sql` to create the normalized per-room booking line with UUIDv7 keys, restricted booking FK, half-open date ordering, positive guest count, exact non-negative LKR `numeric(12,2)` snapshot, five line statuses, timestamps and a booking/status/date lookup index.
+- The migration backfills exactly one line from every valid legacy booking, preserving dates, guest count, rate, status and audit timestamps. It deliberately allows multiple lines per booking. Legacy header fields and `booking_status_history` remain until M2-S25/S26/S27 can preserve histories, rekey assignments and safely remove duplication.
+- Added `backend/tests/m2RoomLines.test.cjs` and `test:m2-room-lines`. One test applies the complete existing Member 2 migration chain plus M2-S24 in a clean scratch schema; the other upgrades five populated legacy states, verifies one preserved line per booking, adds a second line and rejects invalid date/count/rate/FK/UUID cases.
+- Verification: `npm run test:m2-room-lines --workspace backend` passed (2 tests), `npm run build:backend`, `node --check backend/tests/m2RoomLines.test.cjs` and `git diff --check` passed. Tests rolled back their scratch schemas; no application database was changed.
+- Remaining handoffs: M2-S25 must add immutable line status/revision history, M2-S26 must rekey assignments and actual occupancy, and M2-S27 must retire duplicated header fields only after consumers migrate. Member 1's real parent migrations and ordered runner remain integration prerequisites.
+- Lecture concepts applied: normalization moves repeating room facts to a child relation; PK/FK and CHECK constraints protect entity, referential and domain integrity; exact `numeric` preserves money; the upgrade and tests use transaction rollback so schema/data changes are atomic and leave no scratch state.
+
+### 25 September 2026 — M2-S01 amended handoff confirmation
+
+- Imandi confirmed that Members 1, 3, 4 and 5 agree to the amended multi-room reservation handoff. Updated the M2-S01 contract, Member 2 and Member 1 handoffs, shared ownership summary, SRS §6.1.8/Appendix C and project memory to record that confirmation without claiming implementation or completion of another member's task.
+- Verification: read the current SRS, M2-S01 contract, member checklists and legacy migrations; checked the documentation diff and whitespace. No SQL, application code or database state changed, so runtime tests/builds were not run for this documentation-only update.
+- Remaining handoffs: Members 2–4 still need a precise lock order, transaction and retry contract before M2-S06; owner-specific Appendix C checks, formal ER/evaluator review and the corrective migrations remain open.
+
 ### 20 September 2026 — M2-S06
 
 - Added `backend/migrations/m2_005_assignment_guards.sql`. A non-unique partial `(room_id, booking_id)` index supports open-room checks; assignment writes and booking date/status changes acquire transaction advisory locks derived from room UUIDs. `m2_lock_room_ids(uuid[])` sorts distinct IDs for multi-room operations, and the overlap guard compares active BOOKED/CHECKED_IN stays as half-open PostgreSQL `daterange` values so adjacent stays remain valid.

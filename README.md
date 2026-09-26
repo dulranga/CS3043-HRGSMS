@@ -124,9 +124,11 @@ For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --work
 
 For the Member 2 legacy booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` prerequisite tables, applies `backend/migrations/m2_002_booking.sql` in an isolated transaction, verifies the old booking/history contract, and rolls everything back. The real migration depends on Member 1's parent tables; application booking writes remain gated by the new room-line, assignment and overlap/lifecycle work, not this legacy test alone.
 
+For the first multi-room booking correction, run `npm run test:m2-room-lines --workspace backend`. The test applies `backend/migrations/m2_006_booking_room_line.sql` after the existing Member 2 chain in a clean scratch schema, then separately upgrades populated legacy bookings. It verifies one preserved line per legacy booking, the five line statuses, exact LKR rates, constraints and two lines under one booking. Both schemas are rolled back.
+
 For the Member 2 legacy room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies the first three Member 2 migrations with minimal rolled-back Member 1 parent fixtures, then verifies the existing five room states, branch-scoped room numbers, nullable pointer, foreign keys and dated room blocks. The Version 1.4 SRS target requires M2-S22/S23 corrective migrations and updated tests before this schema is accepted.
 
-For the Member 2 legacy booking-room assignment history, run `npm run test:m2-assignments --workspace backend`. It applies M2-S02 through M2-S05 with minimal Member 1 parent fixtures and verifies the old one-open-assignment-per-booking rule. The new SRS target requires M2-S24–S27 to backfill room lines and replace that rule with one open assignment per active line, plus M2-S22/S23 room corrections and M2-S06 overlap/lifecycle guards. This existing test is not evidence that multi-room booking works.
+For the Member 2 legacy booking-room assignment history, run `npm run test:m2-assignments --workspace backend`. It applies M2-S02 through M2-S05 with minimal Member 1 parent fixtures and verifies the old one-open-assignment-per-booking rule. M2-S24 now supplies and backfills room lines, but the new SRS target still requires M2-S25–S27 to add histories, rekey assignments and retire duplicated booking fields, plus M2-S22/S23 room corrections and M2-S06 overlap/lifecycle guards. This existing test is not evidence that the complete multi-room lifecycle works.
 
 ## 🔌 API Endpoints
 
