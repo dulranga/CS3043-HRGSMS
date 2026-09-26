@@ -8,8 +8,10 @@
     "start": "node dist/index.js",
     "test:m2-catalogue": "node --test tests/m2Catalogue.test.cjs",
     "test:m2-booking": "node --test tests/m2Booking.test.cjs",
+    "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
     "test:m2-rooms": "node --test tests/m2Rooms.test.cjs",
-    "test:m2-assignments": "node --test tests/m2Assignments.test.cjs"
+    "test:m2-assignments": "node --test tests/m2Assignments.test.cjs",
+    "test:m2-guards": "node --test tests/m2Guards.test.cjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
