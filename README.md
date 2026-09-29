@@ -125,8 +125,11 @@ npm run test:migrations  # Apply migrations to an isolated temp schema and asser
 ### Database migrations
 
 Version-controlled SQL migrations live in `backend/migrations/` and are applied in order by
-`backend/src/migrations/migrate.ts`. Name every file `<version>_<name>.sql`, for example
-`0001_create_branch_and_role.sql`; the runner rejects malformed names and duplicate versions.
+`backend/src/migrations/migrate.ts`. Name every file `<memberid>_<version>_<name>.sql`, for example
+`m1_001_create_branch_and_role.sql`; a bare `<version>_<name>.sql` (no member prefix, e.g.
+`0000_create_audit_and_config.sql`) is also accepted and runs first as a bootstrap. The runner
+rejects malformed names and duplicate `<memberid>_<version>` keys, and orders migrations by member
+number (`m1` before `m2`) and then version.
 
 - `npm run migrate` (or `node dist/migrations/cli.js` after a build) applies pending files against
   `PG_URL`, recording each in `schema_migrations`. Every file runs inside its own transaction, so a
