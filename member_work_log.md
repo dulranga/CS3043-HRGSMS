@@ -91,7 +91,14 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 3 — Kulunu
 
-No entries yet.
+### 29 September 2026 — M3-S01
+
+- Published the target multi-room operational handoff in `member_tasks/m2_s01_reservation_contract.md`, the SRS §6.1.8 handoff, the Member 3 checklist and Member 4's consumer handoff.
+- Defined one transaction and deterministic lock order: booking, affected lines by `line_id`, open assignments by `assignment_id`, affected rooms by `room_id`, then the DRAFT invoice for checkout. Defined per-line check-in, actual occupancy segments, no room-history event when READY is unchanged, Member 3's physical-condition operation, Member 4's checkout delegation and full rollback behavior.
+- Explicitly excluded the current legacy booking-level status, one-open-assignment-per-booking rule and `room.booking_id` pointer from the target contract. M2/M4 confirmation remains open, so the M3-S01 checklist item is not marked complete.
+- Verification: reviewed the current M2-S24/M2-S06/M2-S05/M2-S04 migrations, SRS §4.5-§4.6 and §6.1.7-§6.1.8, M2-S01, Member 4's plan and the transaction/normalization lecture references. Documentation-only change; no database or application build was required. `git status --short` was clean before editing.
+- Lecture concepts applied: normalized line/assignment relationships remove duplicated room pointers; ACID atomicity and rollback cover the multi-table transition; deterministic lock ordering reduces deadlock risk; row-level locking and database guards protect concurrent room/assignment state.
+- Remaining handoff: Members 2 and 4 must confirm the proposed order and retry/error contract before M3-S06 and M4-S09 proceed.
 
 ## Member 4 — Chamikara
 

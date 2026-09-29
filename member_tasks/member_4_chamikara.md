@@ -38,6 +38,10 @@ Handoff: publish invoice/payment/charge and cancellation status contracts for Me
 
 Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Member 4 orchestrates per-line checkout/cancellation/no-show and optional whole-booking cancellation, closes only affected assignments without deleting history, and writes line-status events in the same transaction. Checkout sets that room CLEANING through Member 3's condition/history operation; derived occupancy clears only for that line. Cancellation/no-show of a future BOOKED line changes no physical room condition. One DRAFT→FINAL invoice per booking follows SRS §4.7.4; room charges derive from each line's fixed base rate and reserved nights, and service usage is counted once. A credit requires a manual staff REFUND before checkout/finalization. Member 1 supplies actor/audit and guest-ownership guards. The actor target and LKR `numeric(12,2)` rate scale remain in M2-S01. SRS §6.1.4 now proposes payment/line-type/amount domains; Member 4 must confirm them with owners, plus production policy values and tested lock contracts. This handoff does not check off M4-S01.
 
+### Member 3 operational handoff (M3-S01)
+
+Use the target lock order from [M3-S01](member_3_kulunu.md): lock the booking, affected lines, open assignments and affected rooms in ascending stable UUID order, then lock the DRAFT invoice for checkout. Member 4 owns the balance gate and checkout transition; Member 3 owns the internal physical-condition operation. Checkout must invoke the `CLEANING` transition inside the same transaction, close only the selected line's assignment and occupancy segment, and roll back all state, history, audit and invoice changes together on failure. This is a proposed contract pending M2/M4 confirmation.
+
 ## Completion notes
 
 When checking a row, add a brief evidence note here and the detailed entry under Member 4 in `member_work_log.md`. No subtasks are marked complete by this plan.

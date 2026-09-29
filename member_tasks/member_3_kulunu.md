@@ -41,3 +41,7 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Mem
 ## Completion notes
 
 When checking a row, add a brief evidence note here and the detailed entry under Member 3 in `member_work_log.md`. No subtasks are marked complete by this plan.
+
+### M3-S01 evidence note - 29 September 2026
+
+Published the target lock order and transaction boundaries in [M2-S01](m2_s01_reservation_contract.md): booking, affected lines, assignments, rooms, then the DRAFT invoice; all multi-room lock sets are sorted by stable UUID keys. The handoff defines per-line check-in, actual occupancy instants, physical-condition history ownership, checkout delegation and rollback behavior, and explicitly excludes the current legacy booking pointer/status guards. M2/M4 confirmation of the proposed ordering remains required, so M3-S01 stays unchecked.
