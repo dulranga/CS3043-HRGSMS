@@ -15,7 +15,8 @@
         "test:m1-identity": "node --test tests/m1Identity.test.cjs",
         "test:m1-guests": "node --test tests/m1Guests.test.cjs",
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
-        "test:m2-guards": "node --test tests/m2Guards.test.cjs"
+        "test:m2-guards": "node --test tests/m2Guards.test.cjs",
+        "test:m3-service-catalogue": "node --test tests/m3ServiceCatalogue.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",

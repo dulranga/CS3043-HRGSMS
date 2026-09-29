@@ -100,6 +100,13 @@ Record actual project-task work here for all five members, including partial or 
 - Lecture concepts applied: normalized line/assignment relationships remove duplicated room pointers; ACID atomicity and rollback cover the multi-table transition; deterministic lock ordering reduces deadlock risk; row-level locking and database guards protect concurrent room/assignment state.
 - Remaining handoff: Members 2 and 4 must confirm the proposed order and retry/error contract before M3-S06 and M4-S09 proceed.
 
+### 29 September 2026 — M3-S02
+
+- Added `backend/migrations/m3_001_service_catalogue.sql` for the chain-wide `service` catalogue: UUIDv7 primary key, nonblank name/category, active state, UTC `timestamptz` timestamps and non-negative finite LKR `numeric(12,2)` current price. Added a unique service-name constraint from SRS FR-043.
+- Added `backend/tests/m3ServiceCatalogue.test.cjs` and the `test:m3-service-catalogue` script. The isolated test verifies metadata, generated UUIDv7, two-decimal rounding, defaults, inactive rows, duplicate names, blank values, negative/NaN/overflow prices, invalid UUIDs and scratch-schema rollback.
+- Verification: `npm run test:m3-service-catalogue --workspace backend` passed (1 test). Backend build and final diff validation remain to run. M3-S02 stays unchecked because TBD-08 owner review is still open.
+- Lecture concepts applied: normalized chain-wide catalogue data avoids repeating service details in usage rows; exact numeric preserves historical monetary values; domain checks and unique-key integrity reject invalid catalogue states; transactional rollback keeps isolated verification side-effect free.
+
 ## Member 4 — Chamikara
 
 No entries yet.
