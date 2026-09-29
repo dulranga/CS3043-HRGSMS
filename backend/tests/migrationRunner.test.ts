@@ -21,7 +21,7 @@ const client = new Client({ connectionString });
 
 before(async () => {
   fs.writeFileSync(
-    path.join(migrationsDir, '0001_create_widgets.sql'),
+    path.join(migrationsDir, 'm0_001_create_widgets.sql'),
     'CREATE TABLE widgets (\n' +
       '  widget_id uuid NOT NULL DEFAULT uuidv7(),\n' +
       '  label text NOT NULL,\n' +
@@ -29,7 +29,7 @@ before(async () => {
       ');\n',
   );
   fs.writeFileSync(
-    path.join(migrationsDir, '0002_add_widget_flag.sql'),
+    path.join(migrationsDir, 'm0_002_add_widget_flag.sql'),
     'ALTER TABLE widgets ADD COLUMN active boolean NOT NULL DEFAULT true;\n',
   );
   await client.connect();
@@ -44,7 +44,7 @@ after(async () => {
 test('applies ordered migrations to a clean schema and runs a smoke assertion', async () => {
   const result = await migrate({ connectionString, migrationsDir, schema });
 
-  assert.deepEqual(result.applied, ['0001_create_widgets.sql', '0002_add_widget_flag.sql']);
+  assert.deepEqual(result.applied, ['m0_001_create_widgets.sql', 'm0_002_add_widget_flag.sql']);
   assert.deepEqual(result.skipped, []);
 
   const tracked = await client.query(
@@ -68,25 +68,25 @@ test('is idempotent and skips already-applied migrations', async () => {
   const result = await migrate({ connectionString, migrationsDir, schema });
 
   assert.deepEqual(result.applied, []);
-  assert.deepEqual(result.skipped, ['0001_create_widgets.sql', '0002_add_widget_flag.sql']);
+  assert.deepEqual(result.skipped, ['m0_001_create_widgets.sql', 'm0_002_add_widget_flag.sql']);
 });
 
 test('rolls back a failing migration without recording it', async () => {
   fs.writeFileSync(
-    path.join(migrationsDir, '0003_rollback_probe.sql'),
+    path.join(migrationsDir, 'm0_003_rollback_probe.sql'),
     'CREATE TABLE rollback_probe (id integer);\n' + 'INSERT INTO missing_table (id) VALUES (1);\n',
   );
 
   await assert.rejects(
     migrate({ connectionString, migrationsDir, schema }),
-    /0003_rollback_probe\.sql failed/,
+    /m0_003_rollback_probe\.sql failed/,
   );
 
   const probe = await client.query('SELECT to_regclass($1) AS relation', [`${schema}.rollback_probe`]);
   assert.equal(probe.rows[0].relation, null);
 
   const recorded = await client.query(
-    `SELECT count(*)::int AS count FROM "${schema}".schema_migrations WHERE version = '0003'`,
+    `SELECT count(*)::int AS count FROM "${schema}".schema_migrations WHERE version = 'm0_003'`,
   );
   assert.equal(recorded.rows[0].count, 0);
 });

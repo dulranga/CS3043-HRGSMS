@@ -2,15 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Client } from 'pg';
 
-const MIGRATION_FILENAME = /^(\d+)_(.+)\.sql$/;
+const MIGRATION_FILENAME = /^(([a-zA-Z][a-zA-Z0-9]*)_)?(\d+)_(.+)\.sql$/;
 const SCHEMA_IDENTIFIER = /^[a-z_][a-z0-9_]*$/;
 const ADVISORY_LOCK_KEY = 4242424242;
 
 export interface MigrationFile {
+  memberid: string;
   version: string;
   name: string;
   filename: string;
   sql: string;
+  key: string;
 }
 
 export interface MigrateOptions {
@@ -25,6 +27,29 @@ export interface MigrateResult {
   skipped: string[];
 }
 
+function memberOrder(memberid: string): number | null {
+  if (memberid === '') return -1;
+  const match = /^m(\d+)$/i.exec(memberid);
+  return match ? Number(match[1]) : null;
+}
+
+function compareMigrations(a: MigrationFile, b: MigrationFile): number {
+  const aOrder = memberOrder(a.memberid);
+  const bOrder = memberOrder(b.memberid);
+
+  if (aOrder !== null && bOrder !== null) {
+    const memberDiff = aOrder - bOrder;
+    if (memberDiff !== 0) return memberDiff;
+  } else {
+    const memberDiff = a.memberid.localeCompare(b.memberid);
+    if (memberDiff !== 0) return memberDiff;
+  }
+
+  const versionDiff = Number(a.version) - Number(b.version);
+  if (versionDiff !== 0) return versionDiff;
+  return a.filename.localeCompare(b.filename);
+}
+
 export function loadMigrations(migrationsDir: string): MigrationFile[] {
   const entries = fs.readdirSync(migrationsDir, { withFileTypes: true });
   const migrations = entries
@@ -32,24 +57,30 @@ export function loadMigrations(migrationsDir: string): MigrationFile[] {
     .map((entry) => {
       const match = MIGRATION_FILENAME.exec(entry.name);
       if (!match) {
-        throw new Error(`Migration "${entry.name}" must be named <version>_<name>.sql`);
+        throw new Error(
+          `Migration "${entry.name}" must be named <memberid>_<version>_<name>.sql`,
+        );
       }
-      const [, version, name] = match;
+      const memberid = match[2] ?? '';
+      const version = match[3];
+      const name = match[4];
       return {
+        memberid,
         version,
         name,
         filename: entry.name,
         sql: fs.readFileSync(path.join(migrationsDir, entry.name), 'utf8'),
+        key: memberid === '' ? version : `${memberid}_${version}`,
       };
     })
-    .sort((a, b) => Number(a.version) - Number(b.version) || a.filename.localeCompare(b.filename));
+    .sort(compareMigrations);
 
   const seen = new Set<string>();
   for (const migration of migrations) {
-    if (seen.has(migration.version)) {
-      throw new Error(`Duplicate migration version "${migration.version}"`);
+    if (seen.has(migration.key)) {
+      throw new Error(`Duplicate migration key "${migration.key}"`);
     }
-    seen.add(migration.version);
+    seen.add(migration.key);
   }
   return migrations;
 }
@@ -92,7 +123,7 @@ export async function migrate(options: MigrateOptions): Promise<MigrateResult> {
     const completed = new Set(existing.rows.map((row) => row.version));
 
     for (const migration of migrations) {
-      if (completed.has(migration.version)) {
+      if (completed.has(migration.key)) {
         skipped.push(migration.filename);
         continue;
       }
@@ -103,7 +134,7 @@ export async function migrate(options: MigrateOptions): Promise<MigrateResult> {
         await client.query(migration.sql);
         await client.query(
           'INSERT INTO schema_migrations (version, name, filename) VALUES ($1, $2, $3)',
-          [migration.version, migration.name, migration.filename],
+          [migration.key, migration.name, migration.filename],
         );
         await client.query('COMMIT');
         applied.push(migration.filename);
