@@ -1,30 +1,34 @@
 {
-  "name": "hotel-backend",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test:m2-catalogue": "node --test tests/m2Catalogue.test.cjs",
-    "test:m2-booking": "node --test tests/m2Booking.test.cjs",
-    "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
-    "test:m2-rooms": "node --test tests/m2Rooms.test.cjs",
-    "test:m2-assignments": "node --test tests/m2Assignments.test.cjs",
-    "test:m2-guards": "node --test tests/m2Guards.test.cjs"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.21.0",
-    "pg": "^8.23.0"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.9.0",
-    "@types/pg": "^8.23.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
-  }
+    "name": "hotel-backend",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "test:m2-booking": "node --test tests/m2Booking.test.cjs",
+        "test:m2-rooms": "node --test tests/m2Rooms.test.cjs",
+        "migrate": "tsx src/migrations/cli.ts",
+        "test:migrations": "node --import tsx --test tests/migrationRunner.test.ts",
+        "test:m2-catalogue": "node --test tests/m2Catalogue.test.cjs",
+        "test:m2-assignments": "node --test tests/m2Assignments.test.cjs",
+        "test:m1-identity": "node --test tests/m1Identity.test.cjs",
+        "test:m1-guests": "node --test tests/m1Guests.test.cjs",
+        "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
+        "test:m2-guards": "node --test tests/m2Guards.test.cjs"
+    },
+    "dependencies": {
+        "express": "^4.21.0",
+        "cors": "^2.8.5",
+        "pg": "^8.11.3",
+        "dotenv": "^16.3.1"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.0",
+        "@types/cors": "^2.8.17",
+        "@types/node": "^22.9.0",
+        "@types/pg": "^8.23.1",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
 }
