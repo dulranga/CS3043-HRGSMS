@@ -107,6 +107,13 @@ Record actual project-task work here for all five members, including partial or 
 - Verification: `npm run test:m3-service-catalogue --workspace backend` passed (1 test). Backend build and final diff validation remain to run. M3-S02 stays unchecked because TBD-08 owner review is still open.
 - Lecture concepts applied: normalized chain-wide catalogue data avoids repeating service details in usage rows; exact numeric preserves historical monetary values; domain checks and unique-key integrity reject invalid catalogue states; transactional rollback keeps isolated verification side-effect free.
 
+### 30 September 2026 — M3-S03
+
+- Added `backend/migrations/m3_002_room_status_history.sql` for immutable physical room-condition history using the target `READY`, `CLEANING` and `OUT_OF_SERVICE` domain. Rows use UUIDv7 IDs, UTC `timestamptz`, restricted FKs to `room` and `user_account`, a no-op transition check and a room/time lookup index. UPDATE and DELETE are rejected by an append-only trigger.
+- Added `backend/tests/m3RoomStatusHistory.test.cjs` and the `test:m3-room-status-history` script. The isolated test covers metadata, UUIDv7 generation, valid READY/CLEANING transitions, no-op rejection, invalid status and FK rejection, immutable update/delete behavior and scratch-schema rollback.
+- Verification/build still need to run. M3-S03 remains unchecked because M2-S23 has not yet converted the legacy `room` condition column and the shared owner review remains open.
+- Lecture concepts applied: normalized event history keeps condition transitions separate from the room master row; restricted foreign keys preserve referential integrity; append-only history and transaction rollback protect audit evidence and isolated test cleanup.
+
 ## Member 4 — Chamikara
 
 No entries yet.

@@ -49,3 +49,7 @@ Published the target lock order and transaction boundaries in [M2-S01](m2_s01_re
 ### M3-S02 evidence note - 29 September 2026
 
 Added `m3_001_service_catalogue.sql` and a focused isolated-schema test. The migration creates the chain-wide `service` catalogue with UUIDv7 IDs, nonblank name/category, non-negative finite LKR `numeric(12,2)` price, active state and UTC timestamps; service names are unique per FR-043. The test covers rounding, negative/NaN/overflow prices, invalid UUIDs, blank values, duplicate names, inactive rows and scratch-schema rollback. M3-S02 remains unchecked until the TBD-08 owner review is recorded.
+
+### M3-S03 evidence note - 30 September 2026
+
+Added `m3_002_room_status_history.sql` and a focused isolated-schema test. The migration defines the target `READY`/`CLEANING`/`OUT_OF_SERVICE` condition enum, creates UUIDv7 room-history rows with restricted `room` and `user_account` foreign keys, rejects no-op transitions, indexes room history by room/time, and blocks UPDATE/DELETE mutations through an append-only trigger. M3-S03 remains unchecked until Member 2's M2-S23 room-condition conversion and the shared owner review are complete.
