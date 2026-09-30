@@ -59,7 +59,14 @@ No entries yet.
 
 ## Member 4 — Chamikara
 
-No entries yet.
+### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
+- Created PostgreSQL migrations for `invoice` and `invoice_line` tables in `backend/migrations/m4_001_invoice_and_lines.sql`.
+- Added constraints to enforce exactly one invoice per booking (`invoice_booking_id_unique`).
+- Implemented `DRAFT`/`FINAL` transition rules: unassigned `invoice_number` and `issued_at` during DRAFT, requiring them at FINAL.
+- Implemented constraints for line signs (negative DISCOUNT, signed adj, non-negative standard charges) and exact LKR `numeric(14,2)` bounds.
+- Added triggers `trg_check_cross_booking_line` to block cross-booking line attribution, and `trg_reject_final_invoice_edits` to prevent modification of lines linked to FINAL invoices.
+- Created `m1_004_billing_policy_mock.sql` to support foreign key dependencies for tests.
+- Provided PL/pgSQL validation script `backend/tests/m4_s02_schema_test.sql` covering invalid line configurations, cross-booking updates, missing FKs, duplicate rows, and FINAL immutability.
 
 ## Member 5 — Thusath
 
