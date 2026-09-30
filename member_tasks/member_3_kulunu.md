@@ -53,3 +53,7 @@ Added `m3_001_service_catalogue.sql` and a focused isolated-schema test. The mig
 ### M3-S03 evidence note - 30 September 2026
 
 Added `m3_002_room_status_history.sql` and a focused isolated-schema test. The migration defines the target `READY`/`CLEANING`/`OUT_OF_SERVICE` condition enum, creates UUIDv7 room-history rows with restricted `room` and `user_account` foreign keys, rejects no-op transitions, indexes room history by room/time, and blocks UPDATE/DELETE mutations through an append-only trigger. M3-S03 remains unchecked until Member 2's M2-S23 room-condition conversion and the shared owner review are complete.
+
+### M3-S04 evidence note - 30 September 2026
+
+Added `m3_003_service_usage.sql` and a focused isolated-schema test. The migration creates service-usage events with UUIDv7 IDs, exact positive `numeric(10,2)` quantities, non-negative LKR `numeric(12,2)` price snapshots, optional room-line attribution, booking/service/actor FKs, booking/time/service indexes, and consistent void metadata. A trigger requires a checked-in line from the same booking for room-specific usage and at least one checked-in line for booking-wide usage. M3-S04 remains unchecked until the TBD-08 owner review and Member 2's final line/checked-in guard contract are recorded.

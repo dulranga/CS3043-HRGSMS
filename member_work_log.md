@@ -114,6 +114,14 @@ Record actual project-task work here for all five members, including partial or 
 - Verification/build still need to run. M3-S03 remains unchecked because M2-S23 has not yet converted the legacy `room` condition column and the shared owner review remains open.
 - Lecture concepts applied: normalized event history keeps condition transitions separate from the room master row; restricted foreign keys preserve referential integrity; append-only history and transaction rollback protect audit evidence and isolated test cleanup.
 
+### 30 September 2026 — M3-S04
+
+- Added `backend/migrations/m3_003_service_usage.sql` for service usage events with UUIDv7 IDs, UTC `timestamptz` usage/record/void timestamps, positive `numeric(10,2)` quantity, non-negative LKR `numeric(12,2)` unit-price snapshots, optional `booking_room_line_id`, void metadata and restricted booking/service/actor FKs. Added required booking/time/service indexes.
+- Added a database trigger that requires a checked-in line from the same booking for room-specific usage, or any checked-in line for booking-wide usage. Added a void-consistency check so active rows have no void metadata and voided rows retain both void time and actor.
+- Added `backend/tests/m3ServiceUsage.test.cjs` and the `test:m3-service-usage` script. The isolated test covers booking-wide and room-specific inserts, fractional quantity/price rounding, cross-booking and non-checked-in attribution rejection, invalid/overflow quantity and price, void consistency and scratch-schema rollback.
+- Verification/build still need to run. M3-S04 remains unchecked because the TBD-08 precision review and Member 2's final line/checked-in guard contract remain open; price capture itself belongs to the later service-usage recording procedure/API.
+- Lecture concepts applied: normalized service events avoid repeating catalogue details, exact numeric preserves charge snapshots, foreign keys protect referential integrity, and transactional rollback keeps focused schema tests side-effect free.
+
 ## Member 4 — Chamikara
 
 No entries yet.
