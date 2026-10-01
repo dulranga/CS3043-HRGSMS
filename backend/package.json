@@ -13,7 +13,8 @@
         "test:m2-catalogue": "node --test tests/m2Catalogue.test.cjs",
         "test:m1-identity": "node --test tests/m1Identity.test.cjs",
         "test:m1-guests": "node --test tests/m1Guests.test.cjs",
-        "test:m4-payment": "node --test tests/m4Payment.test.cjs"
+        "test:m4-payment": "node --test tests/m4Payment.test.cjs",
+        "test:m4-billing": "node --test tests/m4BillingCalculation.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",

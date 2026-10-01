@@ -91,7 +91,49 @@ No entries yet.
   - B-tree indexing on foreign key columns and unique candidate keys for efficient queries and join operations (`05_Storage_Indexing_Query_Processing_Transactions.md`).
   - Immutability and financial audit preservation using BEFORE/AFTER triggers to reject deletions/arbitrary mutations and write immutable audit trail records (`03_Advanced_SQL.md`).
 
+### 01 October 2026 — M4-S04 (Deterministic Room Charges, Calculation Order, and Rounding Engine)
+- Created mock migration `backend/migrations/m3_001_service_usage_mock.sql` satisfying the M3-S04 schema dependency (`service` and `service_usage` per Table 40 and §6.1.4).
+- Created PostgreSQL migration `backend/migrations/m4_003_billing_calculation.sql`:
+  - `fn_billable_nights(stay_start_date, stay_end_date)`: returns reserved nights (`stay_end_date - stay_start_date`), enforcing `stay_end_date > stay_start_date`. Early departure retains reserved nights.
+  - `fn_room_charge(booking_id)`: returns exact sum of rounded room night charges for `BOOKED`, `CHECKED_IN`, and `CHECKED_OUT` lines; excludes `CANCELLED` and `NO_SHOW` room nights.
+  - `fn_service_total(booking_id)`: returns exact sum of rounded non-void `service_usage` charges.
+  - `fn_calculate_booking_invoice_lines(booking_id, approved_discount)`: generates deterministic invoice lines in §4.7.4 order using ONLY the invoice's linked billing policy version.
+- Implemented TypeScript calculation service `backend/src/services/billingCalculator.ts`:
+  - `roundCurrency(val)`: commercial rounding (ties away from zero) to 2 decimals matching PostgreSQL `numeric(14,2)`.
+  - `calculateBillableNights(startDate, endDate)`: calculates reserved nights.
+  - `computeInvoiceBreakdown(policy, roomLines, serviceUsages, options)`: pure deterministic calculation implementing full SRS §4.7.4 calculation order:
+    1. Room lines (BOOKED provisional, CHECKED_IN/OUT standard, CANCELLED/NO_SHOW room charge excluded).
+    2. Non-void service usages (each usage charge rounded to two decimals).
+    3. Gross subtotal `G = sum(ROOM) + sum(SERVICE)`.
+    4. Discount `D` capped at `policy.max_discount_percent` of `G`, never > `G`, represented as negative invoice line.
+    5. Percentage service charge on `(G - D)`.
+    6. Tax on `(G - D + service_charge)`.
+    7. Flat fees (cancellation fee, no-show fee, approved late checkout fee) and price adjustments added after tax.
+    8. Total amount from exact sum of signed lines.
+  - `calculateBookingInvoiceFromDb(client, bookingId, options)`: queries booking, invoice-linked billing policy, room lines, and non-void service usages directly from PostgreSQL and returns structured breakdown.
+- Added automated test suite `backend/tests/m4BillingCalculation.test.cjs` and registered `"test:m4-billing"` in `backend/package.json`. Tests cover:
+  1. Mixed-type two-rate booking (Single + Deluxe rates reconcile separately and aggregate accurately).
+  2. Same-type equal-base-rate booking (two Single rooms snapshot identical base rates).
+  3. Changed pre-arrival dates (date revision updates reserved nights and recalculates charges).
+  4. Partial cancellation & no-show (room nights excluded, linked policy flat fees added).
+  5. Early checkout (retains original reserved nights charge) and late checkout (adds flat late checkout fee).
+  6. Non-void service usages (counted once, voided usages excluded).
+  7. Policy-version change & policy isolation (proves that later published policy changes do not affect existing bookings bound to an earlier policy version).
+  8. Exact commercial rounding ties away from zero and discount cap enforcement.
+  9. Database function `fn_calculate_booking_invoice_lines`.
+- Verification:
+  - `npm run test:m4-billing --workspace backend` passed (1 test with 9 comprehensive verification blocks).
+  - Full regression suite passed: `test:m4-payment`, `test:m1-identity`, `test:m1-guests`, `test:m2-booking`, `test:m2-rooms`, `test:m2-catalogue`, `test:migrations`.
+  - Full 12-migration ordered chain apply verified against an isolated temporary PostgreSQL schema with idempotency verification on re-run.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - Exact fixed-point numeric arithmetic (`numeric(14,2)`) avoiding floating-point rounding drift (`01_Introduction_to_SQL.md`).
+  - Set aggregation and conditional expressions (`COALESCE`, `SUM`, `LEAST`, `ROUND`) in SQL functions (`01_Introduction_to_SQL.md`).
+  - Referential integrity and joins across normalized multi-room booking, invoice, billing policy, and service usage relations (`02_Intermediate_SQL.md`).
+  - Transactional isolation and deterministic calculation avoiding update anomalies (`04_Normalization_Lab_5.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
+
 
