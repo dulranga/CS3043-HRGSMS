@@ -68,6 +68,30 @@ No entries yet.
 - Created `m1_004_billing_policy_mock.sql` to support foreign key dependencies for tests.
 - Provided PL/pgSQL validation script `backend/tests/m4_s02_schema_test.sql` covering invalid line configurations, cross-booking updates, missing FKs, duplicate rows, and FINAL immutability.
 
+### 01 October 2026 — M4-S03 (Payment and Refund Schema)
+- Created PostgreSQL migration for `payment` in `backend/migrations/m4_002_payment.sql`:
+  - Created enums `payment_kind_enum` ('PAYMENT', 'REFUND'), `payment_status_enum` ('SUCCESSFUL', 'FAILED', 'REVERSED'), and `payment_method_enum` ('CASH', 'BANK_TRANSFER') per SRS Table 40, §4.7.3, and §6.1.4.
+  - Created `payment` table with UUIDv7 PK (`uuid_extract_version = 7`), `booking_id` FK to `booking(booking_id)` ON UPDATE/DELETE RESTRICT, `recorded_by` FK to `user_account(user_id)` ON UPDATE/DELETE RESTRICT.
+  - Added positive LKR `numeric(14,2)` amount check (`amount > 0 AND amount <> 'NaN'::numeric`), non-blank trimmed reference check (`btrim(reference) <> ''`), and unique constraint on `reference`.
+  - Created B-tree indexes `idx_payment_booking_id` and `idx_payment_recorded_by`.
+  - Added trigger `trg_enforce_payment_immutability`: strictly prohibits DELETE operations on payment records, blocks mutation of critical payment attributes (`payment_id`, `booking_id`, `amount`, `kind`, `method`, `reference`, `paid_at`, `recorded_at`), and allows status transitions only from `SUCCESSFUL` to `REVERSED`.
+  - Added trigger `trg_audit_payment`: automatically captures `CREATE` and `REVERSE` events in `audit_log` with entity details and timestamps when `audit_log` exists.
+- Added TypeScript model `backend/src/models/payment.ts` exposing `PaymentKind`, `PaymentStatus`, `PaymentMethod`, and `Payment` interface.
+- Added automated test suite `backend/tests/m4Payment.test.cjs` and registered `"test:m4-payment"` in `backend/package.json`. Tests cover column inventory, UUIDv7 generation/rejection (v4 and nil), valid CASH PAYMENT, valid BANK_TRANSFER REFUND, valid FAILED payment, invalid kinds/amounts/statuses/methods, missing/empty/whitespace references, duplicate references, FK violations, parent deletion restriction, status transition immutability, attribute mutation rejection, DELETE rejection, and audit log generation.
+- Added PL/pgSQL validation script `backend/tests/m4_s03_schema_test.sql`.
+- Verification:
+  - `npm run test:m4-payment --workspace backend` passed (1 test with 14 comprehensive test blocks).
+  - Regression suite passed: `test:m1-identity`, `test:m1-guests`, `test:m2-booking`, `test:m2-rooms`, `test:m2-catalogue`, `test:migrations`.
+  - Full 10-migration ordered chain apply verified against an isolated temporary PostgreSQL schema with idempotency verification on re-run.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - Entity integrity via UUIDv7 primary keys and version verification checks (`01_Introduction_to_SQL.md`).
+  - Domain integrity and value domains with custom PostgreSQL enums and domain CHECK constraints for positive amounts and trimmed non-blank references (`02_Intermediate_SQL.md`).
+  - Referential integrity via type-matched foreign keys to `booking` and `user_account` with `ON UPDATE RESTRICT ON DELETE RESTRICT` (`02_Intermediate_SQL.md`).
+  - B-tree indexing on foreign key columns and unique candidate keys for efficient queries and join operations (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Immutability and financial audit preservation using BEFORE/AFTER triggers to reject deletions/arbitrary mutations and write immutable audit trail records (`03_Advanced_SQL.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
+
