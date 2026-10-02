@@ -5,7 +5,8 @@ import {
   getGuestHistoryReport,
   getServiceUsageReport,
   getAuditLogsReport,
-} from '../controllers/reports.controller';
+} from '../controllers/reportController';
+
 
 const router = Router();
 

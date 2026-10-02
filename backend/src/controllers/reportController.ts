@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
 
+import {
+  OccupancyReport,
+  RevenueReport,
+  GuestHistoryReport,
+  ServiceUsageReport,
+  AuditLogReport,
+} from '../models/report.model';
+
 // report occupancy
 
 export const getOccupancyReport = async (_req: Request, res: Response) => {
