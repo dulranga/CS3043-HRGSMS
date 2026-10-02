@@ -212,3 +212,373 @@ CREATE TRIGGER m2_assignment_write_guard
 BEFORE INSERT OR UPDATE OR DELETE ON booking_room_assignment
 FOR EACH ROW
 EXECUTE FUNCTION m2_guard_assignment_write();
+
+CREATE FUNCTION m2_guard_room_line_write()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status <> 'BOOKED' THEN
+            RAISE EXCEPTION 'a new room line must start as BOOKED'
+                USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF NEW.booking_id IS DISTINCT FROM OLD.booking_id THEN
+        RAISE EXCEPTION 'a room line cannot move between booking headers'
+            USING ERRCODE = '55000';
+    END IF;
+
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+        IF NOT (
+            (OLD.status = 'BOOKED'
+             AND NEW.status IN ('CHECKED_IN', 'CANCELLED', 'NO_SHOW'))
+            OR (OLD.status = 'CHECKED_IN' AND NEW.status = 'CHECKED_OUT')
+        ) THEN
+            RAISE EXCEPTION 'invalid room-line transition from % to %', OLD.status, NEW.status
+                USING ERRCODE = '23514';
+        END IF;
+
+        IF NEW.stay_start_date IS DISTINCT FROM OLD.stay_start_date
+           OR NEW.stay_end_date IS DISTINCT FROM OLD.stay_end_date
+           OR NEW.guest_count IS DISTINCT FROM OLD.guest_count
+           OR NEW.rate_snapshot IS DISTINCT FROM OLD.rate_snapshot THEN
+            RAISE EXCEPTION 'a status transition cannot also rewrite room-line values'
+                USING ERRCODE = '23514';
+        END IF;
+    ELSIF OLD.status <> 'BOOKED' AND (
+        NEW.stay_start_date IS DISTINCT FROM OLD.stay_start_date
+        OR NEW.stay_end_date IS DISTINCT FROM OLD.stay_end_date
+        OR NEW.guest_count IS DISTINCT FROM OLD.guest_count
+        OR NEW.rate_snapshot IS DISTINCT FROM OLD.rate_snapshot
+    ) THEN
+        RAISE EXCEPTION 'room-line values are immutable after check-in or termination'
+            USING ERRCODE = '55000';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER m2_room_line_write_guard
+BEFORE INSERT OR UPDATE ON booking_room_line
+FOR EACH ROW
+EXECUTE FUNCTION m2_guard_room_line_write();
+
+CREATE FUNCTION m2_recheck_room_line_target()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_assignment_id uuid;
+    v_room_id uuid;
+BEGIN
+    IF NEW.status NOT IN ('BOOKED', 'CHECKED_IN') THEN
+        RETURN NULL;
+    END IF;
+
+    SELECT assignment.assignment_id, assignment.room_id
+      INTO v_assignment_id, v_room_id
+      FROM booking_room_assignment AS assignment
+     WHERE assignment.line_id = NEW.line_id
+       AND assignment.unassigned_at IS NULL;
+
+    IF FOUND THEN
+        PERFORM m2_validate_assignment_target(
+            v_assignment_id,
+            NEW.line_id,
+            v_room_id,
+            true
+        );
+    END IF;
+
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER m2_room_line_target_guard
+AFTER INSERT OR UPDATE OF stay_start_date, stay_end_date, status ON booking_room_line
+FOR EACH ROW
+EXECUTE FUNCTION m2_recheck_room_line_target();
+
+CREATE FUNCTION m2_assert_room_line_lifecycle(p_line_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_status booking_room_line_status_enum;
+    v_open_count integer;
+    v_valid_open_count integer;
+    v_previous_status booking_room_line_status_enum;
+    v_history_count integer := 0;
+    v_history record;
+BEGIN
+    SELECT line.status
+      INTO v_status
+      FROM booking_room_line AS line
+     WHERE line.line_id = p_line_id
+     FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    SELECT count(*) FILTER (WHERE assignment.unassigned_at IS NULL),
+           count(*) FILTER (
+               WHERE assignment.unassigned_at IS NULL
+                 AND (
+                     (v_status = 'BOOKED'
+                      AND assignment.occupied_from IS NULL
+                      AND assignment.occupied_to IS NULL)
+                     OR (v_status = 'CHECKED_IN'
+                         AND assignment.occupied_from IS NOT NULL
+                         AND assignment.occupied_to IS NULL)
+                 )
+           )
+      INTO v_open_count, v_valid_open_count
+      FROM booking_room_assignment AS assignment
+     WHERE assignment.line_id = p_line_id;
+
+    IF v_status IN ('BOOKED', 'CHECKED_IN') THEN
+        IF v_open_count <> 1 OR v_valid_open_count <> 1 THEN
+            RAISE EXCEPTION 'active room line % requires one lifecycle-consistent open assignment',
+                p_line_id
+                USING ERRCODE = '23514';
+        END IF;
+    ELSIF v_open_count <> 0 THEN
+        RAISE EXCEPTION 'terminal room line % cannot keep an open assignment', p_line_id
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM booking_room_assignment AS assignment
+         WHERE assignment.line_id = p_line_id
+           AND assignment.unassigned_at IS NOT NULL
+           AND assignment.occupied_from IS NOT NULL
+           AND assignment.occupied_to IS NULL
+    ) THEN
+        RAISE EXCEPTION 'closed assignments must end any actual occupancy segment'
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF v_status = 'CHECKED_OUT' AND NOT EXISTS (
+        SELECT 1
+          FROM booking_room_assignment AS assignment
+         WHERE assignment.line_id = p_line_id
+           AND assignment.occupied_from IS NOT NULL
+           AND assignment.occupied_to IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'checked-out room line % requires completed occupancy history', p_line_id
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF v_status IN ('CANCELLED', 'NO_SHOW') AND EXISTS (
+        SELECT 1
+          FROM booking_room_assignment AS assignment
+         WHERE assignment.line_id = p_line_id
+           AND assignment.occupied_from IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'cancelled or no-show room line % cannot contain occupancy history', p_line_id
+            USING ERRCODE = '23514';
+    END IF;
+
+    FOR v_history IN
+        SELECT history.old_status, history.new_status
+          FROM booking_room_line_status_history AS history
+         WHERE history.line_id = p_line_id
+         ORDER BY history.changed_at, history.history_id
+    LOOP
+        v_history_count := v_history_count + 1;
+
+        IF v_history_count = 1 THEN
+            IF v_history.old_status IS NOT NULL OR v_history.new_status <> 'BOOKED' THEN
+                RAISE EXCEPTION 'room line % must begin with an initial BOOKED history row',
+                    p_line_id
+                    USING ERRCODE = '23514';
+            END IF;
+        ELSIF v_history.old_status IS DISTINCT FROM v_previous_status THEN
+            RAISE EXCEPTION 'room line % has a discontinuous status history', p_line_id
+                USING ERRCODE = '23514';
+        END IF;
+
+        v_previous_status := v_history.new_status;
+    END LOOP;
+
+    IF v_history_count = 0 OR v_previous_status IS DISTINCT FROM v_status THEN
+        RAISE EXCEPTION 'room line % status must match its complete status history', p_line_id
+            USING ERRCODE = '23514';
+    END IF;
+END;
+$$;
+
+CREATE FUNCTION m2_deferred_room_line_lifecycle_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM m2_assert_room_line_lifecycle(OLD.line_id);
+    ELSE
+        PERFORM m2_assert_room_line_lifecycle(NEW.line_id);
+
+        IF TG_OP = 'UPDATE' AND OLD.line_id IS DISTINCT FROM NEW.line_id THEN
+            PERFORM m2_assert_room_line_lifecycle(OLD.line_id);
+        END IF;
+    END IF;
+
+    RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER m2_room_line_lifecycle_deferred
+AFTER INSERT OR UPDATE ON booking_room_line
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW
+EXECUTE FUNCTION m2_deferred_room_line_lifecycle_guard();
+
+CREATE CONSTRAINT TRIGGER m2_assignment_lifecycle_deferred
+AFTER INSERT OR UPDATE OR DELETE ON booking_room_assignment
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW
+EXECUTE FUNCTION m2_deferred_room_line_lifecycle_guard();
+
+CREATE CONSTRAINT TRIGGER m2_status_history_lifecycle_deferred
+AFTER INSERT ON booking_room_line_status_history
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW
+EXECUTE FUNCTION m2_deferred_room_line_lifecycle_guard();
+
+CREATE FUNCTION m2_guard_room_block_write()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM 1
+      FROM room
+     WHERE room_id = NEW.room_id
+     FOR UPDATE;
+
+    IF EXISTS (
+        SELECT 1
+          FROM booking_room_assignment AS assignment
+          JOIN booking_room_line AS line
+            ON line.line_id = assignment.line_id
+         WHERE assignment.room_id = NEW.room_id
+           AND assignment.unassigned_at IS NULL
+           AND line.status IN ('BOOKED', 'CHECKED_IN')
+           AND line.stay_start_date < NEW.end_date
+           AND NEW.start_date < line.stay_end_date
+    ) THEN
+        RAISE EXCEPTION 'room block overlaps an active room-line assignment'
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER m2_room_block_write_guard
+BEFORE INSERT OR UPDATE OF room_id, start_date, end_date ON room_block
+FOR EACH ROW
+EXECUTE FUNCTION m2_guard_room_block_write();
+
+CREATE FUNCTION m2_guard_room_inventory_change()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.branch_id IS DISTINCT FROM OLD.branch_id AND EXISTS (
+        SELECT 1
+          FROM booking_room_assignment AS assignment
+         WHERE assignment.room_id = OLD.room_id
+    ) THEN
+        RAISE EXCEPTION 'a room with assignment history cannot move to another branch'
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF (
+        (OLD.active AND NOT NEW.active)
+        OR (OLD.operational_status <> 'OUT_OF_SERVICE'
+            AND NEW.operational_status = 'OUT_OF_SERVICE')
+    ) AND EXISTS (
+        SELECT 1
+          FROM booking_room_assignment AS assignment
+          JOIN booking_room_line AS line
+            ON line.line_id = assignment.line_id
+         WHERE assignment.room_id = OLD.room_id
+           AND assignment.unassigned_at IS NULL
+           AND line.status IN ('BOOKED', 'CHECKED_IN')
+    ) THEN
+        RAISE EXCEPTION 'room has a current BOOKED or CHECKED_IN assignment'
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER m2_room_inventory_change_guard
+BEFORE UPDATE OF active, operational_status, branch_id ON room
+FOR EACH ROW
+EXECUTE FUNCTION m2_guard_room_inventory_change();
+
+CREATE FUNCTION m2_guard_branch_deactivation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF OLD.active AND NOT NEW.active AND EXISTS (
+        SELECT 1
+          FROM room AS target_room
+          JOIN booking_room_assignment AS assignment
+            ON assignment.room_id = target_room.room_id
+          JOIN booking_room_line AS line
+            ON line.line_id = assignment.line_id
+         WHERE target_room.branch_id = OLD.branch_id
+           AND assignment.unassigned_at IS NULL
+           AND line.status IN ('BOOKED', 'CHECKED_IN')
+    ) THEN
+        RAISE EXCEPTION 'branch has a current BOOKED or CHECKED_IN room assignment'
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER m2_branch_deactivation_guard
+BEFORE UPDATE OF active ON branch
+FOR EACH ROW
+EXECUTE FUNCTION m2_guard_branch_deactivation();
+
+CREATE FUNCTION m2_guard_room_type_deactivation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF OLD.active AND NOT NEW.active AND EXISTS (
+        SELECT 1
+          FROM room AS target_room
+          JOIN booking_room_assignment AS assignment
+            ON assignment.room_id = target_room.room_id
+          JOIN booking_room_line AS line
+            ON line.line_id = assignment.line_id
+         WHERE target_room.room_type_id = OLD.room_type_id
+           AND assignment.unassigned_at IS NULL
+           AND line.status IN ('BOOKED', 'CHECKED_IN')
+    ) THEN
+        RAISE EXCEPTION 'room type has a current BOOKED or CHECKED_IN room assignment'
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER m2_room_type_deactivation_guard
+BEFORE UPDATE OF active ON room_type
+FOR EACH ROW
+EXECUTE FUNCTION m2_guard_room_type_deactivation();
