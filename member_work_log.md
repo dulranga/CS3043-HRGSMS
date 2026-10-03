@@ -31,6 +31,13 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 3 October 2026 — M2-S07 catalogue API core (partial; auth/audit dependency pending)
+
+- Added `backend/src/services/catalogueService.ts`, `controllers/catalogueController.ts` and `routes/catalogueRoutes.ts`. They implement room-type and amenity create/read/update/deactivate flows, literal substring search, active filtering, atomic room-type amenity replacement, strict request validation, parameterized values, safe error responses and complete-request retry responses for `40P01`/`40001`.
+- Catalogue writes reuse the M2-S06/M2-S28 database guards, so active-assignment deactivation and unsafe capacity reductions return a conflict while rate changes affect only the catalogue. Existing room-line `rate_snapshot`, terminal lines and assignment history remain unchanged. Each operation uses a transaction; optional `PG_SCHEMA` isolation uses transaction-local `search_path` so pooled connections do not leak session state.
+- Added `backend/tests/m2CatalogueApi.test.ts` and `test:m2-catalogue-api`. The isolated HTTP/database test covers Chain Manager writes, all five forbidden staff roles, authenticated guest/auditor reads, create/read/update/deactivate and search, unknown/invalid input, amenity links, literal injection-shaped search text, price-snapshot persistence, deactivation/capacity conflicts and successful deactivation after assignment closure. The focused suite, M2-S02/M2-S06/M2-S28 regressions and backend build pass.
+- M2-S07 remains unchecked. Member 1 M1-S08/M1-S09 has not supplied authenticated-session/read/Chain Manager middleware, so `createCatalogueRouter` is not mounted in `index.ts`; the test-only authorization handlers are not production authentication. Member 1's M1-S06 audit-writing contract is also pending, so catalogue-change audit integration and authenticated end-to-end AT-24 evidence remain open. Lecture concepts applied: parameterized selection, joins/JSON aggregation, transaction atomicity, row-lock conflict handling and transaction-local session state.
+
 ### 3 October 2026 — M2-S28 capacity and room-type edit guards
 
 - Added `backend/migrations/m2_006_capacity_type_edit_guards.sql`. It extends the M2-S06 assignment target validator to lock and read the assigned room type's capacity, rejects assignments or BOOKED line guest-count edits above that capacity, rejects a capacity reduction below any current BOOKED/CHECKED_IN assigned line's guest count, and rejects `room.room_type_id` changes while that room has such an assignment.
