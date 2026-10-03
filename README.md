@@ -12,7 +12,7 @@ CS3043-HRGSMS/
 ├── DESIGN.md           # Design system reference
 ├── LAYOUT.md           # Layout architecture reference
 ├── CONTEXT.md          # Project context and stack overview
-├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.2 draft ER-aligned SRS (legacy filename)
+├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.4 draft SRS (legacy filename)
 ├── member_summary_table.md    # Draft member ownership and handoffs
 ├── member_tasks/             # One-commit-sized plans and workflow for each member
 ├── memory.md                 # Verified cross-task project decisions
@@ -37,7 +37,7 @@ CS3043-HRGSMS/
 - PostgreSQL 18 with native UUIDv7 generation (`uuidv7()`)
 - Parameterized raw SQL; Member 2's rate fields use exact LKR `numeric(12,2)`
 
-The SRS uses this stack, not Next.js. It covers both staff-assisted reservations and direct online guest bookings through linked `guest_account` records. Database attributes/types and the approved booking–room assignment-history extension are specified in the SRS; documentation changes alone do not apply migrations.
+The SRS uses this stack, not Next.js. It covers staff-assisted and direct online guest bookings through linked `guest_account` records. Its amended target permits multiple separately dated/priced room lines under one booking, with room-assignment history. The active Member 2 migrations implement the normalized baseline and its database integrity guards directly through M2-S28; later reservation API and UI work remains pending.
 
 ## 📋 Prerequisites
 
@@ -115,16 +115,50 @@ npm run preview  # Preview production build
 ```bash
 cd backend
 
-npm run dev      # Start with tsx watch (auto-reload on file changes)
-npm run build    # Compile TypeScript to dist/
-npm run start    # Run compiled JavaScript (use after build)
+npm run dev              # Start with tsx watch (auto-reload on file changes)
+npm run build            # Compile TypeScript to dist/
+npm run start            # Run compiled JavaScript (use after build)
+npm run migrate          # Apply pending SQL migrations using PG_URL
+npm run test:migrations  # Apply migrations to an isolated temp schema and assert
 ```
+
+### Database migrations
+
+Version-controlled SQL migrations live in `backend/migrations/` and are applied in order by
+`backend/src/migrations/migrate.ts`. Name every file `<memberid>_<version>_<name>.sql`, for example
+`m1_001_create_branch_and_role.sql`; a bare `<version>_<name>.sql` (no member prefix, e.g.
+`0000_create_audit_and_config.sql`) is also accepted and runs first as a bootstrap. The runner
+rejects malformed names and duplicate `<memberid>_<version>` keys, and orders migrations by member
+number (`m1` before `m2`) and then version.
+
+- `npm run migrate` (or `node dist/migrations/cli.js` after a build) applies pending files against
+  `PG_URL`, recording each in `schema_migrations`. Every file runs inside its own transaction, so a
+  failure rolls back that file only and stops the run; a session advisory lock serialises concurrent
+  runners.
+- Set `MIGRATIONS_DIR` to override the folder and `PG_SCHEMA` to apply into an isolated schema
+  instead of `public`.
+- `npm run test:migrations` proves the workflow against a clean temporary PostgreSQL schema: it
+  applies fixture migrations, asserts the resulting objects, checks re-runs are skipped and verifies
+  a failing migration is rolled back and not recorded. Set `PG_TEST_URL` to target a disposable
+  database in CI; otherwise `PG_URL` from `backend/.env` is used.
 
 For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
 
-For the Member 2 booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` prerequisite tables, applies `backend/migrations/m2_002_booking.sql` in the same isolated transaction, verifies the booking/history contract, and rolls everything back. The real migration depends on Member 1's matching parent tables, and application booking writes remain disabled until `booking_room_assignment` is implemented.
+For the Member 2 multi-room booking schema, run `npm run test:m2-booking --workspace backend`. The test creates minimal `guest` and `user_account` parents, applies `backend/migrations/m2_002_booking.sql`, and verifies that one normalized booking header can own multiple separately dated and priced room lines. It also checks line statuses, immutable status/revision histories, exact LKR rates and negative constraints. The schema never creates booking-header room facts or `booking_status_history`.
 
-For the Member 2 room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies all three Member 2 migrations in order with minimal rolled-back Member 1 parent fixtures, then verifies room states, branch-scoped room numbers, the nullable current-stay pointer, foreign keys and dated room blocks. The real migration depends on Member 1's matching `branch` and `user_account` tables; assignment/pointer consistency remains M2-S06 work.
+For the Member 2 target room inventory schema, run `npm run test:m2-rooms --workspace backend`. The test applies M2-S02 through M2-S04 with minimal Member 1 parents and verifies branch-scoped room numbers, dated blocks, the READY/CLEANING/OUT_OF_SERVICE condition domain and the absence of `room.booking_id`.
+
+For the Member 2 line-based room assignment schema, run `npm run test:m2-assignments --workspace backend`. The test applies M2-S02 through M2-S05 in isolated schemas and verifies UUIDv7 assignment history, line/room foreign keys, ordered decision and occupancy timestamps, at most one open assignment per line and concurrent duplicate rejection. It also proves that one booking can hold several open line assignments and that M2-S05 does not add a booking-level room pointer or prematurely reject non-overlapping future use of the same room; M2-S06 owns the date-overlap, active-line, same-branch, block and occupancy guards.
+
+For the Member 2 reservation-integrity guards, run `npm run test:m2-guards --workspace backend`. The test applies M2-S02 through M2-S06 in isolated PostgreSQL schemas and verifies deferred line/assignment/status-history lifecycle consistency, half-open overlap rules, same-branch bookings, checked-in occupancy, blocks, room/branch/type active-state protection and append-only assignment history. Its two-session cases prove that overlapping reservations, booking-versus-block and booking-versus-branch-deactivation races cannot commit inconsistent states.
+
+For the Member 2 capacity and room-type edit guards, run `npm run test:m2-capacity-guards --workspace backend`. The test applies M2-S02 through M2-S28 in isolated PostgreSQL schemas and verifies assigned-line capacity at assignment and guest-count edit time, rejects unsafe room-type capacity reductions and room type changes, permits valid edits after assignment closure, preserves historical lines/rates/assignments, and exercises concurrent booking-versus-catalogue and booking-versus-room edits.
+
+For the Member 2 room-type/amenity catalogue API core, run `npm run test:m2-catalogue-api --workspace backend`. The test mounts the route factory with test-only authorization handlers and verifies parameterized search, validation, Chain Manager writes, forbidden-role denials, active filtering, atomic amenity links, rate-snapshot persistence and reservation conflict mapping in an isolated PostgreSQL schema. The production router remains unmounted until Member 1 supplies the authenticated read and Chain Manager middleware required by M2-S07; this test adapter is not an application authentication mechanism.
+
+For the Member 2 own-branch room and dated room-block API core, run `npm run test:m2-room-api --workspace backend`. The isolated HTTP/database test verifies Branch Manager writes, permitted Service Staff reads, strict branch scoping, room-number uniqueness, active room-type checks, half-open block dates, cross-branch denial and affected-line conflicts for blocks, deactivation and room-type reassignment. The route factory accepts Member 1 authorization/context middleware and remains unmounted until that production middleware exists. Physical-condition changes are intentionally absent from this router until Member 3 supplies the M3-S18 audited condition operation.
+
+For the Member 2 availability function and API, run `npm run test:m2-availability --workspace backend`. Migration `m2_007` adds the parameterized `fn_available_rooms` set-returning function and an active-stay index; `GET /api/availability` accepts `branchId`, `checkIn`, `checkOut`, `guestCount`, optional `roomTypeId` and optional `immediateCheckIn` (default `false`). Results require active room/branch/type records, sufficient capacity, no overlapping block or open BOOKED/CHECKED_IN assignment and a condition other than OUT_OF_SERVICE. Immediate check-in additionally requires READY, while a non-overlapping future search may return a currently CLEANING room.
 
 ## 🔌 API Endpoints
 
