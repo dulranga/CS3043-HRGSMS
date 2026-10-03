@@ -31,6 +31,13 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 3 October 2026 — M2-S08 room and room-block API core (partial; auth/audit/condition dependencies pending)
+
+- Added `backend/src/services/roomInventoryService.ts`, `controllers/roomInventoryController.ts` and `routes/roomInventoryRoutes.ts`. They implement parameterized own-branch room reads/writes and dated room-block CRUD, strict request validation, half-open date validation, active parent checks and transaction-scoped schema selection. Branch identity and actor identity come from an injected authenticated request context rather than request bodies.
+- Room updates cover room number, room type and active state. Conflicting block, deactivation and room-type changes return the affected current BOOKED/CHECKED_IN lines so staff can reassign or cancel them first. The service follows the M2-S06 room-before-branch/type lock order and leaves database triggers as the final concurrent-write guard. It does not directly update `operational_status`; limited outages use dated blocks.
+- Added `backend/tests/m2RoomInventoryApi.test.ts` and `test:m2-room-api`. The isolated HTTP/database test passes for Branch Manager writes, forbidden write roles, permitted Service Staff reads, own-branch scoping, room-number uniqueness, inactive type rejection, block interval and adjacency rules, cross-branch requests, affected-line block/deactivation conflicts, M2-S28 room-type reassignment conflicts and the absence of an unaudited physical-condition endpoint. The backend build and M2-S04/M2-S06/M2-S28 regression suites pass.
+- M2-S08 remains unchecked. Member 1 M1-S08/M1-S09 authentication and branch middleware, Member 1's M1-S06 audit writer, and Member 3's M3-S18 audited physical-condition operation are not implemented, so `createRoomInventoryRouter` remains unmounted and production end-to-end AT-23/AT-24 evidence is still open. Lecture concepts applied: parameterized queries, transaction atomicity, joins for affected reservations, half-open intervals and consistent row-lock ordering.
+
 ### 3 October 2026 — M2-S07 catalogue API core (partial; auth/audit dependency pending)
 
 - Added `backend/src/services/catalogueService.ts`, `controllers/catalogueController.ts` and `routes/catalogueRoutes.ts`. They implement room-type and amenity create/read/update/deactivate flows, literal substring search, active filtering, atomic room-type amenity replacement, strict request validation, parameterized values, safe error responses and complete-request retry responses for `40P01`/`40001`.
