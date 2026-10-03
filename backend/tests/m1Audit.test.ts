@@ -69,7 +69,8 @@ test('M1-S06 audit_log append-only contract in a clean isolated schema', async (
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    // Scratch schema only: m1_004's unqualified DROP TABLE must never reach public.
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
 
     await client.query(branchRole);
     await client.query(accountOfficer);
