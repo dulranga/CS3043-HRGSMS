@@ -4,6 +4,8 @@ import { initializeDatabase } from './db';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
+import reportRoutes from './routes/reportRoutes';
+
 import invoiceRoutes from './routes/invoiceRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
 
@@ -16,6 +18,7 @@ app.use(express.json());
 app.use('/', homeRoutes);
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api', invoiceRoutes);
 app.use('/api', availabilityRoutes);
 

@@ -26,7 +26,10 @@
         "test:m4-payment": "node --test tests/m4Payment.test.cjs",
         "test:m4-billing": "node --test tests/m4BillingCalculation.test.cjs",
         "test:m4-invoice": "node --test tests/m4InvoiceLifecycle.test.cjs",
-        "test:m4-api": "node --import tsx --test tests/m4InvoiceApi.test.cjs"
+        "test:m4-api": "node --import tsx --test tests/m4InvoiceApi.test.cjs",
+        "test:reports": "node --test tests/m5_reports.test.cjs",
+        "test:admin": "node --test tests/m5_admin.test.cjs",
+        "test:all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",
