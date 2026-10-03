@@ -36,7 +36,7 @@ Handoff: expose a tested room-state/history operation for Member 4's checkout, a
 
 ### Member 2 reservation handoff (M2-S01)
 
-Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Member 3 owns per-line check-in orchestration and `room_status_history` for physical-condition changes, consumes Member 2's open line-assignment/occupancy lookup and never writes a room booking pointer. Check-in changes only the selected line status/history and starts its actual occupancy segment; physical room condition remains READY unless separately changed. Member 3 supplies the condition/history operation for Member 4's per-line checkout and coordinates checked-in room moves with Member 2. The actor target and UTC `timestamptz` mapping remain. Member 2's direct M2-S03/S04 baseline plus pending M2-S05/S06 and Member 3 implementation/tests remain prerequisites. This handoff does not check off M3-S01.
+Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Member 3 owns per-line check-in orchestration and `room_status_history` for physical-condition changes, consumes Member 2's open line-assignment/occupancy lookup and never writes a room booking pointer. Check-in changes only the selected line status/history and starts its actual occupancy segment; physical room condition remains READY unless separately changed. Member 3 supplies the condition/history operation for Member 4's per-line checkout and coordinates checked-in room moves with Member 2. The actor target and UTC `timestamptz` mapping remain. Member 2's direct M2-S03–S05 baseline and M2-S06 lifecycle/concurrency guards are implemented; Member 3's own implementation/tests remain prerequisites. This handoff does not check off M3-S01.
 
 ## Completion notes
 
