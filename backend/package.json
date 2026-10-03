@@ -14,6 +14,7 @@
         "test:m2-assignments": "node --test tests/m2Assignments.test.cjs",
         "test:m1-identity": "node --test tests/m1Identity.test.cjs",
         "test:m1-guests": "node --test tests/m1Guests.test.cjs",
+        "test:m1-audit": "node --import tsx --test tests/m1Audit.test.ts",
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
         "test:m2-guards": "node --test tests/m2Guards.test.cjs"
     },
