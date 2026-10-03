@@ -165,7 +165,122 @@ No entries yet.
   - B-tree indexing on foreign key columns and unique candidate keys for efficient queries and join operations (`05_Storage_Indexing_Query_Processing_Transactions.md`).
   - Immutability and financial audit preservation using BEFORE/AFTER triggers to reject deletions/arbitrary mutations and write immutable audit trail records (`03_Advanced_SQL.md`).
 
+### 01 October 2026 — M4-S04 (Deterministic Room Charges, Calculation Order, and Rounding Engine)
+- Created mock migration `backend/migrations/m3_001_service_usage_mock.sql` satisfying the M3-S04 schema dependency (`service` and `service_usage` per Table 40 and §6.1.4).
+- Created PostgreSQL migration `backend/migrations/m4_003_billing_calculation.sql`:
+  - `fn_billable_nights(stay_start_date, stay_end_date)`: returns reserved nights (`stay_end_date - stay_start_date`), enforcing `stay_end_date > stay_start_date`. Early departure retains reserved nights.
+  - `fn_room_charge(booking_id)`: returns exact sum of rounded room night charges for `BOOKED`, `CHECKED_IN`, and `CHECKED_OUT` lines; excludes `CANCELLED` and `NO_SHOW` room nights.
+  - `fn_service_total(booking_id)`: returns exact sum of rounded non-void `service_usage` charges.
+  - `fn_calculate_booking_invoice_lines(booking_id, approved_discount)`: generates deterministic invoice lines in §4.7.4 order using ONLY the invoice's linked billing policy version.
+- Implemented TypeScript calculation service `backend/src/services/billingCalculator.ts`:
+  - `roundCurrency(val)`: commercial rounding (ties away from zero) to 2 decimals matching PostgreSQL `numeric(14,2)`.
+  - `calculateBillableNights(startDate, endDate)`: calculates reserved nights.
+  - `computeInvoiceBreakdown(policy, roomLines, serviceUsages, options)`: pure deterministic calculation implementing full SRS §4.7.4 calculation order:
+    1. Room lines (BOOKED provisional, CHECKED_IN/OUT standard, CANCELLED/NO_SHOW room charge excluded).
+    2. Non-void service usages (each usage charge rounded to two decimals).
+    3. Gross subtotal `G = sum(ROOM) + sum(SERVICE)`.
+    4. Discount `D` capped at `policy.max_discount_percent` of `G`, never > `G`, represented as negative invoice line.
+    5. Percentage service charge on `(G - D)`.
+    6. Tax on `(G - D + service_charge)`.
+    7. Flat fees (cancellation fee, no-show fee, approved late checkout fee) and price adjustments added after tax.
+    8. Total amount from exact sum of signed lines.
+  - `calculateBookingInvoiceFromDb(client, bookingId, options)`: queries booking, invoice-linked billing policy, room lines, and non-void service usages directly from PostgreSQL and returns structured breakdown.
+- Added automated test suite `backend/tests/m4BillingCalculation.test.cjs` and registered `"test:m4-billing"` in `backend/package.json`. Tests cover:
+  1. Mixed-type two-rate booking (Single + Deluxe rates reconcile separately and aggregate accurately).
+  2. Same-type equal-base-rate booking (two Single rooms snapshot identical base rates).
+  3. Changed pre-arrival dates (date revision updates reserved nights and recalculates charges).
+  4. Partial cancellation & no-show (room nights excluded, linked policy flat fees added).
+  5. Early checkout (retains original reserved nights charge) and late checkout (adds flat late checkout fee).
+  6. Non-void service usages (counted once, voided usages excluded).
+  7. Policy-version change & policy isolation (proves that later published policy changes do not affect existing bookings bound to an earlier policy version).
+  8. Exact commercial rounding ties away from zero and discount cap enforcement.
+  9. Database function `fn_calculate_booking_invoice_lines`.
+- Verification:
+  - `npm run test:m4-billing --workspace backend` passed (1 test with 9 comprehensive verification blocks).
+  - Full regression suite passed: `test:m4-payment`, `test:m1-identity`, `test:m1-guests`, `test:m2-booking`, `test:m2-rooms`, `test:m2-catalogue`, `test:migrations`.
+  - Full 12-migration ordered chain apply verified against an isolated temporary PostgreSQL schema with idempotency verification on re-run.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - Exact fixed-point numeric arithmetic (`numeric(14,2)`) avoiding floating-point rounding drift (`01_Introduction_to_SQL.md`).
+  - Set aggregation and conditional expressions (`COALESCE`, `SUM`, `LEAST`, `ROUND`) in SQL functions (`01_Introduction_to_SQL.md`).
+  - Referential integrity and joins across normalized multi-room booking, invoice, billing policy, and service usage relations (`02_Intermediate_SQL.md`).
+  - Transactional isolation and deterministic calculation avoiding update anomalies (`04_Normalization_Lab_5.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+
+### 01 October 2026 — M4-S05 (Audited DRAFT Invoice Lifecycle, Balance Calculation, and Single FINAL Issuance)
+- Created PostgreSQL migration `backend/migrations/m4_004_invoice_lifecycle.sql`:
+  - Partial unique index `idx_invoice_number_unique` on `invoice (invoice_number) WHERE invoice_number IS NOT NULL` ensuring distinct invoice numbers for FINAL invoices while permitting NULL for DRAFTs.
+  - Sequence `invoice_number_seq` and generator function `fn_generate_invoice_number()` producing sequential, structured invoice numbers (`INV-YYYYMMDD-XXXXX`).
+  - Immutability trigger `trg_enforce_invoice_immutability` on `invoice`: prevents UPDATE or DELETE mutations once an invoice reaches `FINAL` status.
+  - Audit trigger `trg_audit_invoice` on `invoice`: logs `CREATE` and `STATUS_CHANGE` (from DRAFT to FINAL) events with timestamps and actor user ID to `audit_log`.
+  - Booking-confirmation hook for Member 2 `fn_create_booking_draft_invoice(booking_id, user_id)`: selects effective billing policy version by descending `(effective_from, created_at, billing_policy_id)` where `effective_from <= CURRENT_DATE`, creates DRAFT invoice in the same transaction, and populates initial invoice lines. Implements idempotent retry behavior returning existing DRAFT invoice ID on repeat calls, and triggers transactional rollback if no policy is applicable.
+  - Function `fn_refresh_draft_invoice_lines(invoice_id, approved_discount)`: refreshes and recalculates lines for a DRAFT invoice while preserving manual `PRICE_ADJUSTMENT` lines.
+  - Shared balance calculation `fn_booking_balance(booking_id)`: computes invoice total amount minus net successful payments (successful payments minus successful refunds, ignoring failed and reversed payments) per SRS §4.7.4, §4.8.3, and M4-S07.
+  - Single FINAL issuance function `fn_issue_final_invoice(booking_id, user_id)`: locks invoice row, enforces that all room lines are terminal (`CHECKED_OUT`, `CANCELLED`, `NO_SHOW`; keeping DRAFT if any line remains active for partial checkout), refreshes charges, verifies balance is exactly zero (blocking underpaid debt or unrefunded credit), assigns sequential invoice number and issuance timestamp, and transitions status to `FINAL`.
+- Added TypeScript model `backend/src/models/invoice.ts` and service `backend/src/services/invoiceService.ts` exposing `createBookingDraftInvoice`, `refreshDraftInvoice`, `getBookingBalance`, `issueFinalInvoice`, and `getBookingInvoiceDetails`.
+- Added automated test suite `backend/tests/m4InvoiceLifecycle.test.cjs` and registered `"test:m4-invoice"` in `backend/package.json`. Tests cover:
+  1. Missing-policy rollback during booking confirmation hook.
+  2. Audited DRAFT invoice creation with line generation and effective policy linking.
+  3. Idempotent retry behavior.
+  4. Direct duplicate invoice creation prevention (unique constraint).
+  5. Later draft charges updating draft total upon refresh.
+  6. Partial checkout retaining DRAFT invoice when active lines remain.
+  7. Unpaid positive balance blocking FINAL issuance.
+  8. Unrefunded credit balance blocking FINAL issuance until refunded.
+  9. Single FINAL issuance generating sequential invoice number, issuance timestamp, and audit record.
+  10. Immutable FINAL lines and invoice (blocking INSERT, UPDATE, DELETE on lines and invoice, and blocking re-finalization/refresh).
+  11. Unique consecutive invoice numbering across multiple finalized bookings.
+- Verification:
+  - `npm run test:m4-invoice --workspace backend` passed (1 test with 11 subtest scenarios).
+  - Regression suite passed: `test:m4-payment`, `test:m4-billing`, `test:migrations`.
+  - Full 13-migration ordered chain apply verified against an isolated temporary PostgreSQL schema with idempotency verification on re-run.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - Partial indexing (`CREATE UNIQUE INDEX ... WHERE invoice_number IS NOT NULL`) for space-efficient and semantically precise conditional uniqueness (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Sequence generation and deterministic identifier generation (`03_Advanced_SQL.md`).
+  - Multi-condition constraint validation, state-machine transitions, and immutability enforcement via PL/pgSQL triggers (`03_Advanced_SQL.md`).
+  - Row-level locking (`SELECT ... FOR UPDATE`) in pessimistic concurrency control to avoid race conditions during balance settlement and invoice finalization (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Transaction atomicity and rollback semantics (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+
+### 03 October 2026 — M4-S06 (Invoice Detail & Payment History Read API with Scoped Access)
+- Created PostgreSQL migration `backend/migrations/m4_005_invoice_query_indexes.sql`:
+  - Created B-tree index `idx_invoice_line_invoice_id` on `invoice_line(invoice_id)` to optimize joins and line retrieval by invoice.
+  - Created composite B-tree index `idx_payment_booking_kind_status` on `payment(booking_id, kind, status)` to accelerate payment history and net-balance aggregation queries per lecture 5 indexing recommendations.
+- Extended TypeScript models in `backend/src/models/invoice.ts`:
+  - `InvoiceSummary`: computes signed line totals, successful payments, refunds, net payments, net balance, and explicit credit flags (`is_credit: boolean`, `credit_amount: number`).
+  - `InvoiceDetailResponse`: returns invoice header, provisional flag (`is_provisional: boolean` for DRAFT status), linked billing policy, room lines with room-type details and billable nights, itemized signed invoice lines, and structured financial summary.
+  - `PaymentHistoryResponse`: itemizes payments and refunds with status, method, reference, and timestamps, alongside total payments, total refunds, net payments, and credit status.
+- Extended `backend/src/services/invoiceService.ts`:
+  - `verifyBookingAccess(db, bookingId, actor)`: resolves booking guest ID and branch ID (via assigned room or booking creator officer) and authorizes:
+    1. Online guests: permitted if `actor.guestId === booking.guest_id`. Cross-guest access rejected (403 Forbidden).
+    2. Staff officers: permitted if `actor.branchId === booking.branch_id` or if actor holds chain-wide role (`CHAIN_MANAGER`, `SYSTEM_ADMINISTRATOR`, `AUDITOR`). Cross-branch staff rejected (403 Forbidden).
+    3. Unauthenticated/unrecognized actors rejected (401 Unauthorized / 403 Forbidden).
+  - `getBookingInvoiceDetail(db, bookingId)`: fetches draft/final invoice, room lines, signed lines, and calculates financial summary with provisional and credit flags.
+  - `getBookingPaymentHistory(db, bookingId)`: aggregates payment and refund transactions, computing net payments and distinct credit labeling.
+- Implemented controllers and routes:
+  - `backend/src/controllers/invoiceController.ts`: `getBookingInvoiceHandler`, `getBookingPaymentsHandler`, `getInvoiceByIdHandler`, resolving actor context from request headers/auth.
+  - `backend/src/routes/invoiceRoutes.ts`: mounted endpoints `GET /bookings/:bookingId/invoice`, `GET /bookings/:bookingId/payments`, `GET /invoices/:invoiceId` with pluggable middleware support.
+  - Mounted router in `backend/src/index.ts` under `/api`.
+- Added automated test suite `backend/tests/m4InvoiceApi.test.cjs` and registered `"test:m4-api"` in `backend/package.json`:
+  1. Unauthenticated request rejection (401 Unauthorized).
+  2. Online guest reading own booking invoice (200 OK, `is_provisional: true` for DRAFT, signed lines match total).
+  3. Online guest cross-booking read rejection (403 Forbidden).
+  4. Own-branch staff reading booking invoice (200 OK).
+  5. Cross-branch staff read rejection (403 Forbidden).
+  6. Chain-wide staff cross-branch reading booking invoice (200 OK).
+  7. Payment and refund history retrieval with distinct credit labeling (200 OK).
+  8. Direct invoice lookup by `invoice_id` with access verification (200 OK, 403 Forbidden for cross-branch, 404 for non-existent).
+- Verification:
+  - `npm run test:m4-api --workspace backend` passed (1 test with 8 subtests).
+  - Regression suites passed: `test:m4-payment`, `test:m4-billing`, `test:m4-invoice`, `test:migrations`.
+  - Full 14-migration ordered chain apply verified against an isolated temporary PostgreSQL schema.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - B-tree indexing on foreign key join targets and multi-attribute filter predicates (`idx_invoice_line_invoice_id`, `idx_payment_booking_kind_status`) for query optimization (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Efficient multi-table relational join processing with parameterized SQL avoiding SQL injection (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
+  - Least privilege access control and ownership-based authorization enforcing branch and guest tenancy boundaries (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
+
 

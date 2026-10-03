@@ -21,7 +21,10 @@
         "test:m1-billing-policy": "node --import tsx --test tests/m1BillingPolicy.test.ts",
         "test:m1-system-config": "node --import tsx --test tests/m1SystemConfig.test.ts",
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
-        "test:m4-payment": "node --test tests/m4Payment.test.cjs"
+        "test:m4-payment": "node --test tests/m4Payment.test.cjs",
+        "test:m4-billing": "node --test tests/m4BillingCalculation.test.cjs",
+        "test:m4-invoice": "node --test tests/m4InvoiceLifecycle.test.cjs",
+        "test:m4-api": "node --import tsx --test tests/m4InvoiceApi.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",
