@@ -26,6 +26,7 @@ export interface GuestHistoryReport {
 export interface ServiceUsageReport {
   service_id: string;
   service_name: string;
+  category?: string;
   total_orders: number | string;
   total_quantity_consumed: number | string;
   total_revenue_generated: number | string;
