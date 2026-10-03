@@ -249,6 +249,38 @@ No entries yet.
   - Efficient multi-table relational join processing with parameterized SQL avoiding SQL injection (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
   - Least privilege access control and ownership-based authorization enforcing branch and guest tenancy boundaries (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
 
+### 03 October 2026 — M4-S07 (Locked Payment and Refund Posting Engine)
+- Created PostgreSQL migration `backend/migrations/m4_006_payment_posting.sql`:
+  - `fn_outstanding_balance(p_booking_id)`: returns signed invoice-line total minus net payments (`successful_payments - successful_refunds`), supporting both `uuid` and `text` signatures per SRS Table 45.
+  - `fn_record_payment`: acquires row-level locks in deterministic hierarchy (`booking` followed by `invoice`) to eliminate deadlocks and race conditions, re-evaluates authoritative balance under lock, enforces that PAYMENTs cannot exceed positive balance, and REFUNDs cannot exceed existing credit (`v_current_balance < 0`). Rejects payments/refunds against FINAL invoices, logs audit records, and returns itemized payment record with previous/new balance and explicit credit flags.
+  - `sp_record_payment`: implements stored procedure per SRS Table 45 with INOUT `p_payment_id`.
+  - `fn_reverse_payment`: performs locked transition of a SUCCESSFUL payment to REVERSED, preventing reversal on FINAL invoices and re-opening the balance.
+- Implemented TypeScript models and service:
+  - Extended `backend/src/models/payment.ts` with `PostPaymentParams`, `PaymentPostingResult`, and `ReversePaymentResult`.
+  - Added `backend/src/services/paymentService.ts` exposing `recordPayment`, `reversePayment`, and `getOutstandingBalance`.
+- Added automated integration test suite `backend/tests/m4PaymentPosting.test.cjs` and registered `"test:m4-posting"` in `backend/package.json`:
+  1. Three partial payments (4000.00, 5000.00, 3000.00) reconciling to exact 0.00 balance; subsequent payment rejected.
+  2. Overpayment rejection (attempting payment above positive balance throws `check_violation`).
+  3. Charge reduction creating credit (-3000.00 PRICE_ADJUSTMENT), payment rejection on credit, refund exceeding credit rejected, followed by partial (1000.00) and remaining (2000.00) manual staff refunds reconciling to exact zero.
+  4. Refund rejection on positive balance (no credit to refund).
+  5. Failed payment records stored with `FAILED` status without altering net balance.
+  6. Payment reversal (`fn_reverse_payment`) excluding payment from net paid and accurately re-opening the outstanding balance.
+  7. Duplicate reference rejection (exact and trimmed whitespace).
+  8. Stored procedure `sp_record_payment` execution and INOUT payment ID retrieval.
+  9. Posting prohibition on FINAL invoices (`object_not_in_prerequisite_state`).
+  10. Two-session concurrent payment posting (two simultaneous 4000.00 payments on 6000.00 balance) showing that pessimistic locking serializes the balance recheck and exactly one transaction succeeds while the other is rejected for overpayment.
+- Verification:
+  - `npm run test:m4-posting --workspace backend` passed (1 test with 10 subtests).
+  - Migration suite `test:migrations` passed (15 migrations applied cleanly in isolated schema).
+  - Regression suites passed: `test:m4-payment`, `test:m4-billing`, `test:m4-invoice`, `test:m4-api`.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Pessimistic concurrency control and row-level locking (`SELECT ... FOR UPDATE`) to prevent lost updates, race conditions, and overpayments on financial balances (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Strict lock acquisition ordering (`booking` then `invoice`) across transactions to guarantee deadlock-free execution (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Transaction atomicity, consistency, and state-machine transitions in PL/pgSQL procedures and functions (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Domain constraints and exact fixed-point `numeric(14,2)` arithmetic for monetary balance reconciliation (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
