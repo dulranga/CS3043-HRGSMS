@@ -1,9 +1,67 @@
-import { DbClient } from './invoiceService.js';
+import { ActorContext, DbClient, verifyBookingAccess } from './invoiceService.js';
 import {
   PostPaymentParams,
   PaymentPostingResult,
   ReversePaymentResult,
 } from '../models/payment.js';
+
+export interface PaymentReceipt {
+  receipt_reference: string;
+  booking_id: string;
+  payment_id: string;
+  kind: 'PAYMENT' | 'REFUND';
+  amount: number;
+  method: 'CASH' | 'BANK_TRANSFER';
+  status: 'SUCCESSFUL' | 'FAILED' | 'REVERSED';
+  paid_at: string;
+  recorded_at: string;
+  recorded_by: string;
+  previous_balance: number;
+  new_balance: number;
+  is_credit: boolean;
+  credit_amount: number;
+  is_settled: boolean;
+}
+
+/**
+ * Generates a stable, structured payment or refund reference when not provided.
+ * Format: PAY-YYYYMMDD-XXXXXX or REF-YYYYMMDD-XXXXXX
+ */
+export function generatePaymentReference(kind: 'PAYMENT' | 'REFUND'): string {
+  const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const randomSuffix = Math.floor(100000 + Math.random() * 900000).toString();
+  const prefix = kind === 'REFUND' ? 'REF' : 'PAY';
+  return `${prefix}-${datePrefix}-${randomSuffix}`;
+}
+
+/**
+ * Verifies that the actor has authorized staff access to record payments or refunds.
+ * Rejects online guests and cross-branch staff without chain-wide authority.
+ */
+export async function verifyStaffPaymentAccess(
+  db: DbClient,
+  bookingId: string,
+  actor: ActorContext,
+): Promise<{
+  allowed: boolean;
+  statusCode: number;
+  reason?: string;
+  branchId?: string | null;
+}> {
+  const access = await verifyBookingAccess(db, bookingId, actor);
+  if (!access.allowed) {
+    return access;
+  }
+  if (access.actorType !== 'STAFF') {
+    return {
+      allowed: false,
+      statusCode: 403,
+      reason: 'Access denied: online guests are not authorized to record staff payments or refunds',
+    };
+  }
+  return access;
+}
+
 
 /**
  * Posts a locked payment or refund for a booking using fn_record_payment.

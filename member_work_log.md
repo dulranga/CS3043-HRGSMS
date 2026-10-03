@@ -281,6 +281,46 @@ No entries yet.
   - Transaction atomicity, consistency, and state-machine transitions in PL/pgSQL procedures and functions (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
   - Domain constraints and exact fixed-point `numeric(14,2)` arithmetic for monetary balance reconciliation (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
 
+### 03 October 2026 — M4-S08 (Payment and Refund REST API with Validation, Authorization, and Safe Error Mapping)
+- Exposed payment, refund, and payment reversal REST endpoints under `/api`:
+  - `POST /api/bookings/:bookingId/payments`: records a payment or refund against a booking with staff authorization, positive balance validation, and safe error mapping.
+  - `POST /api/bookings/:bookingId/refunds`: convenience endpoint for staff-approved manual refunds against credit balances.
+  - `POST /api/payments/:paymentId/reverse`: reverses a previously successful payment and reopens the outstanding balance.
+- Implemented staff authorization and guest isolation in `backend/src/services/paymentService.ts`:
+  - `verifyStaffPaymentAccess`: verifies the actor is a staff officer (`user_account` + `officer`). Strictly denies online guests (`guest_account`) with 403 Forbidden (`Access denied: online guests are not authorized to record staff payments or refunds`), enforcing SRS §4.7.2 FR-057 that all payments and refunds are manual staff recordings with no automated payment gateway.
+  - Restricts staff to their own branch bookings (`officer.branch_id === room.branch_id`), allowing cross-branch recording only for chain-wide roles (`CHAIN_MANAGER`, `SYSTEM_ADMINISTRATOR`, `AUDITOR`).
+  - Added `PaymentReceipt` interface and `generatePaymentReference(kind)` producing stable, sequential, formatted references (`PAY-YYYYMMDD-XXXXXX` / `REF-YYYYMMDD-XXXXXX`).
+- Implemented controllers and error mapping in `backend/src/controllers/paymentController.ts`:
+  - Strict validation: requires positive finite amount with maximum 2 decimal places (`INVALID_AMOUNT`, `INVALID_AMOUNT_PRECISION`), valid payment method (`CASH` | `BANK_TRANSFER`), valid payment kind (`PAYMENT` | `REFUND`), and valid status (`SUCCESSFUL` | `FAILED`).
+  - PostgreSQL error code mapping: maps check violations `23514` to 400 Bad Request with specific error codes (`OVERPAYMENT_NOT_ALLOWED`, `NO_OUTSTANDING_BALANCE`, `OVER_REFUND_NOT_ALLOWED`, `NO_CREDIT_TO_REFUND`), unique constraint violations `23505` to 409 Conflict (`DUPLICATE_REFERENCE`), and invalid state `55000` to 409 Conflict (`INVOICE_FINAL`) without exposing internal database stack traces.
+  - Returns comprehensive receipt payload with `is_settled` boolean flag and previous/new balances.
+- Implemented routes in `backend/src/routes/paymentRoutes.ts` and mounted under `/api` in `backend/src/index.ts`.
+- Added automated integration test suite `backend/tests/m4PaymentApi.test.cjs` and registered `"test:m4-payment-api"` in `backend/package.json`:
+  1. Unauthenticated request without actor headers rejected with 401 Unauthorized (`AUTHENTICATION_REQUIRED`).
+  2. Online guest attempt to record staff payment rejected with 403 Forbidden.
+  3. Cross-branch staff attempt rejected with 403 Forbidden.
+  4. Input validation: missing, zero, negative, excess precision (>2 decimals), invalid method (`CREDIT_CARD`), invalid kind (`CHARGE`), and invalid status (`REVERSED`) fail with 400 Bad Request.
+  5. Own-branch staff records valid partial payment (15,000.00 LKR) with auto-generated reference (201 Created).
+  6. Chain manager records partial payment (10,000.00 LKR) with explicit reference (201 Created).
+  7. Duplicate reference rejected with 409 Conflict (`DUPLICATE_REFERENCE`).
+  8. Overpayment above outstanding balance rejected with 400 Bad Request (`OVERPAYMENT_NOT_ALLOWED`).
+  9. Exact payment (15,425.00 LKR) settles balance to 0.00 (`receipt.is_settled: true`).
+  10. Payment on settled zero balance fails with 400 Bad Request (`NO_OUTSTANDING_BALANCE`).
+  11. Refund on zero balance fails with 400 Bad Request (`NO_CREDIT_TO_REFUND`).
+  12. Over-refund rejected (400 `OVER_REFUND_NOT_ALLOWED`), partial refund (3,000.00) against -6,900.00 credit succeeds, and final refund (3,900.00) settles credit to 0.00 with `REF-` references.
+  13. Payment reversal reopens outstanding balance (200 OK) with reversal receipt.
+  14. Payment reversal restrictions: already reversed (400 `INVALID_PAYMENT_STATE`), cross-branch staff (403), online guest (403).
+  15. Posting payment or refund against a FINAL invoice fails with 409 Conflict (`INVOICE_FINAL`).
+- Verification:
+  - `npm run test:m4-payment-api --workspace backend` passed (1 test with 15 subtests).
+  - Full regression suite passed: `test:m4-posting`, `test:m4-api`, `test:m4-invoice`, `test:m4-billing`, `test:m4-payment`, `test:migrations`.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Role-based and branch-scoped authorization enforcing principle of least privilege (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Safe error handling and database state translation preventing internal implementation leakage while providing actionable client feedback (`01_Introduction_to_SQL.md`, `03_Advanced_SQL.md`).
+  - Data integrity and scale validation (`numeric(14,2)`) before and during database transactional execution (`02_Intermediate_SQL.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
