@@ -31,6 +31,13 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 3 October 2026 — M2-S28 capacity and room-type edit guards
+
+- Added `backend/migrations/m2_006_capacity_type_edit_guards.sql`. It extends the M2-S06 assignment target validator to lock and read the assigned room type's capacity, rejects assignments or BOOKED line guest-count edits above that capacity, rejects a capacity reduction below any current BOOKED/CHECKED_IN assigned line's guest count, and rejects `room.room_type_id` changes while that room has such an assignment.
+- Preserved terminal line values, agreed `rate_snapshot` values and closed assignment rows. Valid capacity changes that continue to accommodate current lines, plus capacity/type changes after valid assignment closure, remain allowed. The guard uses M2-S06's line→booking→room→branch→room-type assignment path; catalogue updates serialize on the room-type row and room type changes serialize on the room row.
+- Added `backend/tests/m2CapacityTypeGuards.test.cjs` and `test:m2-capacity-guards`. The two suites cover schema objects, direct invalid and valid AT-27 cases, assignment/guest-count capacity checks, unchanged terminal history and three two-session directions: booking before capacity reduction, booking before room-type change and capacity reduction before booking.
+- Verification passed: `npm run test:m2-capacity-guards --workspace backend` (2 tests), all M2-S02–S06 suites (9 regression tests), `node --check backend/tests/m2CapacityTypeGuards.test.cjs`, `npm run build:backend` and `git diff --check`. Live preflight found zero current assignments or capacity violations; the official runner applied only `m2_006`. A read-only audit confirmed the migration record, three functions, three triggers and guest-count revalidation. Lecture concepts applied: ACID conflict rollback, row-lock serialization, consistent lock ordering, trigger-enforced cross-table integrity and reuse of the existing B-tree access paths.
+
 ### 2 October 2026 — M2-S06 reservation lifecycle and concurrency guards
 
 - Added `backend/migrations/m2_005_reservation_integrity_guards.sql`. Immediate triggers lock and recheck the line, booking, target room, branch and room type for open assignments; room blocks lock the target room; room, branch and room-type updates recheck current assignments. The guards reject half-open date overlaps, cross-branch bookings, two checked-in lines in one room, existing blocks, inactive parents, OUT_OF_SERVICE assignment targets and conflicting block/deactivation writes. A CLEANING room can retain a non-overlapping future BOOKED assignment but cannot check in until READY.
