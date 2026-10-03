@@ -51,55 +51,63 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
-### 26 September 2026 — M2-S24 forward correction for M2-S03
+### 3 October 2026 — M2-S07 catalogue API core (partial; auth/audit dependency pending)
 
-- Preserved the completed `m2_002_booking.sql` migration as historical evidence, as required by SRS §6.6. Added `backend/migrations/m2_006_booking_room_line.sql` to create the normalized per-room booking line with UUIDv7 keys, restricted booking FK, half-open date ordering, positive guest count, exact non-negative LKR `numeric(12,2)` snapshot, five line statuses, timestamps and a booking/status/date lookup index.
-- The migration backfills exactly one line from every valid legacy booking, preserving dates, guest count, rate, status and audit timestamps. It deliberately allows multiple lines per booking. Legacy header fields and `booking_status_history` remain until M2-S25/S26/S27 can preserve histories, rekey assignments and safely remove duplication.
-- Added `backend/tests/m2RoomLines.test.cjs` and `test:m2-room-lines`. One test applies the complete existing Member 2 migration chain plus M2-S24 in a clean scratch schema; the other upgrades five populated legacy states, verifies one preserved line per booking, adds a second line and rejects invalid date/count/rate/FK/UUID cases.
-- Verification: `npm run test:m2-room-lines --workspace backend` passed (2 tests), `npm run build:backend`, `node --check backend/tests/m2RoomLines.test.cjs` and `git diff --check` passed. Tests rolled back their scratch schemas; no application database was changed.
-- Remaining handoffs: M2-S25 must add immutable line status/revision history, M2-S26 must rekey assignments and actual occupancy, and M2-S27 must retire duplicated header fields only after consumers migrate. Member 1's real parent migrations and ordered runner remain integration prerequisites.
-- Lecture concepts applied: normalization moves repeating room facts to a child relation; PK/FK and CHECK constraints protect entity, referential and domain integrity; exact `numeric` preserves money; the upgrade and tests use transaction rollback so schema/data changes are atomic and leave no scratch state.
+- Added `backend/src/services/catalogueService.ts`, `controllers/catalogueController.ts` and `routes/catalogueRoutes.ts`. They implement room-type and amenity create/read/update/deactivate flows, literal substring search, active filtering, atomic room-type amenity replacement, strict request validation, parameterized values, safe error responses and complete-request retry responses for `40P01`/`40001`.
+- Catalogue writes reuse the M2-S06/M2-S28 database guards, so active-assignment deactivation and unsafe capacity reductions return a conflict while rate changes affect only the catalogue. Existing room-line `rate_snapshot`, terminal lines and assignment history remain unchanged. Each operation uses a transaction; optional `PG_SCHEMA` isolation uses transaction-local `search_path` so pooled connections do not leak session state.
+- Added `backend/tests/m2CatalogueApi.test.ts` and `test:m2-catalogue-api`. The isolated HTTP/database test covers Chain Manager writes, all five forbidden staff roles, authenticated guest/auditor reads, create/read/update/deactivate and search, unknown/invalid input, amenity links, literal injection-shaped search text, price-snapshot persistence, deactivation/capacity conflicts and successful deactivation after assignment closure. The focused suite, M2-S02/M2-S06/M2-S28 regressions and backend build pass.
+- M2-S07 remains unchecked. Member 1 M1-S08/M1-S09 has not supplied authenticated-session/read/Chain Manager middleware, so `createCatalogueRouter` is not mounted in `index.ts`; the test-only authorization handlers are not production authentication. Member 1's M1-S06 audit-writing contract is also pending, so catalogue-change audit integration and authenticated end-to-end AT-24 evidence remain open. Lecture concepts applied: parameterized selection, joins/JSON aggregation, transaction atomicity, row-lock conflict handling and transaction-local session state.
+
+### 3 October 2026 — M2-S28 capacity and room-type edit guards
+
+- Added `backend/migrations/m2_006_capacity_type_edit_guards.sql`. It extends the M2-S06 assignment target validator to lock and read the assigned room type's capacity, rejects assignments or BOOKED line guest-count edits above that capacity, rejects a capacity reduction below any current BOOKED/CHECKED_IN assigned line's guest count, and rejects `room.room_type_id` changes while that room has such an assignment.
+- Preserved terminal line values, agreed `rate_snapshot` values and closed assignment rows. Valid capacity changes that continue to accommodate current lines, plus capacity/type changes after valid assignment closure, remain allowed. The guard uses M2-S06's line→booking→room→branch→room-type assignment path; catalogue updates serialize on the room-type row and room type changes serialize on the room row.
+- Added `backend/tests/m2CapacityTypeGuards.test.cjs` and `test:m2-capacity-guards`. The two suites cover schema objects, direct invalid and valid AT-27 cases, assignment/guest-count capacity checks, unchanged terminal history and three two-session directions: booking before capacity reduction, booking before room-type change and capacity reduction before booking.
+- Verification passed: `npm run test:m2-capacity-guards --workspace backend` (2 tests), all M2-S02–S06 suites (9 regression tests), `node --check backend/tests/m2CapacityTypeGuards.test.cjs`, `npm run build:backend` and `git diff --check`. Live preflight found zero current assignments or capacity violations; the official runner applied only `m2_006`. A read-only audit confirmed the migration record, three functions, three triggers and guest-count revalidation. Lecture concepts applied: ACID conflict rollback, row-lock serialization, consistent lock ordering, trigger-enforced cross-table integrity and reuse of the existing B-tree access paths.
+
+### 2 October 2026 — M2-S06 reservation lifecycle and concurrency guards
+
+- Added `backend/migrations/m2_005_reservation_integrity_guards.sql`. Immediate triggers lock and recheck the line, booking, target room, branch and room type for open assignments; room blocks lock the target room; room, branch and room-type updates recheck current assignments. The guards reject half-open date overlaps, cross-branch bookings, two checked-in lines in one room, existing blocks, inactive parents, OUT_OF_SERVICE assignment targets and conflicting block/deactivation writes. A CLEANING room can retain a non-overlapping future BOOKED assignment but cannot check in until READY.
+- Added initially deferred constraint triggers so a multi-table transaction may temporarily close/open assignments or update status/history in steps, while commit requires exactly one occupancy-consistent open assignment for BOOKED/CHECKED_IN lines, none for terminal lines and a continuous status-history chain. Added monotonic append-only assignment-history protection. Capacity reduction and room-type reassignment remain M2-S28.
+- Added `room_block_room_dates_idx` and `room_room_type_idx` for the new conflict/deactivation paths, plus `backend/tests/m2ReservationGuards.test.cjs` and `test:m2-guards`. The four suites cover valid two-room bookings and adjacent stays, invalid direct writes, both assignment/block conflict directions, lifecycle/history/occupancy, parent state, and two-session overlapping-reservation, booking-versus-block and booking-versus-branch-deactivation races.
+- Verification passed: `npm run test:m2-guards --workspace backend` (4 tests), all four earlier M2 migration suites (5 regression tests), `node --check backend/tests/m2ReservationGuards.test.cjs`, `npm run build:backend` and `git diff --check`. Preflight found zero live room lines/assignments/history; the official runner applied only `m2_005`. A live read-only audit confirmed its migration record, functions, immediate and initially deferred triggers, supporting indexes and unchanged zero reservation rows.
+- Lock/retry handoff: multi-line callers process line and room UUIDs in deterministic order; SQLSTATE `23514`/`23505` are non-retryable business conflicts, while `40P01`/`40001` require a bounded retry of the whole transaction. Lecture concepts applied: ACID transaction-end consistency, isolation by shared-row locking, serializable conflict outcomes, deferred constraint checking, B-tree access paths and half-open interval predicates.
+
+### 2 October 2026 — M2-S05 line-based room assignment history
+
+- Added `backend/migrations/m2_004_booking_room_assignment.sql`. It creates UUIDv7 `booking_room_assignment` rows with required `line_id` and `room_id` foreign keys, assignment decision timestamps, nullable actual occupancy timestamps, strict timestamp ordering and restricted parent deletion. It deliberately has no `booking_id` or `room.booking_id` compatibility pointer.
+- Added a partial unique B-tree index for at most one open assignment per line, a line-history index and a non-unique room/open index. Room-level uniqueness is deliberately absent because separate non-overlapping future lines may use the same room; M2-S06 will enforce date overlap, active-line lifecycle, same-branch, block, parent-active and checked-in occupancy rules under concurrency.
+- Added `backend/tests/m2Assignments.test.cjs` and `test:m2-assignments`. The test applies M2-S02–S05 in isolated PostgreSQL schemas, proves multiple open room lines under one booking, validates history and negative constraints, and uses two sessions to show simultaneous open assignments for one line serialize and reject the loser with unique-violation SQLSTATE `23505`.
+- Verification passed: `npm run test:m2-assignments --workspace backend` (2 tests), all three earlier Member 2 migration tests, `npm run build:backend`, `node --check backend/tests/m2Assignments.test.cjs` and `git diff --check`. The official runner then applied only `m2_004` to the configured `public` schema. A live read-only audit confirmed the exact seven columns, required checks/FKs/indexes, migration records `m2_001`–`m2_004` and zero assignment rows.
+- Lecture concepts applied: normalized temporal association history, typed PK/FK referential integrity, partial unique and supporting B-tree indexes, and an ACID two-session concurrency test of the database-enforced invariant.
+
+### 2 October 2026 — application database synchronized through M2-S04
+
+- Rechecked the configured PostgreSQL 18.6 `public` schema before mutation. All existing Member 2 tables were empty, no external foreign keys or dependent views referenced them, and no `m2_*` migration versions were recorded. Removed the incomplete manually created Member 2 objects and obsolete `booking_status_enum`/`room_status_enum` in one transaction under the migration advisory lock, without `CASCADE`; the transaction would have rolled back on any unexpected dependency or nonempty table.
+- Ran the official ordered migration runner. It applied `m2_001_room_catalogue.sql`, `m2_002_booking.sql` and `m2_003_room_inventory.sql`, recording `m2_001`–`m2_003`. The runner also applied the pending repository-owned `m1_004_billing_policy_mock.sql`, `m4_001_invoice_and_lines.sql` and `m4_002_payment.sql`; no Member 2 migration beyond M2-S04 exists or was applied.
+- Live read-only catalog verification passed: all nine M2-S02–S04 tables exist; booking headers have no room-specific fields; `room.booking_id`, `booking_room_assignment`, `booking_status_history` and legacy enums are absent; the three target enums, three query indexes, append-only history function/triggers and migration records match the current SQL.
+- Verification: `npm run test:m2-catalogue --workspace backend`, `npm run test:m2-booking --workspace backend`, `npm run test:m2-rooms --workspace backend` and `npm run build:backend` passed. At that synchronization stage, M2-S05 onward was unimplemented.
+- Lecture concepts applied: dependency-ordered referential integrity, normalized booking/room-line relations, atomic reset and rollback, migration bookkeeping, and indexes plus triggers for efficient access and append-only temporal evidence.
+
+### 2 October 2026 — retired correction-task documentation cleanup
+
+- Removed all retired correction-task rows from Member 2's active checklist because their scopes are already represented by the direct normalized M2-S03/M2-S04 design or the future M2-S05 assignment task.
+- Updated Member 4's invoice dependency to the actual room-line provider, M2-S03, and replaced the historical correction-task range with a general description. No migration, application code or database object changed.
+- Verification: repository-wide search found no remaining references to the removed task IDs, and `git diff --check` passed.
+
+### 29 September 2026 — direct normalized reset through M2-S04
+
+- At Imandi's explicit direction, removed the temporary single-room compatibility implementation rather than retaining it as migration history. This reset was safe because all prior Member 2 database tests used rolled-back scratch schemas and no Member 2 migration had been applied to the application database.
+- Rewrote `m2_002_booking.sql` so M2-S03 directly creates the guest/reference/channel-only booking header, multiple separately dated/priced `booking_room_line` rows, five line states and append-only line status/revision histories. It never creates booking-header stay dates, guest count, rate, status, actual occupancy, room pointer or `booking_status_history`.
+- Rewrote `m2_003_room_inventory.sql` so M2-S04 directly creates branch-scoped rooms and dated blocks without `room.booking_id` and with only READY/CLEANING/OUT_OF_SERVICE physical conditions. Removed the temporary post-S04 correction migrations, tests and scripts; at that point the active Member 2 chain stopped at M2-S04 and later implementation tasks remained pending.
+- Verification: `npm run test:m2-booking --workspace backend` passed (1 multi-room schema/constraint test), `npm run test:m2-rooms --workspace backend` passed (1 target room/block schema/constraint test), and `npm run test:m2-catalogue --workspace backend` passed (1 regression test). `npm run build:backend`, `node --check backend/tests/m2Booking.test.cjs`, `node --check backend/tests/m2Rooms.test.cjs` and `git diff --check` passed. The database tests used rolled-back PostgreSQL 18 scratch schemas; no application database was changed.
+- Lecture concepts applied: normalization places repeating room facts under `booking_room_line`; PK/FK and CHECK constraints enforce entity, referential and domain integrity; append-only child histories preserve temporal evidence; exact `numeric(12,2)` protects rates; transactional scratch-schema tests leave no persistent database changes.
 
 ### 25 September 2026 — M2-S01 amended handoff confirmation
 
 - Imandi confirmed that Members 1, 3, 4 and 5 agree to the amended multi-room reservation handoff. Updated the M2-S01 contract, Member 2 and Member 1 handoffs, shared ownership summary, SRS §6.1.8/Appendix C and project memory to record that confirmation without claiming implementation or completion of another member's task.
 - Verification: read the current SRS, M2-S01 contract, member checklists and legacy migrations; checked the documentation diff and whitespace. No SQL, application code or database state changed, so runtime tests/builds were not run for this documentation-only update.
-- Remaining handoffs: Members 2–4 still need a precise lock order, transaction and retry contract before M2-S06; owner-specific Appendix C checks, formal ER/evaluator review and the corrective migrations remain open.
-
-### 20 September 2026 — M2-S06
-
-- Added `backend/migrations/m2_005_assignment_guards.sql`. A non-unique partial `(room_id, booking_id)` index supports open-room checks; assignment writes and booking date/status changes acquire transaction advisory locks derived from room UUIDs. `m2_lock_room_ids(uuid[])` sorts distinct IDs for multi-room operations, and the overlap guard compares active BOOKED/CHECKED_IN stays as half-open PostgreSQL `daterange` values so adjacent stays remain valid.
-- Added deferred constraint triggers over `booking`, `booking_room_assignment` and `room`. They validate the final transaction state: every active booking has exactly one open assignment, terminal bookings have none, a CHECKED_IN booking owns its assigned OCCUPIED room pointer, and other bookings own no pointer. Deferral permits coordinated check-in, checkout, cancellation and reassignment writes inside one transaction while rejecting invalid commits.
-- Added `backend/tests/m2Guards.test.cjs` and `test:m2-guards`. Direct-write cases reject overlaps, overlapping date edits, invalid pointer/status combinations, missing active assignments and terminal open assignments; adjacent stays and coordinated valid transitions pass. A committed scratch schema and two sessions verify that the second simultaneous overlapping room assignment blocks on the room lock and then receives SQLSTATE `23P01` after the first commits.
-- Verification: `npm run test:m2-guards --workspace backend` passed (2 tests). The M2-S02 catalogue, M2-S03 booking, M2-S04 room and M2-S05 assignment suites all passed (5 regression tests total across those commands). `npm run build:backend`, `node --check backend/tests/m2Guards.test.cjs` and `git diff --check` passed. Scratch schemas were rolled back or removed; no migration was applied to the application schema.
-- Remaining handoffs: Member 1's real parent migrations and ordered runner are still required. M2-S09/M2-S10 own availability and booking APIs, including capacity/block checks and safe conflict/retry responses. Members 3/4 still own atomic transition procedures, status histories, authorization/audit integration and their separate business gates.
-- Lecture concepts applied: half-open interval predicates, supporting partial indexes, deferred integrity checks for atomic multi-table state, transaction-scoped locks, deterministic lock ordering and two-session ACID concurrency verification.
-
-### 20 September 2026 — M2-S05
-
-- Added `backend/migrations/m2_004_booking_room_assignment.sql` for the approved ER extension. It creates UUIDv7 assignment IDs, required restricted FKs to `booking` and `room`, UTC `timestamptz` assignment events, a close-after-open check and a partial unique index on `booking_id` where `unassigned_at IS NULL`.
-- Added `backend/tests/m2Assignments.test.cjs` and `test:m2-assignments`. The isolated chain applies M2-S02 through M2-S05 with minimal Member 1 fixtures, verifies metadata/index shape, retains the first closed row after reassignment, allows a second open row only after the first closes, and rejects duplicate-open, invalid timestamp, missing/null FK and non-v7 ID cases. Restricted booking/room deletion is also checked.
-- The focused concurrency case uses two transactions: the second open assignment waits on the first transaction's partial-unique-index entry, then receives SQLSTATE `23505` after the first commits. The test confirmed exactly one open row. Transaction-local search paths are used because the configured endpoint performs transaction pooling; the committed scratch schema required for two-session visibility is removed in `finally`.
-- Verification: `npm run test:m2-assignments --workspace backend` passed (2 tests), and the M2-S02 catalogue, M2-S03 booking and M2-S04 room regression commands each passed (1 test). `npm run build:backend`, `node --check backend/tests/m2Assignments.test.cjs` and `git diff --check` passed. No migration was applied to the application schema.
-- Remaining handoffs: Member 1's real parent migrations and ordered runner are still required. M2-S06 must enforce active-booking/exactly-one lifecycle behavior, same-room stay-date conflicts and `room.booking_id` synchronization with Members 3/4; M2-S05 intentionally does not add a one-open-row-per-room rule.
-- Lecture concepts applied: normalized temporal history, a partial unique B-tree index as an integrity constraint, referential integrity with restricted deletion, and ACID isolation demonstrated through two concurrent transactions.
-
-### 19 September 2026 — M2-S04
-
-- Added `backend/migrations/m2_003_room_inventory.sql` with the approved five-value room-status enum, Table 40's `room` and `room_block` attributes, UUIDv7 checks, active/AVAILABLE defaults, a nullable current-stay `booking_id`, nonblank room numbers, `(branch_id, room_number)` uniqueness, required nonblank block reasons and half-open block intervals enforced by `end_date > start_date`.
-- Added restricted room FKs to Member 1's `branch`, M2-S02 `room_type` and M2-S03 `booking`, plus restricted room-block FKs to `room` and Member 1's actor `user_account`. No assignment table, overlap rule, current-pointer trigger, API or UI work was included.
-- Added `backend/tests/m2Rooms.test.cjs` and `test:m2-rooms`. The rolled-back test schema creates minimal Member 1 parents, applies M2-S02 through M2-S04 in order, checks column and enum metadata, accepts a null and valid booking pointer, permits the same room number in different branches, and rejects same-branch duplicates, blank values, invalid room states, non-v7 IDs, missing branch/type/booking/room/actor FKs, invalid block intervals and deletion of a room with a block.
-- Verification: `npm run test:m2-rooms --workspace backend`, `npm run test:m2-booking --workspace backend` and `npm run test:m2-catalogue --workspace backend` each passed (1 test each). `npm run build:backend`, `node --check backend/tests/m2Rooms.test.cjs` and `git diff --check` passed. The scratch schema rolled back, so the application schema was not modified.
-- Remaining handoffs recorded at that time: Member 1 still had to supply matching `branch` and `user_account` migrations in the ordered chain. M2-S05 was pending durable assignments, and M2-S06 still owned assignment overlaps and current-pointer enforcement.
-- Lecture concepts applied: candidate/composite uniqueness for branch-scoped room numbers, typed referential integrity with restricted parent deletion, normalized master/event tables, domain checks for valid intervals, and ACID rollback for isolated migration verification.
-
-### 19 September 2026 — M2-S03
-
-- Added `backend/migrations/m2_002_booking.sql` with named booking-channel and booking-status enums, Table 40's `booking` and `booking_status_history` attributes, UUIDv7 PK checks, unique nonblank booking references, valid stay and actual-time ordering, positive guest counts, non-negative finite LKR `numeric(12,2)` snapshots, approved status-transition rows, and restricted FKs to Member 1's guest/user keys and booking history parent.
-- Added `backend/tests/m2Booking.test.cjs` and the `test:m2-booking` script. The isolated transaction creates minimal `guest` and `user_account` parent fixtures, verifies schema types and exact enum labels, accepts a valid booking/initial history row, and rejects bad date order, counts, rates, references, UUID versions, enum labels, transitions, guest/actor IDs and history FKs. The first database run exposed SQL `NULL`/`UNKNOWN` behavior in the transition check; requiring the full predicate to be `IS TRUE` fixed it.
-- Verification: `npm run test:m2-booking --workspace backend` passed (1 test), `npm run test:m2-catalogue --workspace backend` passed (1 regression test), `npm run build:backend`, `node --check backend/tests/m2Booking.test.cjs` and `git diff --check` passed. Both database tests used scratch schemas and rolled back, so no migration was applied to the application schema.
-- Remaining handoffs recorded at that time: the real ordered migration chain still needed Member 1's `guest` and `user_account` tables with matching UUID keys. Booking APIs and operational inserts were deferred until assignment and transaction safeguards were available.
-- Lecture concepts applied: typed primary/foreign keys and referential integrity, user-defined enumerated domains, exact fixed-point rate snapshots, check constraints including SQL three-valued logic, normalized status-history events and transaction rollback for isolated verification.
+- Remaining handoffs: Members 2–4 still need a precise lock order, transaction and retry contract before the future M2-S06; owner-specific Appendix C checks and formal ER/evaluator review remain open. No corrective migration path remains.
 
 ### 18 September 2026 — M2-S01 and M2-S02
 
@@ -115,8 +123,39 @@ No entries yet.
 
 ## Member 4 — Chamikara
 
-No entries yet.
+### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
+- Created PostgreSQL migrations for `invoice` and `invoice_line` tables in `backend/migrations/m4_001_invoice_and_lines.sql`.
+- Added constraints to enforce exactly one invoice per booking (`invoice_booking_id_unique`).
+- Implemented `DRAFT`/`FINAL` transition rules: unassigned `invoice_number` and `issued_at` during DRAFT, requiring them at FINAL.
+- Implemented constraints for line signs (negative DISCOUNT, signed adj, non-negative standard charges) and exact LKR `numeric(14,2)` bounds.
+- Added triggers `trg_check_cross_booking_line` to block cross-booking line attribution, and `trg_reject_final_invoice_edits` to prevent modification of lines linked to FINAL invoices.
+- Created `m1_004_billing_policy_mock.sql` to support foreign key dependencies for tests.
+- Provided PL/pgSQL validation script `backend/tests/m4_s02_schema_test.sql` covering invalid line configurations, cross-booking updates, missing FKs, duplicate rows, and FINAL immutability.
+
+### 01 October 2026 — M4-S03 (Payment and Refund Schema)
+- Created PostgreSQL migration for `payment` in `backend/migrations/m4_002_payment.sql`:
+  - Created enums `payment_kind_enum` ('PAYMENT', 'REFUND'), `payment_status_enum` ('SUCCESSFUL', 'FAILED', 'REVERSED'), and `payment_method_enum` ('CASH', 'BANK_TRANSFER') per SRS Table 40, §4.7.3, and §6.1.4.
+  - Created `payment` table with UUIDv7 PK (`uuid_extract_version = 7`), `booking_id` FK to `booking(booking_id)` ON UPDATE/DELETE RESTRICT, `recorded_by` FK to `user_account(user_id)` ON UPDATE/DELETE RESTRICT.
+  - Added positive LKR `numeric(14,2)` amount check (`amount > 0 AND amount <> 'NaN'::numeric`), non-blank trimmed reference check (`btrim(reference) <> ''`), and unique constraint on `reference`.
+  - Created B-tree indexes `idx_payment_booking_id` and `idx_payment_recorded_by`.
+  - Added trigger `trg_enforce_payment_immutability`: strictly prohibits DELETE operations on payment records, blocks mutation of critical payment attributes (`payment_id`, `booking_id`, `amount`, `kind`, `method`, `reference`, `paid_at`, `recorded_at`), and allows status transitions only from `SUCCESSFUL` to `REVERSED`.
+  - Added trigger `trg_audit_payment`: automatically captures `CREATE` and `REVERSE` events in `audit_log` with entity details and timestamps when `audit_log` exists.
+- Added TypeScript model `backend/src/models/payment.ts` exposing `PaymentKind`, `PaymentStatus`, `PaymentMethod`, and `Payment` interface.
+- Added automated test suite `backend/tests/m4Payment.test.cjs` and registered `"test:m4-payment"` in `backend/package.json`. Tests cover column inventory, UUIDv7 generation/rejection (v4 and nil), valid CASH PAYMENT, valid BANK_TRANSFER REFUND, valid FAILED payment, invalid kinds/amounts/statuses/methods, missing/empty/whitespace references, duplicate references, FK violations, parent deletion restriction, status transition immutability, attribute mutation rejection, DELETE rejection, and audit log generation.
+- Added PL/pgSQL validation script `backend/tests/m4_s03_schema_test.sql`.
+- Verification:
+  - `npm run test:m4-payment --workspace backend` passed (1 test with 14 comprehensive test blocks).
+  - Regression suite passed: `test:m1-identity`, `test:m1-guests`, `test:m2-booking`, `test:m2-rooms`, `test:m2-catalogue`, `test:migrations`.
+  - Full 10-migration ordered chain apply verified against an isolated temporary PostgreSQL schema with idempotency verification on re-run.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - Entity integrity via UUIDv7 primary keys and version verification checks (`01_Introduction_to_SQL.md`).
+  - Domain integrity and value domains with custom PostgreSQL enums and domain CHECK constraints for positive amounts and trimmed non-blank references (`02_Intermediate_SQL.md`).
+  - Referential integrity via type-matched foreign keys to `booking` and `user_account` with `ON UPDATE RESTRICT ON DELETE RESTRICT` (`02_Intermediate_SQL.md`).
+  - B-tree indexing on foreign key columns and unique candidate keys for efficient queries and join operations (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Immutability and financial audit preservation using BEFORE/AFTER triggers to reject deletions/arbitrary mutations and write immutable audit trail records (`03_Advanced_SQL.md`).
 
 ## Member 5 — Thusath
 
 No entries yet.
+
