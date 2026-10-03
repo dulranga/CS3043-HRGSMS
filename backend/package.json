@@ -22,7 +22,8 @@
         "test:m4-invoice": "node --test tests/m4InvoiceLifecycle.test.cjs",
         "test:m4-api": "node --import tsx --test tests/m4InvoiceApi.test.cjs",
         "test:m4-posting": "node --test tests/m4PaymentPosting.test.cjs",
-        "test:m4-payment-api": "node --import tsx --test tests/m4PaymentApi.test.cjs"
+        "test:m4-payment-api": "node --import tsx --test tests/m4PaymentApi.test.cjs",
+        "test:m4-checkout": "node --import tsx --test tests/m4CheckoutTransaction.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",

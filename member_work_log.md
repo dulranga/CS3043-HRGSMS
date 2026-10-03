@@ -321,6 +321,51 @@ No entries yet.
   - Safe error handling and database state translation preventing internal implementation leakage while providing actionable client feedback (`01_Introduction_to_SQL.md`, `03_Advanced_SQL.md`).
   - Data integrity and scale validation (`numeric(14,2)`) before and during database transactional execution (`02_Intermediate_SQL.md`).
 
+### 03 October 2026 — M4-S09 (One-Line Checkout Transaction Engine)
+- Created mock migration `backend/migrations/m3_002_room_status_history_mock.sql` satisfying external dependency Member 3 M3-S18:
+  - Table `room_status_history` per SRS Table 40 (`room_history_id`, `room_id`, `old_status`, `new_status`, `changed_at`, `changed_by`, `reason`) with UUIDv7 PK, immutability trigger `trg_enforce_room_status_history_immutability`, and B-tree index `idx_room_status_history_room_id`.
+  - Stored function `fn_set_room_condition(p_room_id, p_new_condition, p_changed_by, p_reason)` updating room operational status and appending history only on actual condition changes, with guard rejecting `OUT_OF_SERVICE` transitions when active `BOOKED` or `CHECKED_IN` lines exist (DBR-037).
+- Created PostgreSQL migration `backend/migrations/m4_007_checkout_transaction.sql`:
+  - `fn_checkout_room_line(p_booking_id, p_line_id, p_actor_id, p_reason)`: implements the core one-line checkout transaction adhering to SRS §4.8, Table 24/25 (FR-059–FR-061), Table 44 (DBR-015, DBR-018), and Table 45:
+    1. Locks rows in strict deterministic order: `booking` → `invoice` → `booking_room_line` → `booking_room_assignment` → `room` to guarantee deadlock-free execution.
+    2. Validates line belongs to booking and is currently in `CHECKED_IN` status; throws `23514` if line is already `CHECKED_OUT`, `BOOKED`, or terminal.
+    3. Blocks checkout if the booking invoice is already in `FINAL` state (`55000`).
+    4. Consolidated Zero-Balance Gate: checks `fn_outstanding_balance(p_booking_id)`. If balance > 0, raises `23514` with unsettled balance amount; if balance < 0, raises `23514` with unrefunded credit amount.
+    5. Ends actual occupancy segment: updates `booking_room_assignment` setting `occupied_to = v_checkout_time` and `unassigned_at = v_checkout_time`.
+    6. Transitions line status to `CHECKED_OUT` with `updated_at = v_checkout_time`.
+    7. Appends immutable status history row to `booking_room_line_status_history` (`CHECKED_IN` → `CHECKED_OUT`) maintaining continuous history chain.
+    8. Transitions room physical condition to `CLEANING` via Member 3's internal condition operation `fn_set_room_condition`, recording `room_status_history`.
+    9. Audits checkout event to `audit_log` if available.
+    10. Evaluates remaining active lines (`status IN ('BOOKED', 'CHECKED_IN')`):
+        - If active lines remain (`remaining_active_lines > 0`): retains invoice in `DRAFT` status and returns provisional statement reference `PROV-YYYYMMDD-XXXXXXXX`.
+        - If all lines are terminal (`remaining_active_lines = 0`): executes `fn_issue_final_invoice` assigning unique number `INV-YYYYMMDD-XXXXX` and `issued_at`.
+    11. Returns checkout execution record table.
+  - Stored procedure `sp_checkout_booking(p_booking_id, p_line_id, p_actor_id, p_reason)` implementing Table 45 procedure.
+- Implemented TypeScript model and service:
+  - `backend/src/models/checkout.ts`: defines `CheckoutLineParams`, `CheckoutResult`, and `CheckoutReceipt`.
+  - `backend/src/services/checkoutService.ts`: exposes `checkoutRoomLine(db, params)` returning structured checkout receipt with room condition and invoice/provisional details.
+- Added automated integration test suite `backend/tests/m4CheckoutTransaction.test.cjs` and registered `"test:m4-checkout"` in `backend/package.json`:
+  1. Scenario 1: Positive balance due blocks checkout (`23514` with outstanding balance message).
+  2. Scenario 2: Negative unrefunded credit blocks checkout (`23514`), and checkout succeeds once refunded.
+  3. Scenario 3 & 4: Multi-room booking: partial checkout of Line A leaves invoice in `DRAFT` with provisional statement reference; subsequent checkout of Line B finalizes invoice with sequential number (`INV-`).
+  4. Scenario 5: Injected transaction failure rolls back all checkout changes (line remains `CHECKED_IN`, room remains `READY`, assignment remains open).
+  5. Scenario 6: Repeated checkout on already `CHECKED_OUT` line fails (`23514`).
+  6. Scenario 7: Checkout on `BOOKED` line fails (`23514`).
+  7. Scenario 8: Cross-booking line mismatch fails (`23514`).
+  8. Scenario 9: Stored procedure `sp_checkout_booking` executes cleanly.
+  9. Scenario 10: TypeScript `checkoutRoomLine` service returns formatted receipt.
+- Verification:
+  - `npm run test:m4-checkout --workspace backend` passed (1 test with 10 subtests, 100% pass rate).
+  - Migration runner test `test:migrations` passed (all 20 migrations apply cleanly in isolated schema).
+  - Full regression suite passed: `test:m4-payment-api`, `test:m4-posting`, `test:m4-api`, `test:m4-invoice`, `test:m4-billing`, `test:m4-payment`.
+  - TypeScript builds compiled with 0 errors (`npm run build --workspace backend`, `npm run build --workspace frontend`).
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Pessimistic locking hierarchy (`booking` → `invoice` → `line` → `assignment` → `room`) preventing deadlocks and race conditions during multi-entity updates (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Transaction atomicity & rollback guaranteeing consistent database state during failures (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Integrity constraints and domain state-machine enforcement (`CHECKED_IN` → `CHECKED_OUT`, `READY` → `CLEANING`) across deferred triggers (`02_Intermediate_SQL.md`, `03_Advanced_SQL.md`).
+  - Exact financial balance gate preventing early departure without settlement (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
