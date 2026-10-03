@@ -158,6 +158,8 @@ For the Member 2 room-type/amenity catalogue API core, run `npm run test:m2-cata
 
 For the Member 2 own-branch room and dated room-block API core, run `npm run test:m2-room-api --workspace backend`. The isolated HTTP/database test verifies Branch Manager writes, permitted Service Staff reads, strict branch scoping, room-number uniqueness, active room-type checks, half-open block dates, cross-branch denial and affected-line conflicts for blocks, deactivation and room-type reassignment. The route factory accepts Member 1 authorization/context middleware and remains unmounted until that production middleware exists. Physical-condition changes are intentionally absent from this router until Member 3 supplies the M3-S18 audited condition operation.
 
+For the Member 2 availability function and API, run `npm run test:m2-availability --workspace backend`. Migration `m2_007` adds the parameterized `fn_available_rooms` set-returning function and an active-stay index; `GET /api/availability` accepts `branchId`, `checkIn`, `checkOut`, `guestCount`, optional `roomTypeId` and optional `immediateCheckIn` (default `false`). Results require active room/branch/type records, sufficient capacity, no overlapping block or open BOOKED/CHECKED_IN assignment and a condition other than OUT_OF_SERVICE. Immediate check-in additionally requires READY, while a non-overlapping future search may return a currently CLEANING room.
+
 ## 🔌 API Endpoints
 
 The backend runs on `http://localhost:4000` and exposes:

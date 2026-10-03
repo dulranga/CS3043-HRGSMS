@@ -5,6 +5,7 @@ import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
+import availabilityRoutes from './routes/availabilityRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -16,6 +17,7 @@ app.use('/', homeRoutes);
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', invoiceRoutes);
+app.use('/api', availabilityRoutes);
 
 // Initialize database and start server
 async function startServer(): Promise<void> {
