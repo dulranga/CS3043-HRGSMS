@@ -1,4 +1,5 @@
 import { InvoiceLineType } from '../services/billingCalculator';
+import { Payment } from './payment';
 
 export type InvoiceStatus = 'DRAFT' | 'FINAL';
 
@@ -30,4 +31,44 @@ export interface BookingBalance {
   net_paid: number;
   balance: number;
   is_settled: boolean;
+}
+
+export interface InvoiceSummary {
+  total_amount: number;
+  successful_payments: number;
+  successful_refunds: number;
+  net_payments: number;
+  outstanding_balance: number;
+  credit_amount: number;
+  is_credit: boolean;
+  is_settled: boolean;
+  is_provisional: boolean;
+}
+
+export interface InvoiceDetailResponse {
+  invoice_id: string;
+  booking_id: string;
+  billing_policy_id: string;
+  invoice_number: string | null;
+  status: InvoiceStatus;
+  is_provisional: boolean;
+  issued_at: Date | null;
+  created_at: Date;
+  lines: InvoiceLine[];
+  summary: InvoiceSummary;
+}
+
+export interface PaymentHistoryResponse {
+  booking_id: string;
+  payments: Payment[];
+  summary: {
+    successful_payments_total: number;
+    successful_refunds_total: number;
+    net_payments: number;
+    invoice_total: number;
+    outstanding_balance: number;
+    credit_amount: number;
+    is_credit: boolean;
+    is_settled: boolean;
+  };
 }

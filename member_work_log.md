@@ -211,6 +211,44 @@ No entries yet.
   - Row-level locking (`SELECT ... FOR UPDATE`) in pessimistic concurrency control to avoid race conditions during balance settlement and invoice finalization (`05_Storage_Indexing_Query_Processing_Transactions.md`).
   - Transaction atomicity and rollback semantics (`05_Storage_Indexing_Query_Processing_Transactions.md`).
 
+### 03 October 2026 — M4-S06 (Invoice Detail & Payment History Read API with Scoped Access)
+- Created PostgreSQL migration `backend/migrations/m4_005_invoice_query_indexes.sql`:
+  - Created B-tree index `idx_invoice_line_invoice_id` on `invoice_line(invoice_id)` to optimize joins and line retrieval by invoice.
+  - Created composite B-tree index `idx_payment_booking_kind_status` on `payment(booking_id, kind, status)` to accelerate payment history and net-balance aggregation queries per lecture 5 indexing recommendations.
+- Extended TypeScript models in `backend/src/models/invoice.ts`:
+  - `InvoiceSummary`: computes signed line totals, successful payments, refunds, net payments, net balance, and explicit credit flags (`is_credit: boolean`, `credit_amount: number`).
+  - `InvoiceDetailResponse`: returns invoice header, provisional flag (`is_provisional: boolean` for DRAFT status), linked billing policy, room lines with room-type details and billable nights, itemized signed invoice lines, and structured financial summary.
+  - `PaymentHistoryResponse`: itemizes payments and refunds with status, method, reference, and timestamps, alongside total payments, total refunds, net payments, and credit status.
+- Extended `backend/src/services/invoiceService.ts`:
+  - `verifyBookingAccess(db, bookingId, actor)`: resolves booking guest ID and branch ID (via assigned room or booking creator officer) and authorizes:
+    1. Online guests: permitted if `actor.guestId === booking.guest_id`. Cross-guest access rejected (403 Forbidden).
+    2. Staff officers: permitted if `actor.branchId === booking.branch_id` or if actor holds chain-wide role (`CHAIN_MANAGER`, `SYSTEM_ADMINISTRATOR`, `AUDITOR`). Cross-branch staff rejected (403 Forbidden).
+    3. Unauthenticated/unrecognized actors rejected (401 Unauthorized / 403 Forbidden).
+  - `getBookingInvoiceDetail(db, bookingId)`: fetches draft/final invoice, room lines, signed lines, and calculates financial summary with provisional and credit flags.
+  - `getBookingPaymentHistory(db, bookingId)`: aggregates payment and refund transactions, computing net payments and distinct credit labeling.
+- Implemented controllers and routes:
+  - `backend/src/controllers/invoiceController.ts`: `getBookingInvoiceHandler`, `getBookingPaymentsHandler`, `getInvoiceByIdHandler`, resolving actor context from request headers/auth.
+  - `backend/src/routes/invoiceRoutes.ts`: mounted endpoints `GET /bookings/:bookingId/invoice`, `GET /bookings/:bookingId/payments`, `GET /invoices/:invoiceId` with pluggable middleware support.
+  - Mounted router in `backend/src/index.ts` under `/api`.
+- Added automated test suite `backend/tests/m4InvoiceApi.test.cjs` and registered `"test:m4-api"` in `backend/package.json`:
+  1. Unauthenticated request rejection (401 Unauthorized).
+  2. Online guest reading own booking invoice (200 OK, `is_provisional: true` for DRAFT, signed lines match total).
+  3. Online guest cross-booking read rejection (403 Forbidden).
+  4. Own-branch staff reading booking invoice (200 OK).
+  5. Cross-branch staff read rejection (403 Forbidden).
+  6. Chain-wide staff cross-branch reading booking invoice (200 OK).
+  7. Payment and refund history retrieval with distinct credit labeling (200 OK).
+  8. Direct invoice lookup by `invoice_id` with access verification (200 OK, 403 Forbidden for cross-branch, 404 for non-existent).
+- Verification:
+  - `npm run test:m4-api --workspace backend` passed (1 test with 8 subtests).
+  - Regression suites passed: `test:m4-payment`, `test:m4-billing`, `test:m4-invoice`, `test:migrations`.
+  - Full 14-migration ordered chain apply verified against an isolated temporary PostgreSQL schema.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+- Lecture concepts applied:
+  - B-tree indexing on foreign key join targets and multi-attribute filter predicates (`idx_invoice_line_invoice_id`, `idx_payment_booking_kind_status`) for query optimization (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Efficient multi-table relational join processing with parameterized SQL avoiding SQL injection (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
+  - Least privilege access control and ownership-based authorization enforcing branch and guest tenancy boundaries (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
