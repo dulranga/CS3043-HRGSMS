@@ -6,7 +6,7 @@ const test = require('node:test');
 const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const migration = readFileSync(
+const bookingMigration = readFileSync(
   path.join(__dirname, '..', 'migrations', 'm2_002_booking.sql'),
   'utf8',
 );
@@ -25,7 +25,7 @@ async function expectSqlError(client, sql, values, code) {
   }
 }
 
-test('M2-S03 booking migration and constraints in a clean isolated schema', async () => {
+test('M2-S03 creates the direct multi-room booking schema', async () => {
   assert.ok(process.env.PG_URL, 'PG_URL must point to a PostgreSQL 18 test-capable database');
   const client = new Client({ connectionString: process.env.PG_URL });
   const schema = `m2_booking_test_${randomBytes(8).toString('hex')}`;
@@ -35,9 +35,6 @@ test('M2-S03 booking migration and constraints in a clean isolated schema', asyn
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
     await client.query(`SET LOCAL search_path TO "${schema}", public`);
-
-    // M2-S03 consumes these Member 1 keys. These minimal parents exist only in
-    // the rolled-back test schema and are not substitutes for Member 1's migrations.
     await client.query(`
       CREATE TABLE user_account (
         user_id uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -50,234 +47,231 @@ test('M2-S03 booking migration and constraints in a clean isolated schema', asyn
           CHECK ((uuid_extract_version(guest_id) = 7) IS TRUE)
       );
     `);
-    await client.query(migration);
+    await client.query(bookingMigration);
 
-    const columns = await client.query(
-      `SELECT table_name, column_name, data_type, udt_name,
-              character_maximum_length, numeric_precision, numeric_scale,
-              is_nullable, column_default
+    const bookingColumns = await client.query(
+      `SELECT column_name
          FROM information_schema.columns
-        WHERE table_schema = $1
-          AND table_name IN ('booking', 'booking_status_history')
-        ORDER BY table_name, ordinal_position`,
+        WHERE table_schema = $1 AND table_name = 'booking'
+        ORDER BY ordinal_position`,
       [schema],
     );
     assert.deepEqual(
-      columns.rows.map(({ table_name, column_name }) => `${table_name}.${column_name}`),
+      bookingColumns.rows.map((row) => row.column_name),
       [
-        'booking.booking_id', 'booking.booking_ref', 'booking.check_in_date',
-        'booking.check_out_date', 'booking.booking_channel', 'booking.guest_count',
-        'booking.rate_snapshot', 'booking.status', 'booking.actual_check_in',
-        'booking.actual_check_out', 'booking.created_at', 'booking.updated_at',
-        'booking.guest_id', 'booking.created_by',
-        'booking_status_history.history_id', 'booking_status_history.old_status',
-        'booking_status_history.new_status', 'booking_status_history.changed_at',
-        'booking_status_history.reason', 'booking_status_history.booking_id',
-        'booking_status_history.changed_by',
+        'booking_id', 'booking_ref', 'booking_channel', 'created_at',
+        'updated_at', 'guest_id', 'created_by',
       ],
     );
+    for (const legacyColumn of [
+      'check_in_date', 'check_out_date', 'guest_count', 'rate_snapshot',
+      'status', 'actual_check_in', 'actual_check_out', 'room_id',
+    ]) {
+      assert.equal(
+        bookingColumns.rows.some((row) => row.column_name === legacyColumn),
+        false,
+        `${legacyColumn} must not exist on the booking header`,
+      );
+    }
 
-    const rateColumn = columns.rows.find(
-      (row) => row.table_name === 'booking' && row.column_name === 'rate_snapshot',
+    const lineColumns = await client.query(
+      `SELECT column_name, data_type, udt_name, numeric_precision, numeric_scale
+         FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'booking_room_line'
+        ORDER BY ordinal_position`,
+      [schema],
     );
+    assert.deepEqual(
+      lineColumns.rows.map((row) => row.column_name),
+      [
+        'line_id', 'booking_id', 'stay_start_date', 'stay_end_date',
+        'guest_count', 'rate_snapshot', 'status', 'created_at', 'updated_at',
+      ],
+    );
+    const rateColumn = lineColumns.rows.find((row) => row.column_name === 'rate_snapshot');
     assert.equal(rateColumn.data_type, 'numeric');
     assert.equal(rateColumn.numeric_precision, 12);
     assert.equal(rateColumn.numeric_scale, 2);
-    for (const field of ['actual_check_in', 'actual_check_out', 'created_at', 'updated_at']) {
-      assert.equal(
-        columns.rows.find(
-          (row) => row.table_name === 'booking' && row.column_name === field,
-        ).data_type,
-        'timestamp with time zone',
-      );
-    }
     assert.equal(
-      columns.rows.find(
-        (row) => row.table_name === 'booking_status_history' && row.column_name === 'changed_at',
-      ).data_type,
-      'timestamp with time zone',
-    );
-    assert.equal(
-      columns.rows.find(
-        (row) => row.table_name === 'booking' && row.column_name === 'booking_channel',
-      ).udt_name,
-      'booking_channel_enum',
-    );
-    assert.equal(
-      columns.rows.find(
-        (row) => row.table_name === 'booking' && row.column_name === 'status',
-      ).udt_name,
-      'booking_status_enum',
-    );
-    assert.equal(
-      columns.rows.find(
-        (row) => row.table_name === 'booking_status_history' && row.column_name === 'old_status',
-      ).is_nullable,
-      'YES',
+      lineColumns.rows.find((row) => row.column_name === 'status').udt_name,
+      'booking_room_line_status_enum',
     );
 
     const enumLabels = await client.query(
-      `SELECT type.typname, enum.enumlabel
+      `SELECT enum.enumlabel
          FROM pg_type AS type
          JOIN pg_enum AS enum ON enum.enumtypid = type.oid
          JOIN pg_namespace AS namespace ON namespace.oid = type.typnamespace
         WHERE namespace.nspname = $1
-          AND type.typname IN ('booking_channel_enum', 'booking_status_enum')
-        ORDER BY type.typname, enum.enumsortorder`,
+          AND type.typname = 'booking_room_line_status_enum'
+        ORDER BY enum.enumsortorder`,
       [schema],
     );
-    assert.deepEqual(enumLabels.rows, [
-      { typname: 'booking_channel_enum', enumlabel: 'DIRECT_ONLINE' },
-      { typname: 'booking_channel_enum', enumlabel: 'FRONT_DESK' },
-      { typname: 'booking_channel_enum', enumlabel: 'PHONE' },
-      { typname: 'booking_channel_enum', enumlabel: 'EMAIL' },
-      { typname: 'booking_status_enum', enumlabel: 'BOOKED' },
-      { typname: 'booking_status_enum', enumlabel: 'CHECKED_IN' },
-      { typname: 'booking_status_enum', enumlabel: 'CHECKED_OUT' },
-      { typname: 'booking_status_enum', enumlabel: 'CANCELLED' },
-      { typname: 'booking_status_enum', enumlabel: 'NO_SHOW' },
-    ]);
+    assert.deepEqual(
+      enumLabels.rows.map((row) => row.enumlabel),
+      ['BOOKED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW'],
+    );
 
     const actor = await client.query(
       'INSERT INTO user_account DEFAULT VALUES RETURNING user_id',
     );
-    const actorId = actor.rows[0].user_id;
     const guest = await client.query('INSERT INTO guest DEFAULT VALUES RETURNING guest_id');
+    const actorId = actor.rows[0].user_id;
     const guestId = guest.rows[0].guest_id;
     const booking = await client.query(
       `INSERT INTO booking (
-         booking_ref, check_in_date, check_out_date, booking_channel,
-         guest_count, rate_snapshot, guest_id, created_by
-       ) VALUES ('SKY-20260919-0001', DATE '2026-10-01', DATE '2026-10-03',
-                 'FRONT_DESK', 2, 12500.005, $1, $2)
-       RETURNING booking_id, rate_snapshot, status, actual_check_in,
-                 actual_check_out, created_at, updated_at`,
+         booking_ref, booking_channel, guest_id, created_by
+       ) VALUES ('MULTI-ROOM-001', 'FRONT_DESK', $1, $2)
+       RETURNING booking_id`,
       [guestId, actorId],
     );
     const bookingId = booking.rows[0].booking_id;
-    assert.equal(booking.rows[0].rate_snapshot, '12500.01');
-    assert.equal(booking.rows[0].status, 'BOOKED');
-    assert.equal(booking.rows[0].actual_check_in, null);
-    assert.equal(booking.rows[0].actual_check_out, null);
-    assert.ok(booking.rows[0].created_at instanceof Date);
-    assert.ok(booking.rows[0].updated_at instanceof Date);
 
-    const history = await client.query(
-      `INSERT INTO booking_status_history (
-         booking_id, old_status, new_status, changed_by, reason
-       ) VALUES ($1, NULL, 'BOOKED', $2, 'Booking created')
-       RETURNING history_id, old_status, new_status, changed_at`,
-      [bookingId, actorId],
+    const firstLine = await client.query(
+      `INSERT INTO booking_room_line (
+         booking_id, stay_start_date, stay_end_date, guest_count, rate_snapshot
+       ) VALUES ($1, '2026-10-01', '2026-10-04', 2, 15000.005)
+       RETURNING line_id, rate_snapshot, status`,
+      [bookingId],
     );
-    const historyId = history.rows[0].history_id;
-    assert.equal(history.rows[0].old_status, null);
-    assert.equal(history.rows[0].new_status, 'BOOKED');
-    assert.ok(history.rows[0].changed_at instanceof Date);
-
-    const versions = await client.query(
-      `SELECT uuid_extract_version($1::uuid) AS booking_version,
-              uuid_extract_version($2::uuid) AS history_version`,
-      [bookingId, historyId],
+    const secondLine = await client.query(
+      `INSERT INTO booking_room_line (
+         booking_id, stay_start_date, stay_end_date, guest_count, rate_snapshot
+       ) VALUES ($1, '2026-10-02', '2026-10-06', 3, 22000)
+       RETURNING line_id`,
+      [bookingId],
     );
-    assert.equal(versions.rows[0].booking_version, 7);
-    assert.equal(versions.rows[0].history_version, 7);
+    assert.equal(firstLine.rows[0].rate_snapshot, '15000.01');
+    assert.equal(firstLine.rows[0].status, 'BOOKED');
+    const lineCount = await client.query(
+      'SELECT count(*)::integer AS count FROM booking_room_line WHERE booking_id = $1',
+      [bookingId],
+    );
+    assert.equal(lineCount.rows[0].count, 2);
 
-    const validBookingSql = `INSERT INTO booking (
-      booking_ref, check_in_date, check_out_date, booking_channel,
-      guest_count, rate_snapshot, guest_id, created_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+    for (const lineId of [firstLine.rows[0].line_id, secondLine.rows[0].line_id]) {
+      await client.query(
+        `INSERT INTO booking_room_line_status_history (
+           line_id, old_status, new_status, changed_by, reason
+         ) VALUES ($1, NULL, 'BOOKED', $2, 'Initial reservation')`,
+        [lineId, actorId],
+      );
+    }
 
-    await expectSqlError(client, validBookingSql,
-      ['BAD-SAME-DATE', '2026-10-01', '2026-10-01', 'PHONE', 1, 100, guestId, actorId],
-      '23514');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-DATE-ORDER', '2026-10-03', '2026-10-01', 'PHONE', 1, 100, guestId, actorId],
-      '23514');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-COUNT', '2026-10-01', '2026-10-02', 'PHONE', 0, 100, guestId, actorId],
-      '23514');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-CHANNEL', '2026-10-01', '2026-10-02', 'MARKETPLACE', 1, 100, guestId, actorId],
-      '22P02');
-    await expectSqlError(client,
-      `INSERT INTO booking (
-         booking_ref, check_in_date, check_out_date, booking_channel,
-         guest_count, rate_snapshot, status, guest_id, created_by
-       ) VALUES ('BAD-STATUS', '2026-10-01', '2026-10-02', 'PHONE',
-                 1, 100, 'PENDING', $1, $2)`,
-      [guestId, actorId], '22P02');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-GUEST', '2026-10-01', '2026-10-02', 'PHONE', 1, 100,
-        '00000000-0000-7000-8000-000000000001', actorId],
-      '23503');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-ACTOR', '2026-10-01', '2026-10-02', 'PHONE', 1, 100,
-        guestId, '00000000-0000-7000-8000-000000000002'],
-      '23503');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-RATE', '2026-10-01', '2026-10-02', 'PHONE', 1, -1, guestId, actorId],
-      '23514');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-NAN', '2026-10-01', '2026-10-02', 'PHONE', 1, 'NaN', guestId, actorId],
-      '23514');
-    await expectSqlError(client, validBookingSql,
-      ['BAD-OVERFLOW', '2026-10-01', '2026-10-02', 'PHONE', 1, 10000000000,
-        guestId, actorId],
-      '22003');
-    await expectSqlError(client, validBookingSql,
-      ['   ', '2026-10-01', '2026-10-02', 'PHONE', 1, 100, guestId, actorId],
-      '23514');
-    await expectSqlError(client, validBookingSql,
-      ['SKY-20260919-0001', '2026-10-04', '2026-10-05', 'PHONE', 1, 100,
-        guestId, actorId],
-      '23505');
-    await expectSqlError(client,
-      `INSERT INTO booking (
-         booking_id, booking_ref, check_in_date, check_out_date, booking_channel,
-         guest_count, rate_snapshot, guest_id, created_by
-       ) VALUES (uuidv4(), 'BAD-V4', '2026-10-01', '2026-10-02', 'PHONE',
-                 1, 100, $1, $2)`,
-      [guestId, actorId], '23514');
-    await expectSqlError(client,
-      `INSERT INTO booking (
-         booking_id, booking_ref, check_in_date, check_out_date, booking_channel,
-         guest_count, rate_snapshot, guest_id, created_by
-       ) VALUES ('00000000-0000-0000-0000-000000000000', 'BAD-NIL',
-                 '2026-10-01', '2026-10-02', 'PHONE', 1, 100, $1, $2)`,
-      [guestId, actorId], '23514');
-    await expectSqlError(client,
-      `INSERT INTO booking (
-         booking_ref, check_in_date, check_out_date, booking_channel,
-         guest_count, rate_snapshot, actual_check_out, guest_id, created_by
-       ) VALUES ('BAD-ACTUAL-TIMES', '2026-10-01', '2026-10-02', 'PHONE',
-                 1, 100, TIMESTAMPTZ '2026-10-02 11:00:00+00', $1, $2)`,
-      [guestId, actorId], '23514');
+    const revision = await client.query(
+      `INSERT INTO booking_room_line_revision (
+         line_id,
+         old_stay_start_date, old_stay_end_date,
+         old_guest_count, old_rate_snapshot,
+         new_stay_start_date, new_stay_end_date,
+         new_guest_count, new_rate_snapshot,
+         changed_by, reason
+       ) VALUES (
+         $1,
+         '2026-10-01', '2026-10-04', 2, 15000.01,
+         '2026-10-02', '2026-10-05', 2, 15500,
+         $2, 'Guest approved change'
+       ) RETURNING revision_id`,
+      [firstLine.rows[0].line_id, actorId],
+    );
+    assert.ok(revision.rows[0].revision_id);
 
-    await expectSqlError(client,
-      `INSERT INTO booking_status_history (booking_id, new_status, changed_by)
-       VALUES ('00000000-0000-7000-8000-000000000003', 'BOOKED', $1)`,
-      [actorId], '23503');
-    await expectSqlError(client,
-      `INSERT INTO booking_status_history (booking_id, new_status, changed_by)
-       VALUES ($1, 'BOOKED', '00000000-0000-7000-8000-000000000004')`,
-      [bookingId], '23503');
-    await expectSqlError(client,
-      `INSERT INTO booking_status_history (booking_id, old_status, new_status, changed_by)
-       VALUES ($1, NULL, 'CHECKED_IN', $2)`,
-      [bookingId, actorId], '23514');
-    await expectSqlError(client,
-      `INSERT INTO booking_status_history (booking_id, old_status, new_status, changed_by)
-       VALUES ($1, 'BOOKED', 'CHECKED_OUT', $2)`,
-      [bookingId, actorId], '23514');
-    await expectSqlError(client,
-      `INSERT INTO booking_status_history (booking_id, old_status, new_status, changed_by)
-       VALUES ($1, 'BOOKED', 'PENDING', $2)`,
-      [bookingId, actorId], '22P02');
-    await expectSqlError(client,
-      `INSERT INTO booking_status_history (
-         history_id, booking_id, new_status, changed_by
-       ) VALUES (uuidv4(), $1, 'BOOKED', $2)`,
-      [bookingId, actorId], '23514');
+    await expectSqlError(
+      client,
+      'UPDATE booking_room_line_status_history SET reason = $1',
+      ['Changed'],
+      '55000',
+    );
+    await expectSqlError(
+      client,
+      'DELETE FROM booking_room_line_revision WHERE revision_id = $1',
+      [revision.rows[0].revision_id],
+      '55000',
+    );
+
+    const validLineSql = `INSERT INTO booking_room_line (
+      booking_id, stay_start_date, stay_end_date, guest_count, rate_snapshot
+    ) VALUES ($1, $2, $3, $4, $5)`;
+    await expectSqlError(
+      client,
+      validLineSql,
+      [bookingId, '2026-11-01', '2026-11-01', 1, 100],
+      '23514',
+    );
+    await expectSqlError(
+      client,
+      validLineSql,
+      [bookingId, '2026-11-01', '2026-11-02', 0, 100],
+      '23514',
+    );
+    await expectSqlError(
+      client,
+      validLineSql,
+      [bookingId, '2026-11-01', '2026-11-02', 1, -1],
+      '23514',
+    );
+    await expectSqlError(
+      client,
+      validLineSql,
+      ['00000000-0000-7000-8000-000000000001', '2026-11-01', '2026-11-02', 1, 100],
+      '23503',
+    );
+    await expectSqlError(
+      client,
+      `INSERT INTO booking_room_line (
+         line_id, booking_id, stay_start_date, stay_end_date, guest_count, rate_snapshot
+       ) VALUES (uuidv4(), $1, '2026-11-01', '2026-11-02', 1, 100)`,
+      [bookingId],
+      '23514',
+    );
+    await expectSqlError(
+      client,
+      `INSERT INTO booking_room_line_status_history (
+         line_id, old_status, new_status, changed_by
+       ) VALUES ($1, 'CHECKED_OUT', 'BOOKED', $2)`,
+      [firstLine.rows[0].line_id, actorId],
+      '23514',
+    );
+    await expectSqlError(
+      client,
+      `INSERT INTO booking_room_line_revision (
+         line_id,
+         old_stay_start_date, old_stay_end_date,
+         old_guest_count, old_rate_snapshot,
+         new_stay_start_date, new_stay_end_date,
+         new_guest_count, new_rate_snapshot,
+         changed_by, reason
+       ) VALUES (
+         $1,
+         '2026-10-01', '2026-10-04', 2, 15000.01,
+         '2026-10-01', '2026-10-04', 2, 15000.01,
+         $2, 'No change'
+       )`,
+      [firstLine.rows[0].line_id, actorId],
+      '23514',
+    );
+    await expectSqlError(
+      client,
+      `INSERT INTO booking (
+         booking_ref, booking_channel, guest_id, created_by
+       ) VALUES ('MULTI-ROOM-001', 'PHONE', $1, $2)`,
+      [guestId, actorId],
+      '23505',
+    );
+    await expectSqlError(
+      client,
+      `INSERT INTO booking (
+         booking_ref, booking_channel, guest_id, created_by
+       ) VALUES ('BAD-CHANNEL', 'MARKETPLACE', $1, $2)`,
+      [guestId, actorId],
+      '22P02',
+    );
+    await expectSqlError(
+      client,
+      'DELETE FROM booking WHERE booking_id = $1',
+      [bookingId],
+      '23001',
+    );
   } finally {
     try {
       await client.query('ROLLBACK');
