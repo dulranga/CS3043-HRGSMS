@@ -61,6 +61,13 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 3 October 2026 — M2-S09 parameterized availability function and API
+
+- Added `backend/migrations/m2_007_available_rooms.sql` with the SRS `fn_available_rooms(branch, dates, capacity, immediate-check-in, optional room type)` set-returning function. It validates its scalar inputs and derives results from active room, branch and room-type records, sufficient capacity, physical condition, non-overlapping room blocks and open BOOKED/CHECKED_IN line assignments. Half-open comparisons permit adjacent stays; OUT_OF_SERVICE is always excluded, and CLEANING is excluded only for immediate check-in.
+- Added the partial `booking_room_line_active_stay_idx` required for active-date availability work. The existing open-assignment and room-block indexes support the function's room-scoped anti-joins. No date-dependent ordinary view or stored AVAILABLE/RESERVED condition was introduced.
+- Added `availabilityService.ts`, `availabilityController.ts` and `availabilityRoutes.ts`, mounted as `GET /api/availability`. The API validates branch/date/capacity/type/boolean query values, uses parameterized SQL inside a read-only transaction, returns room type, current base rate and active amenities, and treats omitted `immediateCheckIn` as `false`. Availability exposes no guest or booking-owner data; authentication remains required by the later booking-confirmation workflows.
+- Added `backend/tests/m2Availability.test.ts` and `test:m2-availability`. The clean-schema SQL/API suite passes for capacity, optional room type, inactive room/branch/type, OUT_OF_SERVICE, current CLEANING, overlapping and adjacent blocks/assignments, closed history, BOOKED/CHECKED_IN states, active amenities and invalid/injection-shaped inputs. M2-S06 and M2-S28 regressions and the backend build also pass. Lecture concepts applied: parameterized set-returning functions, relational `NOT EXISTS` anti-joins, derived data, half-open interval predicates and a workload-specific partial index.
+
 ### 3 October 2026 — M2-S08 room and room-block API core (partial; auth/audit/condition dependencies pending)
 
 - Added `backend/src/services/roomInventoryService.ts`, `controllers/roomInventoryController.ts` and `routes/roomInventoryRoutes.ts`. They implement parameterized own-branch room reads/writes and dated room-block CRUD, strict request validation, half-open date validation, active parent checks and transaction-scoped schema selection. Branch identity and actor identity come from an injected authenticated request context rather than request bodies.
