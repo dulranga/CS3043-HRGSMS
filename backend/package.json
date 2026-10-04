@@ -17,6 +17,7 @@
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
         "test:m2-guards": "node --test tests/m2Guards.test.cjs",
         "test:m3-service-catalogue": "node --test tests/m3ServiceCatalogue.test.cjs",
+        "test:m3-service-catalogue-api": "node --import tsx --test tests/m3ServiceCatalogueApi.test.cjs",
         "test:m3-room-status-history": "node --test tests/m3RoomStatusHistory.test.cjs",
         "test:m3-service-usage": "node --test tests/m3ServiceUsage.test.cjs"
     },

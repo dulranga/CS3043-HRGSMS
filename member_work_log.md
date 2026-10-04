@@ -122,6 +122,14 @@ Record actual project-task work here for all five members, including partial or 
 - Verification/build still need to run. M3-S04 remains unchecked because the TBD-08 precision review and Member 2's final line/checked-in guard contract remain open; price capture itself belongs to the later service-usage recording procedure/API.
 - Lecture concepts applied: normalized service events avoid repeating catalogue details, exact numeric preserves charge snapshots, foreign keys protect referential integrity, and transactional rollback keeps focused schema tests side-effect free.
 
+### 04 October 2026 — M3-S05
+
+- Implemented the chain-wide service catalogue API in `backend/src/controllers/serviceController.ts` and `backend/src/routes/serviceRoutes.ts`, and mounted the router in `backend/src/index.ts` at `/api/services`.
+- Enforced the role gate: only `CHAIN_MANAGER` can create or update the shared `service` catalogue; read access supports optional `active=true/false` filtering; field and price validation rejects invalid values; catalogue updates leave historical `service_usage.unit_price_snapshot` records unchanged.
+- Added `backend/tests/m3ServiceCatalogueApi.test.cjs` and the `test:m3-service-catalogue-api` script. The isolated schema test verifies CHAIN_MANAGER create/update success, FRONT_DESK rejection, filtering and validation flow, and scratch-schema rollback.
+- Verification: `npm run test:m3-service-catalogue-api` passed (1 test). `git diff --check` was also run and remained clean.
+- Remaining handoff: the next task is per-line check-in and room-status transition orchestration, not catalogue editing itself.
+
 ## Member 4 — Chamikara
 
 No entries yet.
