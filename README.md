@@ -162,6 +162,8 @@ For the Member 2 availability function and API, run `npm run test:m2-availabilit
 
 For the Member 2 staff booking-create core, run `npm run test:m2-booking-create --workspace backend`. Migration `m2_008` adds `sp_create_booking`, which rechecks the selected rooms, catalogue rates and latest published production billing policy inside one transaction, then creates one booking header, all room lines, status histories, room assignments and Member 4's DRAFT invoice atomically. The authorization-injected route factory provides quote and confirmation endpoints for own-branch Front Desk staff. It remains unmounted until Member 1 supplies the M1-S08/M1-S09 production authentication, role and branch context middleware; therefore M2-S10 remains incomplete even though its transaction and isolated API coverage pass.
 
+For the Member 2 staff booking list/detail core, run `npm run test:m2-booking-read --workspace backend`. The authorization-injected route factory provides `GET /api/bookings` with bounded pagination and `GET /api/bookings/:bookingId`. Both derive scope exclusively from the authenticated Front Desk branch context; list rows aggregate line summaries so a multi-room booking appears once, while detail responses include every current or terminal room line plus complete status, revision and physical-room assignment histories. Out-of-branch IDs return the same not-found response as unknown IDs. The router remains unmounted until Member 1 supplies the production M1-S08/M1-S09 middleware, so M2-S11 remains incomplete.
+
 ## 🔌 API Endpoints
 
 The backend runs on `http://localhost:4000` and exposes:
