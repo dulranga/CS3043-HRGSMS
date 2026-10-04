@@ -130,6 +130,14 @@ Record actual project-task work here for all five members, including partial or 
 - Verification: `npm run test:m3-service-catalogue-api` passed (1 test). `git diff --check` was also run and remained clean.
 - Remaining handoff: the next task is per-line check-in and room-status transition orchestration, not catalogue editing itself.
 
+### 04 October 2026 — M3-S06
+
+- Implemented `backend/src/services/checkInService.ts` for target per-line check-in. The transaction locks the booking, selected line, open line assignment and assigned room in deterministic order, validates the BOOKED state, stay date, single open assignment and READY physical condition, then sets only that line to CHECKED_IN and records its `occupied_from` instant.
+- The service writes exactly one `booking_room_line_status_history` row and one `audit_log` row, leaves the room condition unchanged, and rolls back all writes on any later failure.
+- Validated with `npm run test:m3-check-in`: 3 tests passed covering partial check-in with another line still BOOKED, non-READY rejection without mutation, and forced audit failure rollback. `npm run build` remains blocked by the existing `pg` declaration/implicit-any errors in `src/db.ts` and `src/migrations/migrate.ts`.
+- M3-S06 remains a production handoff item until Member 2's M2-S25/M2-S26 corrective migrations provide `booking_room_assignment.line_id`, actual occupancy columns and the target line-history contract; the focused tests use an isolated fixture for that agreed target schema.
+- Lecture concepts applied: ACID atomicity and rollback for the multi-table transition, row-level locking with deterministic lock order, and normalized line/assignment occupancy instead of a stored room booking pointer.
+
 ## Member 4 — Chamikara
 
 No entries yet.
