@@ -410,6 +410,64 @@ No entries yet.
   - Integrity constraints and domain state-machine enforcement (`CHECKED_IN` → `CHECKED_OUT`, `READY` → `CLEANING`) across deferred triggers (`02_Intermediate_SQL.md`, `03_Advanced_SQL.md`).
   - Exact financial balance gate preventing early departure without settlement (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
 
+### 04 October 2026 — M4-S10 (Line-Specific Checkout REST API with Branch & Role Guards)
+- Implemented line-specific checkout REST API endpoints in `backend/src/controllers/checkoutController.ts`, `backend/src/routes/checkoutRoutes.ts`, and mounted them in `backend/src/index.ts`:
+  - `POST /api/bookings/:bookingId/lines/:lineId/checkout`: executes atomic one-line checkout for the target room line.
+  - `POST /api/bookings/:bookingId/checkout`: supports line checkout with `lineId` / `bookingRoomLineId` provided in the request body.
+  - `GET /api/bookings/:bookingId/lines/:lineId/checkout`: inspects existing checkout receipt and statement details for a checked-out line.
+- Implemented robust staff authorization and branch isolation guard (`verifyStaffCheckoutAccess` in `backend/src/services/checkoutService.ts`):
+  - Unauthenticated requests reject with `401 Unauthorized` (`AUTHENTICATION_REQUIRED`).
+  - Online guests (`guest_account`) reject with `403 Forbidden` (`FORBIDDEN`), upholding SRS §4.8 operational staff boundary.
+  - Non-checkout staff roles (`SERVICE_STAFF`, `AUDITOR`) reject with `403 Forbidden` (`FORBIDDEN`).
+  - Front desk (`FRONT_DESK`) and branch managers (`BRANCH_MANAGER`) are strictly restricted to bookings in their own branch (`403 Forbidden` if cross-branch).
+  - Chain-wide management roles (`CHAIN_MANAGER`, `SYSTEM_ADMINISTRATOR`) possess universal operational authority across all branches.
+  - Safe identifier parsing: checks regex `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i` to distinguish UUIDs from human-readable booking references (`booking_ref`), preventing PostgreSQL `22P02` invalid uuid input syntax exceptions.
+- Implemented explicit repeated-request behavior:
+  - Default repeated checkout on already `CHECKED_OUT` line returns `409 Conflict` (`LINE_ALREADY_CHECKED_OUT`) along with existing checkout details.
+  - Idempotent repeated request (`?idempotent=true` query flag or `idempotency-key` header) returns `200 OK` with existing checkout receipt and `{ repeated: true }`.
+- Comprehensive error translation preventing internal schema/exception leakage:
+  - Maps database and business validation errors to clean HTTP error codes: `400` (`OUTSTANDING_BALANCE_DUE`, `UNREFUNDED_CREDIT_REMAINING`, `INVALID_LINE_STATUS`, `LINE_BOOKING_MISMATCH`, `NO_OPEN_ASSIGNMENT`, `INVALID_LINE_ID`, `MISSING_LINE_ID`), `404` (`BOOKING_NOT_FOUND`, `ROOM_LINE_NOT_FOUND`), and `409` (`LINE_ALREADY_CHECKED_OUT`, `INVOICE_ALREADY_FINAL`).
+- Updated `backend/migrations/m4_004_invoice_lifecycle.sql`:
+  - Added `AND NOT is_demo` to `sp_create_draft_invoice` query selecting effective billing policy, guaranteeing that demonstration policies (`is_demo=true`) are excluded from production bookings per Member 1 billing policy contract.
+- Created automated integration test suite `backend/tests/m4CheckoutApi.test.cjs` and registered script `"test:m4-checkout-api"` in `backend/package.json`:
+  1. Subtest 1: Unauthenticated request without actor headers fails with 401 (`AUTHENTICATION_REQUIRED`).
+  2. Subtest 2: Online guest cannot perform staff checkout (403 `FORBIDDEN`).
+  3. Subtest 3: Service staff cannot perform checkout (403 `FORBIDDEN`).
+  4. Subtest 4: Auditor cannot perform checkout (403 `FORBIDDEN`).
+  5. Subtest 5: Cross-branch Front Desk cannot checkout other branch stay (403 `FORBIDDEN`).
+  6. Subtest 6: Non-existent booking ID fails with 404 (`BOOKING_NOT_FOUND`).
+  7. Subtest 7: Malformed room line ID fails with 400 (`INVALID_LINE_ID`).
+  8. Subtest 8: Non-existent line UUID fails with 404 (`ROOM_LINE_NOT_FOUND`).
+  9. Subtest 9: Line belonging to another booking fails with 400 (`LINE_BOOKING_MISMATCH`).
+  10. Subtest 10: Line in `BOOKED` status fails with 400 (`INVALID_LINE_STATUS`).
+  11. Subtest 11: Positive balance due blocks checkout with 400 (`OUTSTANDING_BALANCE_DUE`).
+  12. Subtest 12: Negative unrefunded credit blocks checkout with 400 (`UNREFUNDED_CREDIT_REMAINING`).
+  13. Subtest 13: Partial checkout of Line A succeeds, keeps invoice `DRAFT` with provisional ref (`PROV-`).
+  14. Subtest 14: Final checkout of Line B finalizes invoice and assigns sequential invoice number (`INV-`).
+  15. Subtest 15: Repeated checkout on already `CHECKED_OUT` line fails with 409 Conflict (`LINE_ALREADY_CHECKED_OUT`).
+  16. Subtest 16: Idempotent repeat request (`?idempotent=true`) returns 200 OK with existing receipt and `repeated: true`.
+  17. Subtest 17: Booking reference in URL resolves cleanly and executes checkout.
+  18. Subtest 18: `GET /bookings/:bookingId/lines/:lineId/checkout` reads existing checkout receipt.
+- Verification:
+  - `npm run test:m4-checkout-api --workspace backend` passed (18/18 subtests, 100% pass rate).
+  - All regression test suites passed cleanly:
+    - `npm run test:m4-checkout --workspace backend` (10/10 scenarios passed)
+    - `npm run test:m4-payment-api --workspace backend` (15/15 subtests passed)
+    - `npm run test:m4-posting --workspace backend` (10/10 scenarios passed)
+    - `npm run test:m4-api --workspace backend` (8/8 scenarios passed)
+    - `npm run test:m4-invoice --workspace backend` (11/11 scenarios passed)
+    - `npm run test:m4-billing --workspace backend` (1/1 passed)
+    - `npm run test:m4-payment --workspace backend` (1/1 passed)
+    - `npm run test:migrations --workspace backend` (3/3 passed)
+  - TypeScript builds compiled with 0 errors:
+    - `npm run build --workspace backend`
+    - `npm run build --workspace frontend`
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Principle of least privilege and role-based access control (`03_Advanced_SQL.md`).
+  - Multi-tenant data isolation and tenancy boundary enforcement (`03_Advanced_SQL.md`).
+  - Idempotent API state transitions and safe error translation (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.

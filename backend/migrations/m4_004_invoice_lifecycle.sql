@@ -186,6 +186,7 @@ BEGIN
       FROM billing_policy
      WHERE effective_from <= CURRENT_DATE
        AND created_at <= CURRENT_TIMESTAMP
+       AND NOT is_demo
      ORDER BY effective_from DESC, created_at DESC, billing_policy_id DESC
      LIMIT 1;
 
