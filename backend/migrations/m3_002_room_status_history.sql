@@ -1,6 +1,6 @@
 -- M3-S03: immutable physical room-condition history.
 
-CREATE TYPE room_condition_enum AS ENUM (
+CREATE TYPE room_condition AS ENUM (
     'READY',
     'CLEANING',
     'OUT_OF_SERVICE'
@@ -9,8 +9,8 @@ CREATE TYPE room_condition_enum AS ENUM (
 CREATE TABLE room_status_history (
     room_history_id uuid PRIMARY KEY DEFAULT uuidv7(),
     room_id uuid NOT NULL,
-    old_status room_condition_enum NOT NULL,
-    new_status room_condition_enum NOT NULL,
+    old_status room_condition NOT NULL,
+    new_status room_condition NOT NULL,
     changed_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     changed_by uuid NOT NULL,
     CONSTRAINT room_status_history_uuidv7_check
