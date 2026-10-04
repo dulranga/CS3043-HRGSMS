@@ -28,8 +28,9 @@
         "test:m4-invoice": "node --test tests/m4InvoiceLifecycle.test.cjs",
         "test:m4-api": "node --import tsx --test tests/m4InvoiceApi.test.cjs",
         "test:reports": "node --test tests/m5_reports.test.cjs",
-        "test:admin": "node --test tests/m5_admin.test.cjs",
-        "test:all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs"
+        "test:m5-admin": "node --test tests/m5_admin.test.cjs",
+        "test:m5-all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs",
+        "test:m5-reports-reconciliation": "node --test tests/m5_reports_reconciliation.test.cjs"
     },
     "dependencies": {
         "express": "^4.21.0",
