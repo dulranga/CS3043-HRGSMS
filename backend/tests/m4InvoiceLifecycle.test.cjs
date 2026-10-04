@@ -37,7 +37,8 @@ test('M4-S05: Audited DRAFT invoice lifecycle, balance calculation, and single F
       'm1_001_create_branch_and_role.sql',
       'm1_002_create_user_account_and_officer.sql',
       'm1_003_create_guest_and_guest_account.sql',
-      'm1_004_billing_policy_mock.sql',
+      'm1_004_create_audit_log.sql',
+      'm1_005_create_billing_policy.sql',
       'm2_001_room_catalogue.sql',
       'm2_002_booking.sql',
       'm3_001_service_usage_mock.sql',
@@ -66,6 +67,9 @@ test('M4-S05: Audited DRAFT invoice lifecycle, balance calculation, and single F
     const roleRes = await client.query(`SELECT role_id FROM role WHERE role_name = 'FRONT_DESK' LIMIT 1;`);
     const roleId = roleRes.rows[0].role_id;
 
+    const roleCMRes = await client.query(`SELECT role_id FROM role WHERE role_name = 'CHAIN_MANAGER' LIMIT 1;`);
+    const cmRoleId = roleCMRes.rows[0].role_id;
+
     const userRes = await client.query(`
       INSERT INTO user_account (username, password_hash)
       VALUES ('frontdesk_m4', 'hash123')
@@ -77,6 +81,18 @@ test('M4-S05: Audited DRAFT invoice lifecycle, balance calculation, and single F
       INSERT INTO officer (officer_id, full_name, role_id, branch_id)
       VALUES ($1, 'Front Desk Staff', $2, $3);
     `, [userId, roleId, branchId]);
+
+    const cmUserRes = await client.query(`
+      INSERT INTO user_account (username, password_hash)
+      VALUES ('cm_m4', 'hash123')
+      RETURNING user_id;
+    `);
+    const cmUserId = cmUserRes.rows[0].user_id;
+
+    await client.query(`
+      INSERT INTO officer (officer_id, full_name, role_id, branch_id)
+      VALUES ($1, 'Chain Manager Staff', $2, $3);
+    `, [cmUserId, cmRoleId, branchId]);
 
     const guestRes = await client.query(`
       INSERT INTO guest (full_name, email, phone, nic)
@@ -147,7 +163,7 @@ test('M4-S05: Audited DRAFT invoice lifecycle, balance calculation, and single F
         1500.00, 3000.00, 2500.00, 1,
         false, $1
       ) RETURNING billing_policy_id;
-    `, [userId]);
+    `, [cmUserId]);
     const policyId = polRes.rows[0].billing_policy_id;
 
     // =========================================================================

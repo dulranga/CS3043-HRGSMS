@@ -40,4 +40,40 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Mem
 
 ## Completion notes
 
-When checking a row, add a brief evidence note here and the detailed entry under Member 3 in `member_work_log.md`. No subtasks are marked complete by this plan.
+When checking a row, add a brief evidence note here and the detailed entry under Member 3 in `member_work_log.md`. Implemented cores remain partial until their owner reviews and production authentication acceptance checks pass.
+
+### M3-S01 evidence note - 29 September 2026
+
+Published an initial target transaction proposal in [M2-S01](m2_s01_reservation_contract.md). The 5 October reconciliation supersedes its invoice-last ordering with Member 4's implemented booking/invoice/line/assignment/room order, and confirms that the normalized Member 2 baseline is already implemented. Per-line check-in, occupancy, condition-history ownership and rollback remain the operational boundaries. M3-S01 stays unchecked pending its separate owner confirmation.
+
+### M3-S02 evidence note - 29 September 2026
+
+Added `m3_004_service_catalogue.sql` and a focused isolated-schema test. The migration creates the chain-wide `service` catalogue with UUIDv7 IDs, nonblank name/category, non-negative finite LKR `numeric(12,2)` price, active state and UTC timestamps; service names are unique per FR-043. The test covers rounding, negative/NaN/overflow prices, invalid UUIDs, blank values, duplicate names, inactive rows and scratch-schema rollback. M3-S02 remains unchecked until the TBD-08 owner review is recorded.
+
+### M3-S03 evidence note - 30 September 2026
+
+Added `m3_005_room_status_history.sql` and a focused isolated-schema test. The migration reuses Member 2's `room_condition_enum` with READY/CLEANING/OUT_OF_SERVICE, creates UUIDv7 room-history rows with restricted `room` and `user_account` foreign keys, rejects no-op transitions, indexes room history by room/time, and blocks UPDATE/DELETE mutations through an append-only trigger. M3-S03 remains unchecked until Member 2's implemented M2-S04 room-condition contract and the shared owner review are complete.
+
+### M3-S04 evidence note - 30 September 2026
+
+Added `m3_003_service_usage.sql` and a focused isolated-schema test. The migration creates service-usage events with UUIDv7 IDs, exact positive `numeric(10,2)` quantities, non-negative LKR `numeric(12,2)` price snapshots, optional room-line attribution, booking/service/actor FKs, booking/time/service indexes, and consistent void metadata. A trigger requires a checked-in line from the same booking for room-specific usage and at least one checked-in line for booking-wide usage. M3-S04 remains unchecked until the TBD-08 owner review and Member 2's final line/checked-in guard contract are recorded.
+
+### M3-S06 evidence note - 04 October 2026
+
+Implemented `backend/src/services/checkInService.ts` for the target per-line check-in transaction. The service locks the booking, selected line, open line assignment and physical room in order; validates the BOOKED state, hotel stay date, exactly one open assignment and physical READY condition; sets only the selected line to CHECKED_IN; starts `occupied_from`; writes one line-status history row and one audit row; and commits or rolls back atomically. It leaves the room READY and writes no room-status history row when the physical condition is unchanged. The focused `test:m3-check-in` suite passes all three cases: partial check-in, non-READY rejection and forced rollback. M3-S06 remains unchecked until production authentication and the remaining shared owner reviews and the M3-S01/M3-S03 shared contracts are applied to the production migration chain.
+
+### M3-S07 evidence note - 04 October 2026
+
+Added `backend/src/controllers/checkInController.ts` and `backend/src/routes/checkInRoutes.ts`, exposing `POST /api/bookings/:bookingRef/lines/:lineId/checkin`. The controller resolves the booking line and assigned room, authorizes active staff from the database, permits Front Desk/Branch Manager only within their own branch and chain-wide manager/administrator roles across branches, then runs `checkInRoomLine` on one pooled transaction client. It maps authentication, branch, wrong-line, repeated-state, room-readiness and assignment conflicts to stable JSON error codes. Resolved the existing `backend/src/index.ts` merge conflict while preserving all service, reporting, invoice, payment, checkout and availability routes. Added `backend/tests/m3CheckInApi.test.cjs` and the `test:m3-check-in-api` script. Both API tests pass for authorized same-branch/repeated check-in and cross-branch denial.
+
+### M3-S08 evidence note - 05 October 2026
+
+Added `backend/src/controllers/activeStayController.ts` and `backend/src/routes/activeStayRoutes.ts`, exposing `GET /api/stays/:bookingRef`. The read API accepts a booking reference or UUID, reuses database-backed booking access authorization, joins only CHECKED_IN lines to open assignments with non-null `occupied_from` and null `occupied_to`, and returns each current room separately with line, room, branch and occupancy details. Future BOOKED lines and closed/non-occupied assignments are excluded, and cross-branch staff reads are denied. Added `backend/tests/m3ActiveStayApi.test.cjs` and the `test:m3-active-stay` script. Verification: 2 focused tests passed and `npm run build` completed successfully.
+
+### Current reconciliation note — 5 October 2026
+
+The former M2 correction-task prerequisites are retired: M2-S03/S04/S05 directly create the normalized parents, conditions and assignments; M2-S06 and M2-S28 supply the active lifecycle, inventory and capacity/type guards. The current Member 3 migrations preserve the published mock keys and upgrade them as `m3_003` usage, `m3_004` catalogue and `m3_005` history. Existing service snapshots, room histories, reason fields and Member 4's checkout hook are retained.
+
+The check-in core now compares SQL-formatted stay dates with the server's Asia/Colombo date after locks are acquired and uses one actual instant for occupancy/history/audit. A client-supplied stayDate cannot check in a future or expired line. The protected API cores consume only verified `req.user` actors through authorization-injected route factories and remain unmounted pending M1-S08/S09. M3-S07/S08 are returned to unchecked because their earlier fixture-based completion notes did not satisfy production authentication and full prerequisite acceptance. This reconciliation does not complete M3-S01, M3-S18 or later service/UI tasks.
+
+`test:m3-current-baseline` verifies the complete numbered migration chain, mock upgrades without lost data, M2-created multi-room bookings, M3 check-in/history/occupancy and M4 partial checkout together. The unnumbered Member 5 `audit_and_config.sql` remains a separate production-runner gap outside this authorized scope.

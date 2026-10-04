@@ -61,6 +61,31 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 5 October 2026 — Imandi/dev conflict reconciliation
+
+- Started an uncommitted merge of the verified dev tip and retained both the existing M2-S11 core and Member 3 implementations. Resolved the package test-script conflict without losing either member's scripts; removed committed conflict markers in the ownership summary and replaced stale operational handoffs with the implemented normalized M2-S03–S06/S28 baseline and checkout lock order.
+- Corrected the M2-S11 test's booking function call with explicit UUID/channel/JSON argument casts so same-named functions in public cannot create ambiguous overload resolution. Its isolated suite passes; M2 creation, availability, catalogue/room APIs and reservation/capacity/type concurrency regressions also pass. Backend and frontend builds pass.
+- A verification mistake applied 13 pending migrations to public through the existing runner's session-scoped schema selection on a transaction pool. The system_config replacement erased its prior rows; the user confirmed no snapshot/previous-value record is available. Three legacy values were recovered from audit evidence, but the original state cannot be proven/restored. The full incident, remaining owner gaps and human Git handoff are in `conflict_resolution_handoff.md`. No speculative restoration, commit or publication was performed. Task checkboxes remain unchanged.
+- The user then identified main as a previous snapshot. Verified main at `1a30682d50bfdc65c8e5ee5076683515c852d4a17`; its tracked inventory contains source/migrations/tests and no live database dump/configuration snapshot. It already contains m1_006, so source history does not restore the erased configuration. No branch checkout or database restoration was performed. Git reports no unmerged paths or conflict markers; the resolution is staged and remains uncommitted.
+
+### 4 October 2026 — M2-S11 staff booking list/detail API core (partial; production auth pending)
+
+- Added `backend/src/services/bookingReadService.ts` with parameterized own-branch booking reads. `listStaffBookings` returns each header once with guest details, line-status counts and overall stay bounds; its branch predicate requires at least one assignment in the authorized branch and rejects any booking containing an assignment from another branch. Bounded `limit`/`offset` pagination prevents unbounded list responses.
+- `getStaffBookingDetail` reads the header, every current or terminal room line, every closed/current room assignment, all line-status histories and all line revisions within one repeatable-read, read-only transaction. This gives the client one consistent nested snapshot during concurrent reservation updates. Unknown and out-of-branch booking IDs are indistinguishable to callers.
+- Added `bookingReadController.ts` and `bookingReadRoutes.ts` for `GET /bookings` and `GET /bookings/:bookingId`. The controller rejects invalid UUIDs, pagination and client-supplied branch filters. The route factory requires an injected Front Desk authorization handler and branch context; it does not trust request query/body data for branch scope.
+- Added `backend/tests/m2BookingReadApi.test.ts` and `test:m2-booking-read`. The isolated PostgreSQL/HTTP suite passes unauthenticated and wrong-role denial, branch-filtered list behavior, one header for a two-line/three-assignment booking, complete preserved room-move history, status history, cross-branch concealment, valid other-branch access and invalid input. The focused M2-S10 regression and backend TypeScript build also pass when run sequentially.
+- M2-S11 remains unchecked and its router remains unmounted because M2-S10 and Member 1's M1-S08/M1-S09 production session, Front Desk role and branch-context middleware remain incomplete. After those dependencies land, mount both booking routers and run authenticated end-to-end acceptance checks. No application database migration was needed or applied for M2-S11.
+- Lecture concepts applied: parameterized selection and joins, aggregation at booking-header granularity to prevent duplicate rows, projection into nested application DTOs, bounded pagination, reuse of existing PK/FK history indexes and repeatable-read transaction isolation for a consistent multi-query detail response.
+
+### 4 October 2026 — M2-S10 staff booking-create transaction/API core (partial; production auth pending)
+
+- Added `backend/migrations/m2_008_staff_booking_create.sql` with `sp_create_booking`. The function accepts multiple separately dated/priced room selections, validates an active own-branch Front Desk actor and guest, locks and rechecks active room/branch/type records, capacity, room blocks, overlapping assignments and current catalogue rates, and rejects stale client quotes. It selects the latest published non-demo billing policy effective on the Asia/Colombo confirmation date under a shared publication lock, so a same-date correction applies only to new bookings while existing invoice policy foreign keys remain unchanged.
+- The same database transaction creates one booking header, all BOOKED room lines, initial status histories and open assignments, then calls Member 4's `fn_create_booking_draft_invoice` and verifies the single DRAFT invoice uses the selected immutable policy. Any invalid line or downstream invoice failure rolls back the whole booking. Existing M2-S06/M2-S28 constraints remain the final concurrency guards.
+- Added `bookingCreateService.ts`, `bookingCreateController.ts` and `bookingCreateRoutes.ts` for quote and confirmation flows. Request parsing rejects unknown fields, invalid UUID/date/count/rate values, client-selected staff roles and unsupported staff channels; actor and branch identities come from injected authenticated context. Conflict responses distinguish re-quote, unavailable policy, inventory conflict and transaction retry cases.
+- Added `backend/tests/m2BookingCreateApi.test.ts` and `test:m2-booking-create`. The isolated suite passes mixed Single/Double rates and one combined invoice (AT-01), two Singles at the same rate (AT-26), missing/demo/stale/corrected policies, inactive and cross-branch inventory, rate spoofing, direct-SQL actor spoofing, all-line rollback and simultaneous same-room confirmation. M2 availability, capacity, billing-policy and invoice regression suites also pass.
+- M2-S10 remains unchecked and its router remains unmounted because Member 1's M1-S08/M1-S09 production session, Front Desk role and branch context middleware is not implemented. After that dependency lands, replace the test adapter, mount the router and run authenticated end-to-end acceptance checks. No migration was applied to the shared application database in this task.
+- Lecture concepts applied: ACID transaction atomicity, exact `numeric` rate validation, normalized header/line/history/assignment relations, parameterized SQL, consistent row-lock ordering, transaction-scoped advisory locks and database constraints as the final concurrent-write defense.
+
 ### 3 October 2026 — M2-S09 parameterized availability function and API
 
 - Added `backend/migrations/m2_007_available_rooms.sql` with the SRS `fn_available_rooms(branch, dates, capacity, immediate-check-in, optional room type)` set-returning function. It validates its scalar inputs and derives results from active room, branch and room-type records, sufficient capacity, physical condition, non-overlapping room blocks and open BOOKED/CHECKED_IN line assignments. Half-open comparisons permit adjacent stays; OUT_OF_SERVICE is always excluded, and CLEANING is excluded only for immediate check-in.
@@ -143,7 +168,75 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 3 — Kulunu
 
-No entries yet.
+### 5 October 2026 — reconcile existing M3 cores with the current Member 2 baseline
+
+- The historical entries below retain what Member 3 originally reported. Their old correction-task prerequisite claims and invoice-last proposal are superseded by this entry and the current reservation contract.
+- Retained published m3_001/m3_002 mocks and upgraded their existing tables through unique m3_003 usage, m3_004 catalogue and m3_005 history keys. Reused room_condition_enum and preserved IDs, rates, immutable history, reason fields and the existing checkout hook. No M3-S18 authorization or later usage/UI task was implemented.
+- Fixed real date-column comparison, server Asia/Colombo check-in timing and safe database-conflict responses. Protected M3 routes now require injected session middleware and verified req.user; routers remain unmounted while M1-S08/S09 is pending. M3-S07/S08 were returned to unchecked because fixture-level evidence did not complete production authentication acceptance.
+- Eleven existing M3 tests pass. Two new transaction-local isolated tests pass for the complete numbered chain, preserved mock data, real M2 booking creation, partial check-in/active occupancy and M4 checkout history. Both builds pass. Existing M4 checkout API failures and the separate production runner/database verification incident are recorded in `conflict_resolution_handoff.md`.
+- Lecture concepts applied: normalization, referential/domain integrity, exact decimal snapshots, immutable event history, atomic rollback, shared-row locking and transaction-local schema isolation. No commit or publication was performed.
+
+### 29 September 2026 — M3-S01
+
+- Published the target multi-room operational handoff in `member_tasks/m2_s01_reservation_contract.md`, the SRS §6.1.8 handoff, the Member 3 checklist and Member 4's consumer handoff.
+- Defined one transaction and deterministic lock order: booking, affected lines by `line_id`, open assignments by `assignment_id`, affected rooms by `room_id`, then the DRAFT invoice for checkout. Defined per-line check-in, actual occupancy segments, no room-history event when READY is unchanged, Member 3's physical-condition operation, Member 4's checkout delegation and full rollback behavior.
+- Explicitly excluded the current legacy booking-level status, one-open-assignment-per-booking rule and `room.booking_id` pointer from the target contract. M2/M4 confirmation remains open, so the M3-S01 checklist item is not marked complete.
+- Verification: reviewed the current M2-S24/M2-S06/M2-S05/M2-S04 migrations, SRS §4.5-§4.6 and §6.1.7-§6.1.8, M2-S01, Member 4's plan and the transaction/normalization lecture references. Documentation-only change; no database or application build was required. `git status --short` was clean before editing.
+- Lecture concepts applied: normalized line/assignment relationships remove duplicated room pointers; ACID atomicity and rollback cover the multi-table transition; deterministic lock ordering reduces deadlock risk; row-level locking and database guards protect concurrent room/assignment state.
+- Remaining handoff: Members 2 and 4 must confirm the proposed order and retry/error contract before M3-S06 and M4-S09 proceed.
+
+### 29 September 2026 — M3-S02
+
+- Added `backend/migrations/m3_001_service_catalogue.sql` for the chain-wide `service` catalogue: UUIDv7 primary key, nonblank name/category, active state, UTC `timestamptz` timestamps and non-negative finite LKR `numeric(12,2)` current price. Added a unique service-name constraint from SRS FR-043.
+- Added `backend/tests/m3ServiceCatalogue.test.cjs` and the `test:m3-service-catalogue` script. The isolated test verifies metadata, generated UUIDv7, two-decimal rounding, defaults, inactive rows, duplicate names, blank values, negative/NaN/overflow prices, invalid UUIDs and scratch-schema rollback.
+- Verification: `npm run test:m3-service-catalogue --workspace backend` passed (1 test). Backend build and final diff validation remain to run. M3-S02 stays unchecked because TBD-08 owner review is still open.
+- Lecture concepts applied: normalized chain-wide catalogue data avoids repeating service details in usage rows; exact numeric preserves historical monetary values; domain checks and unique-key integrity reject invalid catalogue states; transactional rollback keeps isolated verification side-effect free.
+
+### 30 September 2026 — M3-S03
+
+- Added `backend/migrations/m3_002_room_status_history.sql` for immutable physical room-condition history using the target `READY`, `CLEANING` and `OUT_OF_SERVICE` domain. Rows use UUIDv7 IDs, UTC `timestamptz`, restricted FKs to `room` and `user_account`, a no-op transition check and a room/time lookup index. UPDATE and DELETE are rejected by an append-only trigger.
+- Added `backend/tests/m3RoomStatusHistory.test.cjs` and the `test:m3-room-status-history` script. The isolated test covers metadata, UUIDv7 generation, valid READY/CLEANING transitions, no-op rejection, invalid status and FK rejection, immutable update/delete behavior and scratch-schema rollback.
+- Verification/build still need to run. M3-S03 remains unchecked because M2-S23 has not yet converted the legacy `room` condition column and the shared owner review remains open.
+- Lecture concepts applied: normalized event history keeps condition transitions separate from the room master row; restricted foreign keys preserve referential integrity; append-only history and transaction rollback protect audit evidence and isolated test cleanup.
+
+### 30 September 2026 — M3-S04
+
+- Added `backend/migrations/m3_003_service_usage.sql` for service usage events with UUIDv7 IDs, UTC `timestamptz` usage/record/void timestamps, positive `numeric(10,2)` quantity, non-negative LKR `numeric(12,2)` unit-price snapshots, optional `booking_room_line_id`, void metadata and restricted booking/service/actor FKs. Added required booking/time/service indexes.
+- Added a database trigger that requires a checked-in line from the same booking for room-specific usage, or any checked-in line for booking-wide usage. Added a void-consistency check so active rows have no void metadata and voided rows retain both void time and actor.
+- Added `backend/tests/m3ServiceUsage.test.cjs` and the `test:m3-service-usage` script. The isolated test covers booking-wide and room-specific inserts, fractional quantity/price rounding, cross-booking and non-checked-in attribution rejection, invalid/overflow quantity and price, void consistency and scratch-schema rollback.
+- Verification/build still need to run. M3-S04 remains unchecked because the TBD-08 precision review and Member 2's final line/checked-in guard contract remain open; price capture itself belongs to the later service-usage recording procedure/API.
+- Lecture concepts applied: normalized service events avoid repeating catalogue details, exact numeric preserves charge snapshots, foreign keys protect referential integrity, and transactional rollback keeps focused schema tests side-effect free.
+
+### 04 October 2026 — M3-S05
+
+- Implemented the chain-wide service catalogue API in `backend/src/controllers/serviceController.ts` and `backend/src/routes/serviceRoutes.ts`, and mounted the router in `backend/src/index.ts` at `/api/services`.
+- Enforced the role gate: only `CHAIN_MANAGER` can create or update the shared `service` catalogue; read access supports optional `active=true/false` filtering; field and price validation rejects invalid values; catalogue updates leave historical `service_usage.unit_price_snapshot` records unchanged.
+- Added `backend/tests/m3ServiceCatalogueApi.test.cjs` and the `test:m3-service-catalogue-api` script. The isolated schema test verifies CHAIN_MANAGER create/update success, FRONT_DESK rejection, filtering and validation flow, and scratch-schema rollback.
+- Verification: `npm run test:m3-service-catalogue-api` passed (1 test). `git diff --check` was also run and remained clean.
+- Remaining handoff: the next task is per-line check-in and room-status transition orchestration, not catalogue editing itself.
+
+### 04 October 2026 — M3-S06
+
+- Implemented `backend/src/services/checkInService.ts` for target per-line check-in. The transaction locks the booking, selected line, open line assignment and assigned room in deterministic order, validates the BOOKED state, stay date, single open assignment and READY physical condition, then sets only that line to CHECKED_IN and records its `occupied_from` instant.
+- The service writes exactly one `booking_room_line_status_history` row and one `audit_log` row, leaves the room condition unchanged, and rolls back all writes on any later failure.
+- Validated with `npm run test:m3-check-in`: 3 tests passed covering partial check-in with another line still BOOKED, non-READY rejection without mutation, and forced audit failure rollback. `npm run build` remains blocked by the existing `pg` declaration/implicit-any errors in `src/db.ts` and `src/migrations/migrate.ts`.
+- M3-S06 remains a production handoff item until Member 2's M2-S25/M2-S26 corrective migrations provide `booking_room_assignment.line_id`, actual occupancy columns and the target line-history contract; the focused tests use an isolated fixture for that agreed target schema.
+- Lecture concepts applied: ACID atomicity and rollback for the multi-table transition, row-level locking with deterministic lock order, and normalized line/assignment occupancy instead of a stored room booking pointer.
+
+### 04 October 2026 — M3-S07
+
+- Added `backend/src/controllers/checkInController.ts` and `backend/src/routes/checkInRoutes.ts`, exposing `POST /api/bookings/:bookingRef/lines/:lineId/checkin`.
+- The controller validates the booking reference and line UUID, resolves the assigned room branch, authorizes active staff from `officer`/`role`/`user_account`, enforces own-branch access for `FRONT_DESK` and `BRANCH_MANAGER`, permits chain-wide manager/administrator roles, and invokes M3-S06 through one pooled transaction client.
+- Added safe JSON error mapping for unauthenticated, invalid identifier, missing booking/line, forbidden role/branch, repeated invalid state and room/assignment conflict responses. Resolved the pre-existing `backend/src/index.ts` merge conflict while preserving the existing service, reporting, invoice, payment, checkout and availability route registrations.
+- Added `backend/tests/m3CheckInApi.test.cjs` and the `test:m3-check-in-api` script. Verification: `npm run test:m3-check-in-api` passed 2 tests; the M3-S06 regression `npm run test:m3-check-in` passed 3 tests; touched TypeScript diagnostics are clean.
+- Lecture concepts applied: least-privilege role/branch authorization, parameterized relational joins for booking-line ownership, and transaction client pinning so all check-in writes share one PostgreSQL transaction.
+
+### 05 October 2026 — M3-S08
+
+- Added `backend/src/controllers/activeStayController.ts` and `backend/src/routes/activeStayRoutes.ts`, exposing `GET /api/stays/:bookingRef`.
+- The API resolves booking references or UUIDs, reuses `verifyBookingAccess` for guest/staff branch authorization, and returns only CHECKED_IN lines joined to open assignments with active occupancy (`occupied_from IS NOT NULL` and `occupied_to IS NULL`). Each current room is returned distinctly with line, room, branch and occupancy fields; future BOOKED lines are excluded.
+- Added `backend/tests/m3ActiveStayApi.test.cjs` and the `test:m3-active-stay` script. Verification: 2 focused tests passed for two distinct active rooms/future-line exclusion and cross-branch denial; `npm run build` passed; `git diff --check` passed.
+- Lecture concepts applied: normalized line-assignment joins for derived occupancy, parameterized SQL for safe read access, and least-privilege branch authorization for staff tenancy.
 
 ## Member 4 — Chamikara
 
@@ -292,6 +385,181 @@ No entries yet.
   - B-tree indexing on foreign key join targets and multi-attribute filter predicates (`idx_invoice_line_invoice_id`, `idx_payment_booking_kind_status`) for query optimization (`05_Storage_Indexing_Query_Processing_Transactions.md`).
   - Efficient multi-table relational join processing with parameterized SQL avoiding SQL injection (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
   - Least privilege access control and ownership-based authorization enforcing branch and guest tenancy boundaries (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+
+### 03 October 2026 — M4-S07 (Locked Payment and Refund Posting Engine)
+- Created PostgreSQL migration `backend/migrations/m4_006_payment_posting.sql`:
+  - `fn_outstanding_balance(p_booking_id)`: returns signed invoice-line total minus net payments (`successful_payments - successful_refunds`), supporting both `uuid` and `text` signatures per SRS Table 45.
+  - `fn_record_payment`: acquires row-level locks in deterministic hierarchy (`booking` followed by `invoice`) to eliminate deadlocks and race conditions, re-evaluates authoritative balance under lock, enforces that PAYMENTs cannot exceed positive balance, and REFUNDs cannot exceed existing credit (`v_current_balance < 0`). Rejects payments/refunds against FINAL invoices, logs audit records, and returns itemized payment record with previous/new balance and explicit credit flags.
+  - `sp_record_payment`: implements stored procedure per SRS Table 45 with INOUT `p_payment_id`.
+  - `fn_reverse_payment`: performs locked transition of a SUCCESSFUL payment to REVERSED, preventing reversal on FINAL invoices and re-opening the balance.
+- Implemented TypeScript models and service:
+  - Extended `backend/src/models/payment.ts` with `PostPaymentParams`, `PaymentPostingResult`, and `ReversePaymentResult`.
+  - Added `backend/src/services/paymentService.ts` exposing `recordPayment`, `reversePayment`, and `getOutstandingBalance`.
+- Added automated integration test suite `backend/tests/m4PaymentPosting.test.cjs` and registered `"test:m4-posting"` in `backend/package.json`:
+  1. Three partial payments (4000.00, 5000.00, 3000.00) reconciling to exact 0.00 balance; subsequent payment rejected.
+  2. Overpayment rejection (attempting payment above positive balance throws `check_violation`).
+  3. Charge reduction creating credit (-3000.00 PRICE_ADJUSTMENT), payment rejection on credit, refund exceeding credit rejected, followed by partial (1000.00) and remaining (2000.00) manual staff refunds reconciling to exact zero.
+  4. Refund rejection on positive balance (no credit to refund).
+  5. Failed payment records stored with `FAILED` status without altering net balance.
+  6. Payment reversal (`fn_reverse_payment`) excluding payment from net paid and accurately re-opening the outstanding balance.
+  7. Duplicate reference rejection (exact and trimmed whitespace).
+  8. Stored procedure `sp_record_payment` execution and INOUT payment ID retrieval.
+  9. Posting prohibition on FINAL invoices (`object_not_in_prerequisite_state`).
+  10. Two-session concurrent payment posting (two simultaneous 4000.00 payments on 6000.00 balance) showing that pessimistic locking serializes the balance recheck and exactly one transaction succeeds while the other is rejected for overpayment.
+- Verification:
+  - `npm run test:m4-posting --workspace backend` passed (1 test with 10 subtests).
+  - Migration suite `test:migrations` passed (15 migrations applied cleanly in isolated schema).
+  - Regression suites passed: `test:m4-payment`, `test:m4-billing`, `test:m4-invoice`, `test:m4-api`.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Pessimistic concurrency control and row-level locking (`SELECT ... FOR UPDATE`) to prevent lost updates, race conditions, and overpayments on financial balances (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Strict lock acquisition ordering (`booking` then `invoice`) across transactions to guarantee deadlock-free execution (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Transaction atomicity, consistency, and state-machine transitions in PL/pgSQL procedures and functions (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Domain constraints and exact fixed-point `numeric(14,2)` arithmetic for monetary balance reconciliation (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
+
+### 03 October 2026 — M4-S08 (Payment and Refund REST API with Validation, Authorization, and Safe Error Mapping)
+- Exposed payment, refund, and payment reversal REST endpoints under `/api`:
+  - `POST /api/bookings/:bookingId/payments`: records a payment or refund against a booking with staff authorization, positive balance validation, and safe error mapping.
+  - `POST /api/bookings/:bookingId/refunds`: convenience endpoint for staff-approved manual refunds against credit balances.
+  - `POST /api/payments/:paymentId/reverse`: reverses a previously successful payment and reopens the outstanding balance.
+- Implemented staff authorization and guest isolation in `backend/src/services/paymentService.ts`:
+  - `verifyStaffPaymentAccess`: verifies the actor is a staff officer (`user_account` + `officer`). Strictly denies online guests (`guest_account`) with 403 Forbidden (`Access denied: online guests are not authorized to record staff payments or refunds`), enforcing SRS §4.7.2 FR-057 that all payments and refunds are manual staff recordings with no automated payment gateway.
+  - Restricts staff to their own branch bookings (`officer.branch_id === room.branch_id`), allowing cross-branch recording only for chain-wide roles (`CHAIN_MANAGER`, `SYSTEM_ADMINISTRATOR`, `AUDITOR`).
+  - Added `PaymentReceipt` interface and `generatePaymentReference(kind)` producing stable, sequential, formatted references (`PAY-YYYYMMDD-XXXXXX` / `REF-YYYYMMDD-XXXXXX`).
+- Implemented controllers and error mapping in `backend/src/controllers/paymentController.ts`:
+  - Strict validation: requires positive finite amount with maximum 2 decimal places (`INVALID_AMOUNT`, `INVALID_AMOUNT_PRECISION`), valid payment method (`CASH` | `BANK_TRANSFER`), valid payment kind (`PAYMENT` | `REFUND`), and valid status (`SUCCESSFUL` | `FAILED`).
+  - PostgreSQL error code mapping: maps check violations `23514` to 400 Bad Request with specific error codes (`OVERPAYMENT_NOT_ALLOWED`, `NO_OUTSTANDING_BALANCE`, `OVER_REFUND_NOT_ALLOWED`, `NO_CREDIT_TO_REFUND`), unique constraint violations `23505` to 409 Conflict (`DUPLICATE_REFERENCE`), and invalid state `55000` to 409 Conflict (`INVOICE_FINAL`) without exposing internal database stack traces.
+  - Returns comprehensive receipt payload with `is_settled` boolean flag and previous/new balances.
+- Implemented routes in `backend/src/routes/paymentRoutes.ts` and mounted under `/api` in `backend/src/index.ts`.
+- Added automated integration test suite `backend/tests/m4PaymentApi.test.cjs` and registered `"test:m4-payment-api"` in `backend/package.json`:
+  1. Unauthenticated request without actor headers rejected with 401 Unauthorized (`AUTHENTICATION_REQUIRED`).
+  2. Online guest attempt to record staff payment rejected with 403 Forbidden.
+  3. Cross-branch staff attempt rejected with 403 Forbidden.
+  4. Input validation: missing, zero, negative, excess precision (>2 decimals), invalid method (`CREDIT_CARD`), invalid kind (`CHARGE`), and invalid status (`REVERSED`) fail with 400 Bad Request.
+  5. Own-branch staff records valid partial payment (15,000.00 LKR) with auto-generated reference (201 Created).
+  6. Chain manager records partial payment (10,000.00 LKR) with explicit reference (201 Created).
+  7. Duplicate reference rejected with 409 Conflict (`DUPLICATE_REFERENCE`).
+  8. Overpayment above outstanding balance rejected with 400 Bad Request (`OVERPAYMENT_NOT_ALLOWED`).
+  9. Exact payment (15,425.00 LKR) settles balance to 0.00 (`receipt.is_settled: true`).
+  10. Payment on settled zero balance fails with 400 Bad Request (`NO_OUTSTANDING_BALANCE`).
+  11. Refund on zero balance fails with 400 Bad Request (`NO_CREDIT_TO_REFUND`).
+  12. Over-refund rejected (400 `OVER_REFUND_NOT_ALLOWED`), partial refund (3,000.00) against -6,900.00 credit succeeds, and final refund (3,900.00) settles credit to 0.00 with `REF-` references.
+  13. Payment reversal reopens outstanding balance (200 OK) with reversal receipt.
+  14. Payment reversal restrictions: already reversed (400 `INVALID_PAYMENT_STATE`), cross-branch staff (403), online guest (403).
+  15. Posting payment or refund against a FINAL invoice fails with 409 Conflict (`INVOICE_FINAL`).
+- Verification:
+  - `npm run test:m4-payment-api --workspace backend` passed (1 test with 15 subtests).
+  - Full regression suite passed: `test:m4-posting`, `test:m4-api`, `test:m4-invoice`, `test:m4-billing`, `test:m4-payment`, `test:migrations`.
+  - `npm run build:backend` and `npm run build:frontend` compiled with 0 errors.
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Role-based and branch-scoped authorization enforcing principle of least privilege (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Safe error handling and database state translation preventing internal implementation leakage while providing actionable client feedback (`01_Introduction_to_SQL.md`, `03_Advanced_SQL.md`).
+  - Data integrity and scale validation (`numeric(14,2)`) before and during database transactional execution (`02_Intermediate_SQL.md`).
+
+### 03 October 2026 — M4-S09 (One-Line Checkout Transaction Engine)
+- Created mock migration `backend/migrations/m3_002_room_status_history_mock.sql` satisfying external dependency Member 3 M3-S18:
+  - Table `room_status_history` per SRS Table 40 (`room_history_id`, `room_id`, `old_status`, `new_status`, `changed_at`, `changed_by`, `reason`) with UUIDv7 PK, immutability trigger `trg_enforce_room_status_history_immutability`, and B-tree index `idx_room_status_history_room_id`.
+  - Stored function `fn_set_room_condition(p_room_id, p_new_condition, p_changed_by, p_reason)` updating room operational status and appending history only on actual condition changes, with guard rejecting `OUT_OF_SERVICE` transitions when active `BOOKED` or `CHECKED_IN` lines exist (DBR-037).
+- Created PostgreSQL migration `backend/migrations/m4_007_checkout_transaction.sql`:
+  - `fn_checkout_room_line(p_booking_id, p_line_id, p_actor_id, p_reason)`: implements the core one-line checkout transaction adhering to SRS §4.8, Table 24/25 (FR-059–FR-061), Table 44 (DBR-015, DBR-018), and Table 45:
+    1. Locks rows in strict deterministic order: `booking` → `invoice` → `booking_room_line` → `booking_room_assignment` → `room` to guarantee deadlock-free execution.
+    2. Validates line belongs to booking and is currently in `CHECKED_IN` status; throws `23514` if line is already `CHECKED_OUT`, `BOOKED`, or terminal.
+    3. Blocks checkout if the booking invoice is already in `FINAL` state (`55000`).
+    4. Consolidated Zero-Balance Gate: checks `fn_outstanding_balance(p_booking_id)`. If balance > 0, raises `23514` with unsettled balance amount; if balance < 0, raises `23514` with unrefunded credit amount.
+    5. Ends actual occupancy segment: updates `booking_room_assignment` setting `occupied_to = v_checkout_time` and `unassigned_at = v_checkout_time`.
+    6. Transitions line status to `CHECKED_OUT` with `updated_at = v_checkout_time`.
+    7. Appends immutable status history row to `booking_room_line_status_history` (`CHECKED_IN` → `CHECKED_OUT`) maintaining continuous history chain.
+    8. Transitions room physical condition to `CLEANING` via Member 3's internal condition operation `fn_set_room_condition`, recording `room_status_history`.
+    9. Audits checkout event to `audit_log` if available.
+    10. Evaluates remaining active lines (`status IN ('BOOKED', 'CHECKED_IN')`):
+        - If active lines remain (`remaining_active_lines > 0`): retains invoice in `DRAFT` status and returns provisional statement reference `PROV-YYYYMMDD-XXXXXXXX`.
+        - If all lines are terminal (`remaining_active_lines = 0`): executes `fn_issue_final_invoice` assigning unique number `INV-YYYYMMDD-XXXXX` and `issued_at`.
+    11. Returns checkout execution record table.
+  - Stored procedure `sp_checkout_booking(p_booking_id, p_line_id, p_actor_id, p_reason)` implementing Table 45 procedure.
+- Implemented TypeScript model and service:
+  - `backend/src/models/checkout.ts`: defines `CheckoutLineParams`, `CheckoutResult`, and `CheckoutReceipt`.
+  - `backend/src/services/checkoutService.ts`: exposes `checkoutRoomLine(db, params)` returning structured checkout receipt with room condition and invoice/provisional details.
+- Added automated integration test suite `backend/tests/m4CheckoutTransaction.test.cjs` and registered `"test:m4-checkout"` in `backend/package.json`:
+  1. Scenario 1: Positive balance due blocks checkout (`23514` with outstanding balance message).
+  2. Scenario 2: Negative unrefunded credit blocks checkout (`23514`), and checkout succeeds once refunded.
+  3. Scenario 3 & 4: Multi-room booking: partial checkout of Line A leaves invoice in `DRAFT` with provisional statement reference; subsequent checkout of Line B finalizes invoice with sequential number (`INV-`).
+  4. Scenario 5: Injected transaction failure rolls back all checkout changes (line remains `CHECKED_IN`, room remains `READY`, assignment remains open).
+  5. Scenario 6: Repeated checkout on already `CHECKED_OUT` line fails (`23514`).
+  6. Scenario 7: Checkout on `BOOKED` line fails (`23514`).
+  7. Scenario 8: Cross-booking line mismatch fails (`23514`).
+  8. Scenario 9: Stored procedure `sp_checkout_booking` executes cleanly.
+  9. Scenario 10: TypeScript `checkoutRoomLine` service returns formatted receipt.
+- Verification:
+  - `npm run test:m4-checkout --workspace backend` passed (1 test with 10 subtests, 100% pass rate).
+  - Migration runner test `test:migrations` passed (all 20 migrations apply cleanly in isolated schema).
+  - Full regression suite passed: `test:m4-payment-api`, `test:m4-posting`, `test:m4-api`, `test:m4-invoice`, `test:m4-billing`, `test:m4-payment`.
+  - TypeScript builds compiled with 0 errors (`npm run build --workspace backend`, `npm run build --workspace frontend`).
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Pessimistic locking hierarchy (`booking` → `invoice` → `line` → `assignment` → `room`) preventing deadlocks and race conditions during multi-entity updates (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Transaction atomicity & rollback guaranteeing consistent database state during failures (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Integrity constraints and domain state-machine enforcement (`CHECKED_IN` → `CHECKED_OUT`, `READY` → `CLEANING`) across deferred triggers (`02_Intermediate_SQL.md`, `03_Advanced_SQL.md`).
+  - Exact financial balance gate preventing early departure without settlement (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
+
+### 04 October 2026 — M4-S10 (Line-Specific Checkout REST API with Branch & Role Guards)
+- Implemented line-specific checkout REST API endpoints in `backend/src/controllers/checkoutController.ts`, `backend/src/routes/checkoutRoutes.ts`, and mounted them in `backend/src/index.ts`:
+  - `POST /api/bookings/:bookingId/lines/:lineId/checkout`: executes atomic one-line checkout for the target room line.
+  - `POST /api/bookings/:bookingId/checkout`: supports line checkout with `lineId` / `bookingRoomLineId` provided in the request body.
+  - `GET /api/bookings/:bookingId/lines/:lineId/checkout`: inspects existing checkout receipt and statement details for a checked-out line.
+- Implemented robust staff authorization and branch isolation guard (`verifyStaffCheckoutAccess` in `backend/src/services/checkoutService.ts`):
+  - Unauthenticated requests reject with `401 Unauthorized` (`AUTHENTICATION_REQUIRED`).
+  - Online guests (`guest_account`) reject with `403 Forbidden` (`FORBIDDEN`), upholding SRS §4.8 operational staff boundary.
+  - Non-checkout staff roles (`SERVICE_STAFF`, `AUDITOR`) reject with `403 Forbidden` (`FORBIDDEN`).
+  - Front desk (`FRONT_DESK`) and branch managers (`BRANCH_MANAGER`) are strictly restricted to bookings in their own branch (`403 Forbidden` if cross-branch).
+  - Chain-wide management roles (`CHAIN_MANAGER`, `SYSTEM_ADMINISTRATOR`) possess universal operational authority across all branches.
+  - Safe identifier parsing: checks regex `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i` to distinguish UUIDs from human-readable booking references (`booking_ref`), preventing PostgreSQL `22P02` invalid uuid input syntax exceptions.
+- Implemented explicit repeated-request behavior:
+  - Default repeated checkout on already `CHECKED_OUT` line returns `409 Conflict` (`LINE_ALREADY_CHECKED_OUT`) along with existing checkout details.
+  - Idempotent repeated request (`?idempotent=true` query flag or `idempotency-key` header) returns `200 OK` with existing checkout receipt and `{ repeated: true }`.
+- Comprehensive error translation preventing internal schema/exception leakage:
+  - Maps database and business validation errors to clean HTTP error codes: `400` (`OUTSTANDING_BALANCE_DUE`, `UNREFUNDED_CREDIT_REMAINING`, `INVALID_LINE_STATUS`, `LINE_BOOKING_MISMATCH`, `NO_OPEN_ASSIGNMENT`, `INVALID_LINE_ID`, `MISSING_LINE_ID`), `404` (`BOOKING_NOT_FOUND`, `ROOM_LINE_NOT_FOUND`), and `409` (`LINE_ALREADY_CHECKED_OUT`, `INVOICE_ALREADY_FINAL`).
+- Updated `backend/migrations/m4_004_invoice_lifecycle.sql`:
+  - Added `AND NOT is_demo` to `sp_create_draft_invoice` query selecting effective billing policy, guaranteeing that demonstration policies (`is_demo=true`) are excluded from production bookings per Member 1 billing policy contract.
+- Created automated integration test suite `backend/tests/m4CheckoutApi.test.cjs` and registered script `"test:m4-checkout-api"` in `backend/package.json`:
+  1. Subtest 1: Unauthenticated request without actor headers fails with 401 (`AUTHENTICATION_REQUIRED`).
+  2. Subtest 2: Online guest cannot perform staff checkout (403 `FORBIDDEN`).
+  3. Subtest 3: Service staff cannot perform checkout (403 `FORBIDDEN`).
+  4. Subtest 4: Auditor cannot perform checkout (403 `FORBIDDEN`).
+  5. Subtest 5: Cross-branch Front Desk cannot checkout other branch stay (403 `FORBIDDEN`).
+  6. Subtest 6: Non-existent booking ID fails with 404 (`BOOKING_NOT_FOUND`).
+  7. Subtest 7: Malformed room line ID fails with 400 (`INVALID_LINE_ID`).
+  8. Subtest 8: Non-existent line UUID fails with 404 (`ROOM_LINE_NOT_FOUND`).
+  9. Subtest 9: Line belonging to another booking fails with 400 (`LINE_BOOKING_MISMATCH`).
+  10. Subtest 10: Line in `BOOKED` status fails with 400 (`INVALID_LINE_STATUS`).
+  11. Subtest 11: Positive balance due blocks checkout with 400 (`OUTSTANDING_BALANCE_DUE`).
+  12. Subtest 12: Negative unrefunded credit blocks checkout with 400 (`UNREFUNDED_CREDIT_REMAINING`).
+  13. Subtest 13: Partial checkout of Line A succeeds, keeps invoice `DRAFT` with provisional ref (`PROV-`).
+  14. Subtest 14: Final checkout of Line B finalizes invoice and assigns sequential invoice number (`INV-`).
+  15. Subtest 15: Repeated checkout on already `CHECKED_OUT` line fails with 409 Conflict (`LINE_ALREADY_CHECKED_OUT`).
+  16. Subtest 16: Idempotent repeat request (`?idempotent=true`) returns 200 OK with existing receipt and `repeated: true`.
+  17. Subtest 17: Booking reference in URL resolves cleanly and executes checkout.
+  18. Subtest 18: `GET /bookings/:bookingId/lines/:lineId/checkout` reads existing checkout receipt.
+- Verification:
+  - `npm run test:m4-checkout-api --workspace backend` passed (18/18 subtests, 100% pass rate).
+  - All regression test suites passed cleanly:
+    - `npm run test:m4-checkout --workspace backend` (10/10 scenarios passed)
+    - `npm run test:m4-payment-api --workspace backend` (15/15 subtests passed)
+    - `npm run test:m4-posting --workspace backend` (10/10 scenarios passed)
+    - `npm run test:m4-api --workspace backend` (8/8 scenarios passed)
+    - `npm run test:m4-invoice --workspace backend` (11/11 scenarios passed)
+    - `npm run test:m4-billing --workspace backend` (1/1 passed)
+    - `npm run test:m4-payment --workspace backend` (1/1 passed)
+    - `npm run test:migrations --workspace backend` (3/3 passed)
+  - TypeScript builds compiled with 0 errors:
+    - `npm run build --workspace backend`
+    - `npm run build --workspace frontend`
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Principle of least privilege and role-based access control (`03_Advanced_SQL.md`).
+  - Multi-tenant data isolation and tenancy boundary enforcement (`03_Advanced_SQL.md`).
+  - Idempotent API state transitions and safe error translation (`05_Storage_Indexing_Query_Processing_Transactions.md`).
 
 ## Member 5 — Thusath
 
