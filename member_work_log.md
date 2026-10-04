@@ -199,6 +199,14 @@ Record actual project-task work here for all five members, including partial or 
 - M3-S06 remains a production handoff item until Member 2's M2-S25/M2-S26 corrective migrations provide `booking_room_assignment.line_id`, actual occupancy columns and the target line-history contract; the focused tests use an isolated fixture for that agreed target schema.
 - Lecture concepts applied: ACID atomicity and rollback for the multi-table transition, row-level locking with deterministic lock order, and normalized line/assignment occupancy instead of a stored room booking pointer.
 
+### 04 October 2026 — M3-S07
+
+- Added `backend/src/controllers/checkInController.ts` and `backend/src/routes/checkInRoutes.ts`, exposing `POST /api/bookings/:bookingRef/lines/:lineId/checkin`.
+- The controller validates the booking reference and line UUID, resolves the assigned room branch, authorizes active staff from `officer`/`role`/`user_account`, enforces own-branch access for `FRONT_DESK` and `BRANCH_MANAGER`, permits chain-wide manager/administrator roles, and invokes M3-S06 through one pooled transaction client.
+- Added safe JSON error mapping for unauthenticated, invalid identifier, missing booking/line, forbidden role/branch, repeated invalid state and room/assignment conflict responses. Resolved the pre-existing `backend/src/index.ts` merge conflict while preserving the existing service, reporting, invoice, payment, checkout and availability route registrations.
+- Added `backend/tests/m3CheckInApi.test.cjs` and the `test:m3-check-in-api` script. Verification: `npm run test:m3-check-in-api` passed 2 tests; the M3-S06 regression `npm run test:m3-check-in` passed 3 tests; touched TypeScript diagnostics are clean.
+- Lecture concepts applied: least-privilege role/branch authorization, parameterized relational joins for booking-line ownership, and transaction client pinning so all check-in writes share one PostgreSQL transaction.
+
 ## Member 4 — Chamikara
 
 ### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
