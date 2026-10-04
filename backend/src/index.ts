@@ -4,7 +4,16 @@ import { initializeDatabase } from './db';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
+<<<<<<< HEAD
 import serviceRoutes from './routes/serviceRoutes';
+=======
+import reportRoutes from './routes/reportRoutes';
+
+import invoiceRoutes from './routes/invoiceRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+import checkoutRoutes from './routes/checkoutRoutes';
+import availabilityRoutes from './routes/availabilityRoutes';
+>>>>>>> dev
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -15,7 +24,15 @@ app.use(express.json());
 app.use('/', homeRoutes);
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', adminRoutes);
+<<<<<<< HEAD
 app.use('/api/services', serviceRoutes);
+=======
+app.use('/api/reports', reportRoutes);
+app.use('/api', invoiceRoutes);
+app.use('/api', paymentRoutes);
+app.use('/api', checkoutRoutes);
+app.use('/api', availabilityRoutes);
+>>>>>>> dev
 
 // Initialize database and start server
 async function startServer(): Promise<void> {
