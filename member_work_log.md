@@ -122,22 +122,6 @@ Record actual project-task work here for all five members, including partial or 
 - Verification/build still need to run. M3-S04 remains unchecked because the TBD-08 precision review and Member 2's final line/checked-in guard contract remain open; price capture itself belongs to the later service-usage recording procedure/API.
 - Lecture concepts applied: normalized service events avoid repeating catalogue details, exact numeric preserves charge snapshots, foreign keys protect referential integrity, and transactional rollback keeps focused schema tests side-effect free.
 
-### 01 October 2026 — M3-S05
-
-- Added `backend/src/controllers/serviceController.ts` and `backend/src/routes/serviceRoutes.ts`; mounted the route at `/api/services` in `backend/src/index.ts`. The shared service catalogue now supports `GET /api/services?active=true|false` filtering, `POST /api/services` for a new service entry, and `PUT /api/services/:serviceId` for catalogue edits. A server-side role check resolves the authenticated officer through `officer` + `role` and rejects any non-`CHAIN_MANAGER` write with HTTP 403.
-- The controller validates blank names/categories, negative/NaN/overflow prices and incompatible boolean flags before the insert/update reaches PostgreSQL; it never mutates historical `service_usage.unit_price_snapshot` rows when the catalogue price changes, preserving the historical charge evidence required by the SRS.
-- Added `backend/tests/m3ServiceCatalogueApi.test.cjs` and the `test:m3-service-catalogue-api` script. The test creates a scratch schema, seeds an `officer` and `CHAIN_MANAGER`/`FRONT_DESK` identities, verifies `GET` filtering, creates a service as the chain manager, rejects the same call as front desk, and confirms a later price toggle updates the current price while preserving the catalogue contract.
-- Verification: `cd backend && node --import tsx --test tests/m3ServiceCatalogueApi.test.cjs` passed. `npm run build --workspace backend` is still blocked by the project’s existing `pg`/TypeScript typing issue, which is unrelated to the service API code itself; the focused M3-S05 test on the route logic passed instead.
-- Lecture concepts applied: normalization keeps service catalogue data separate from event-level usage history, and transaction-safe validation preserves consistent domain rules without duplicating price data into each historical usage record.
-
-### 03 October 2026 — M3-S06
-
-- Added `backend/src/services/checkInService.ts` with the M3-owned transaction operation `checkInRoomLine`. It locks booking, selected line, open line assignment and physical room in the agreed order, checks BOOKED status, one open assignment, permitted stay date and physical READY condition, then updates only the selected line to CHECKED_IN and the assignment's `occupied_from` instant. It writes exactly one `booking_room_line_status_history` row and one `audit_log` row; it does not write room condition history when READY is unchanged.
-- Added `backend/tests/m3CheckIn.test.cjs` and `test:m3-check-in`. The target-shaped scratch tests verify one selected line checks in while a second line remains BOOKED, CLEANING rooms reject check-in without mutation, and a forced audit failure rolls back line status, occupancy, line history and audit evidence together.
-- Verification: `npm run test:m3-check-in` passed (3 tests). `get_errors` reported no diagnostics for `backend/src/services/checkInService.ts`. `npm run build:backend` remains blocked by the existing missing `pg` declarations and resulting implicit-any errors in `backend/src/db.ts` and `backend/src/migrations/migrate.ts`, unrelated to this service.
-- Integration gap: the current ordered schema still has legacy booking-level assignments and room conditions. M2-S22/S23/S25/S26 must provide `booking_room_assignment.line_id`, occupancy timestamps, target READY/CLEANING/OUT_OF_SERVICE room state and line-status history before this service can run against the full application migration chain. M3-S07 will add the HTTP/API authorization and conflict mapping.
-- Lecture concepts applied: ACID atomicity and rollback protect the multi-table transition; deterministic lock ordering reduces deadlocks; normalized line/assignment relationships avoid reintroducing the legacy room pointer; append-only history preserves transition evidence.
-
 ## Member 4 — Chamikara
 
 No entries yet.
