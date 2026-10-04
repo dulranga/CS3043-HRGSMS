@@ -37,7 +37,8 @@ test('M4-S09: One-line checkout transaction with zero-balance gate, assignment c
       'm1_001_create_branch_and_role.sql',
       'm1_002_create_user_account_and_officer.sql',
       'm1_003_create_guest_and_guest_account.sql',
-      'm1_004_billing_policy_mock.sql',
+      'm1_004_create_audit_log.sql',
+      'm1_005_create_billing_policy.sql',
       'm2_001_room_catalogue.sql',
       'm2_002_booking.sql',
       'm2_003_room_inventory.sql',
@@ -72,8 +73,11 @@ test('M4-S09: One-line checkout transaction with zero-balance gate, assignment c
     const branchId = bRes.rows[0].branch_id;
 
     const roleFrontDesk = (await client.query(`SELECT role_id FROM role WHERE role_name = 'FRONT_DESK'`)).rows[0].role_id;
+    const roleCM = (await client.query(`SELECT role_id FROM role WHERE role_name = 'CHAIN_MANAGER'`)).rows[0].role_id;
     const uStaff = (await client.query(`INSERT INTO user_account (username, password_hash) VALUES ('staff_checkout', 'pw') RETURNING user_id`)).rows[0].user_id;
     await client.query(`INSERT INTO officer (officer_id, full_name, role_id, branch_id) VALUES ($1, 'Front Desk Officer', $2, $3)`, [uStaff, roleFrontDesk, branchId]);
+    const uCM = (await client.query(`INSERT INTO user_account (username, password_hash) VALUES ('cm_checkout', 'pw') RETURNING user_id`)).rows[0].user_id;
+    await client.query(`INSERT INTO officer (officer_id, full_name, role_id, branch_id) VALUES ($1, 'Chain Mgr', $2, $3)`, [uCM, roleCM, branchId]);
 
     // 2. Seed Guest
     const uGuest = (await client.query(`INSERT INTO user_account (username, password_hash) VALUES ('guest_checkout', 'pw') RETURNING user_id`)).rows[0].user_id;
@@ -91,7 +95,7 @@ test('M4-S09: One-line checkout transaction with zero-balance gate, assignment c
         1000.00, 2000.00, 1500.00, 1,
         false, $1
       );
-    `, [uStaff]);
+    `, [uCM]);
 
     const rtRes = await client.query(`
       INSERT INTO room_type (name, base_daily_rate, capacity)
