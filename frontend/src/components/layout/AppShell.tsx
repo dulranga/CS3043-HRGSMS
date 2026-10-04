@@ -1,6 +1,67 @@
 import { ReactNode } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { ClipboardList, FileBarChart, LayoutDashboard, Settings, Users, type LucideIcon } from "lucide-react";
+import { SessionPanel } from "@/components/auth/SessionPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  { label: "Overview", items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    label: "Management",
+    items: [
+      { to: "/admin/reports", label: "Reports & CSV", icon: FileBarChart },
+      { to: "/admin/operations", label: "Branches & Users", icon: Users },
+      { to: "/admin/config", label: "System Config", icon: Settings },
+      { to: "/admin/audit", label: "Audit Log", icon: ClipboardList },
+    ],
+  },
+];
+
+function StaffNavigation() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return (
+    <nav aria-label="Staff navigation" className="space-y-4">
+      {NAV_GROUPS.map((group) => (
+        <SidebarGroup key={group.label}>
+          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          <SidebarMenu>
+            {group.items.map((item) => {
+              const active = pathname === item.to;
+              return (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton asChild isActive={active}>
+                    <Link to={item.to} aria-current={active ? "page" : undefined}>
+                      <item.icon className="size-4 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+      ))}
+    </nav>
+  );
+}
 
 interface AppShellProps {
   sidebar?: ReactNode;
@@ -15,14 +76,13 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         {sidebar || (
           <Sidebar collapsible="icon" variant="sidebar" className="border-r-2 border-border shadow-md bg-card">
             <SidebarHeader className="h-14 px-3 flex items-center gap-2">
-              <span className="font-bold text-sm tracking-tight">SkyNest</span>
+              <Link to="/" className="font-bold text-sm tracking-tight">SkyNest</Link>
             </SidebarHeader>
-            <SidebarContent className="py-2">
-              <div className="text-xs text-muted-foreground px-3 mb-1">Dashboard</div>
+            <SidebarContent className="py-3">
+              <StaffNavigation />
             </SidebarContent>
-            <SidebarFooter className="h-14 px-3 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">SN</div>
-              <span className="text-xs font-medium">Staff</span>
+            <SidebarFooter className="px-3 py-3">
+              <SessionPanel />
             </SidebarFooter>
           </Sidebar>
         )}

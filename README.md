@@ -198,6 +198,7 @@ Key utilities:
 ### Backend
 - Uses `tsx watch` for automatic restart on file changes
 - Environment variables can be set in a `.env` file (default PORT=4000)
+- `SESSION_SECRET` (at least 32 characters) is required to start the server; see `backend/.env.example`. For plain-HTTP local development set `SESSION_COOKIE_SECURE=false` (rejected in production)
 - CORS is enabled for frontend requests
 
 ### TypeScript

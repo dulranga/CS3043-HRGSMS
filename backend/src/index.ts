@@ -1,6 +1,8 @@
 import express, { Application } from 'express';
 import cors from 'cors';
-import { initializeDatabase } from './db';
+import { initializeDatabase, pool } from './db';
+import { createAuthFromEnv } from './auth';
+import { createAuthRouter } from './routes/authRoutes';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -13,11 +15,13 @@ import availabilityRoutes from './routes/availabilityRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
+export const auth = createAuthFromEnv(pool);
 
 app.use(cors());
 app.use(express.json());
 
 app.use('/', homeRoutes);
+app.use('/api/auth', createAuthRouter(auth));
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportRoutes);

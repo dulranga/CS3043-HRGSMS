@@ -22,6 +22,7 @@
         "test:m1-audit": "node --import tsx --test tests/m1Audit.test.ts",
         "test:m1-billing-policy": "node --import tsx --test tests/m1BillingPolicy.test.ts",
         "test:m1-system-config": "node --import tsx --test tests/m1SystemConfig.test.ts",
+        "test:m1-auth": "node --import tsx --test tests/m1Auth.test.ts",
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
         "test:m4-payment": "node --test tests/m4Payment.test.cjs",
         "test:m4-billing": "node --test tests/m4BillingCalculation.test.cjs",
@@ -36,14 +37,15 @@
         "test:all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs"
     },
     "dependencies": {
-        "express": "^4.21.0",
+        "bcryptjs": "^3.0.3",
         "cors": "^2.8.5",
-        "pg": "^8.11.3",
-        "dotenv": "^16.3.1"
+        "dotenv": "^16.3.1",
+        "express": "^4.21.0",
+        "pg": "^8.11.3"
     },
     "devDependencies": {
-        "@types/express": "^5.0.0",
         "@types/cors": "^2.8.17",
+        "@types/express": "^5.0.0",
         "@types/node": "^22.9.0",
         "@types/pg": "^8.23.1",
         "tsx": "^4.19.2",

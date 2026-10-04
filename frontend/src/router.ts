@@ -8,6 +8,8 @@ import AdminConfigPage from './routes/AdminConfigPage';
 import AuditLogPage from './routes/AuditLogPage';
 import AdminOperationsPage from './routes/AdminOperationsPage';
 import ReportsPage from './routes/ReportsPage';
+import LoginPage from './routes/LoginPage';
+import { safeRedirectPath } from './lib/auth';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -61,8 +63,24 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+interface LoginSearch {
+  redirect?: string;
+  reason?: 'expired';
+}
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    redirect: safeRedirectPath(search.redirect),
+    reason: search.reason === 'expired' ? 'expired' : undefined,
+  }),
+  component: LoginPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  loginRoute,
   roomsRoute,
   uiRoute,
   dashboardRoute,

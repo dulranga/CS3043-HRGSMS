@@ -59,6 +59,48 @@ Record actual project-task work here for all five members, including partial or 
 - Remaining handoffs: (1) The team must agree on concrete non-financial keys (e.g. a session-idle timeout for FR-005) before registering any. (2) The legacy `PUT /api/admin/config` (client-supplied `userId`) will fail after m1_006 because it has no authorized actor, and `GET` returns an empty list; M1-S08/S09 must provide session/authorization before a real config API is mounted, and Member 5's M5-S21 UI consumes it. `AdminConfigPage.tsx` still describes "rates and tax percentages", which no longer belong here. (3) Applying m1_006 to the shared dev DB drops the legacy financial rows; a dependent view on `system_config` would block the drop safely (no CASCADE).
 - Lecture concepts applied: domain CHECK constraints and referential integrity with restricted deletion, BEFORE triggers as extra constraints and AFTER triggers for same-transaction audit, transaction atomicity (savepoint rollback test) and row-level locking preventing lost updates under concurrent writers.
 
+### 4 October 2026 — M1-S08 (staff/guest login, logout, session expiry)
+
+- Decisions (Dulranga, 4 October 2026): HMAC-signed stateless session cookie (no session table), `bcryptjs` cost 12, idle timeout read from the new `session_idle_timeout_minutes` system_config key (default 30 until an administrator sets it), and audit-based failed-login throttling.
+- Added `backend/migrations/m1_007_register_session_idle_timeout.sql`: registers `session_idle_timeout_minutes` (1–999) in `system_config_key_registry()` (no seed value, because only a SYSTEM_ADMINISTRATOR may write it) and adds the partial index `idx_audit_log_login_attempts (entity_name, entity_id, changed_at DESC) WHERE action = 'LOGIN'`.
+- Added `backend/src/auth.ts`: `hashPassword` (rejects < 8 chars or > 72 bytes), `createAuth`/`createAuthFromEnv` and the `authenticate`, `login`, `logout` and `currentSession` handlers. The cookie `skynest_session` is HttpOnly, Secure, SameSite=Strict and Path=/. It holds only the account ID, issue/last-seen times and a keyed password-hash fingerprint, so changing a password invalidates existing sessions. Every request re-reads role, branch, guest link and active flags, so disabling an account or officer ends its session on the next request. A staff principal comes only from `officer` and a guest principal only from `guest_account` (FR-081). The idle window slides with activity, with a 12-hour absolute cap (`SESSION_ABSOLUTE_HOURS`). `SESSION_SECRET` (≥ 32 chars) is required to start. `SESSION_COOKIE_SECURE=false` is allowed only outside production.
+- Login runs in one transaction under a per-account advisory lock (or per username when the account is unknown):
+  - After 5 bad-password failures in 15 minutes since the last success, further attempts return 429 with Retry-After.
+  - Unknown users are checked against a dummy bcrypt hash so response time does not reveal which usernames exist.
+  - Wrong passwords, unknown users, the system principal and accounts with no profile all get the same generic 401.
+  - A disabled account gets 403 `ACCOUNT_DISABLED` only after the correct password.
+  - Every success and failure is audited (`LOGIN` with outcome/reason; failures use the system principal as actor). `LOGOUT` is audited for a valid session.
+  - The cookie is issued only after COMMIT. Errors return no internal details.
+- Mounted `/api/auth/login`, `/api/auth/logout` and `/api/auth/session` (`backend/src/routes/authRoutes.ts`, `backend/src/index.ts`). `req.user` = `{ userId, username, kind, role?, branchId?, guestId? }`, which matches the shape `invoiceController.resolveActor` already reads. Updated `backend/.env.example` and `README.md`. Added the dependency `bcryptjs`. `package-lock.json` also lost some `"dev": true` flags because of the npm version.
+- Added `backend/tests/m1Auth.test.ts` and `test:m1-auth`:
+  - Unit tests for validation, hashing and config.
+  - A database-failure test: 500, no cookie, no internal details.
+  - A clean-schema integration test covering: cookie flags; staff and guest scope; generic failures; system/no-profile denial; all three disabled cases; disabling mid-session; invalidation after a password change; forged and tampered cookies; sliding idle expiry and absolute expiry; logout audit; throttle, reset and unknown-user cases; an 8-way concurrent race (exactly 5 BAD_CREDENTIALS + 3 THROTTLED); the configured 5-minute idle period; and an invalid config value.
+- Incident: a first test version set `search_path` per session through the Neon `-pooler` endpoint. The transaction-mode pooler moved later transactions onto other server connections, so 10 synthetic LOGIN audit rows went into the shared `public.audit_log` (entity `login_attempt`/`race.user`, actor system principal, 4 October 2026 13:41–13:43 UTC). No other table or schema was touched. These rows cannot be deleted because `audit_log` is append-only, and they were not removed. The test now uses the direct endpoint with `search_path` pinned at startup and asserts `current_schema()` before running.
+- Verification: `test:m1-auth` 3/3, `test:m1-identity` 1, `test:m1-guests` 1, `test:m1-audit` 2, `test:m1-system-config` 3, `test:m1-billing-policy` 4 and `test:migrations` 3 pass. `npm run build:backend` passes. The runner applied the full 24-file chain to a scratch schema (re-run: 0 applied, 24 skipped), and that schema was then dropped. `npm run migrate` itself still fails on teammate file `backend/migrations/audit_and_config.sql`, which uses a non-convention name; this was already broken before this task.
+- Remaining handoffs:
+  1. Stateless logout cannot revoke a copied cookie before it expires (accepted trade-off).
+  2. Existing routers still trust `x-user-id`/`x-role` headers or test adapters. Wiring `auth.authenticate` and role/branch checks into them is M1-S09.
+  3. Every developer must add `SESSION_SECRET` to `backend/.env`, or the server will not start.
+  4. CSRF (NFR-013) currently relies on SameSite=Strict. A token check belongs to M1-S09 if the team wants one.
+- Lecture concepts applied:
+  - A partial B-tree index matching the throttle query's predicate and sort order.
+  - Transaction-scoped advisory locks serializing concurrent attempts (two-session race test).
+  - Atomic commit of the audit evidence before the session is issued.
+
+### 4 October 2026 — M1-S14 (staff/guest login UI) — implemented, not yet checked off
+
+- Added the shadcn `Alert` primitive (`frontend/src/components/ui/alert.tsx`, styled per `DESIGN.md`).
+- Added `frontend/src/lib/auth.ts`: API client, role labels, a redirect sanitizer that blocks open redirects, and the landing page per user type (staff `/dashboard`, guest `/`).
+- Added `frontend/src/components/auth/AuthProvider.tsx`: session context with `signIn`, `signOut` and `refresh`.
+- Added `frontend/src/routes/LoginPage.tsx` at `/login` (`?redirect=`, `?reason=expired`):
+  - Split brand panel and form card on large screens; a single card on mobile.
+  - Required-field checks inline, with `aria-invalid`/`aria-describedby` and focus moved to the field with the error.
+  - Show/hide password toggle and a busy state that blocks double submission.
+  - Separate messages for wrong credentials, disabled account, throttling (with retry minutes), connection failure and expired session. The password field is cleared after a failure.
+- Removed the sidebar wrapping every page. `RootLayout.tsx` is a bare `<Outlet />` again, as before commit 28e094d. That commit also left the dashboard/admin pages with two sidebars, because each page already uses `AppShell`. The staff navigation (Dashboard, Reports & CSV, Branches & Users, System Config, Audit Log) is now in `AppShell`'s sidebar, using the shadcn sidebar menu primitives; `SidebarMenuButton` gained `asChild` so menu items can be links. The new `SessionPanel` in the sidebar footer shows the signed-in user/role with Sign out (or a Sign in link). Public pages (`/`, `/rooms`, `/ui`, `/login`) render without a sidebar. `vite.config.ts` proxies `/api` to `localhost:4000` so the cookie is sent same-origin.
+- Verification: `npm run build:frontend` passes. The repo has no frontend test runner, and the page has not been exercised in a browser against a running backend. Route guards and redirect-on-expiry for other pages are left to M1-S09 and the page owners.
+
 ## Member 2 — Imandi
 
 ### 3 October 2026 — M2-S09 parameterized availability function and API

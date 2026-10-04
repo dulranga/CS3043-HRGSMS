@@ -10,4 +10,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Same-origin /api calls let the browser send the HTTP-only session cookie.
+  server: {
+    proxy: {
+      '/api': 'http://localhost:4000',
+    },
+  },
 })

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 import { PanelLeft } from "lucide-react";
 
@@ -218,11 +219,13 @@ export function SidebarMenuItem({ className, ...props }: React.HTMLAttributes<HT
 
 export interface SidebarMenuButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isActive?: boolean;
+  asChild?: boolean;
 }
 
-export function SidebarMenuButton({ className, isActive, ...props }: SidebarMenuButtonProps) {
+export function SidebarMenuButton({ className, isActive, asChild = false, ...props }: SidebarMenuButtonProps) {
+  const Comp = asChild ? Slot : "button";
   return (
-    <button
+    <Comp
       data-slot="sidebar-menu-button"
       data-active={isActive}
       className={cn(
