@@ -7,6 +7,7 @@ import adminRoutes from './routes/adminRoutes';
 import reportRoutes from './routes/reportRoutes';
 
 import invoiceRoutes from './routes/invoiceRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
 
 const app: Application = express();
@@ -20,6 +21,7 @@ app.use('/rooms', roomRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api', invoiceRoutes);
+app.use('/api', paymentRoutes);
 app.use('/api', availabilityRoutes);
 
 // Initialize database and start server
