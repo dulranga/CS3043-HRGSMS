@@ -207,6 +207,13 @@ Record actual project-task work here for all five members, including partial or 
 - Added `backend/tests/m3CheckInApi.test.cjs` and the `test:m3-check-in-api` script. Verification: `npm run test:m3-check-in-api` passed 2 tests; the M3-S06 regression `npm run test:m3-check-in` passed 3 tests; touched TypeScript diagnostics are clean.
 - Lecture concepts applied: least-privilege role/branch authorization, parameterized relational joins for booking-line ownership, and transaction client pinning so all check-in writes share one PostgreSQL transaction.
 
+### 05 October 2026 — M3-S08
+
+- Added `backend/src/controllers/activeStayController.ts` and `backend/src/routes/activeStayRoutes.ts`, exposing `GET /api/stays/:bookingRef`.
+- The API resolves booking references or UUIDs, reuses `verifyBookingAccess` for guest/staff branch authorization, and returns only CHECKED_IN lines joined to open assignments with active occupancy (`occupied_from IS NOT NULL` and `occupied_to IS NULL`). Each current room is returned distinctly with line, room, branch and occupancy fields; future BOOKED lines are excluded.
+- Added `backend/tests/m3ActiveStayApi.test.cjs` and the `test:m3-active-stay` script. Verification: 2 focused tests passed for two distinct active rooms/future-line exclusion and cross-branch denial; `npm run build` passed; `git diff --check` passed.
+- Lecture concepts applied: normalized line-assignment joins for derived occupancy, parameterized SQL for safe read access, and least-privilege branch authorization for staff tenancy.
+
 ## Member 4 — Chamikara
 
 ### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)

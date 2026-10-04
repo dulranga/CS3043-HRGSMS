@@ -11,6 +11,7 @@ import paymentRoutes from './routes/paymentRoutes';
 import checkoutRoutes from './routes/checkoutRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
 import checkInRoutes from './routes/checkInRoutes';
+import activeStayRoutes from './routes/activeStayRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -28,6 +29,7 @@ app.use('/api', paymentRoutes);
 app.use('/api', checkoutRoutes);
 app.use('/api', availabilityRoutes);
 app.use('/api', checkInRoutes);
+app.use('/api', activeStayRoutes);
 
 // Initialize database and start server
 async function startServer(): Promise<void> {
