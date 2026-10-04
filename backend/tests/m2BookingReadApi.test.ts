@@ -145,7 +145,8 @@ test('M2-S11 lists each branch booking once and returns complete line and assign
       }));
       const result = await admin.query(
         `SELECT booking_id
-           FROM sp_create_booking($1, 'FRONT_DESK', $2, $3, $4, $5::jsonb)`,
+           FROM sp_create_booking($1::uuid, 'FRONT_DESK'::booking_channel_enum,
+                                  $2::uuid, $3::uuid, $4::uuid, $5::jsonb)`,
         [guestId, actorId, actorBranchId, policyId, JSON.stringify(lines)],
       );
       return result.rows[0].booking_id as string;

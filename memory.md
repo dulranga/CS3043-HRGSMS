@@ -38,3 +38,11 @@ SRS Appendix C remains authoritative for approval gates. Members 1/3/4/5 must re
 ## Maintenance
 
 Keep execution details, test results and partial work under the relevant member section in the shared `member_work_log.md`, not here. If a source document or implementation contradicts a memory entry, inspect the current state and resolve the discrepancy before using that entry.
+
+## 5 October 2026 reconciliation and verification incident
+
+Imandi/dev reconciliation preserves the published m3_001/m3_002 mock migration keys; Member 3 upgrades use m3_003 (usage), m3_004 (catalogue), m3_005 (history) and reuse room_condition_enum. Protected M3 factories remain unmounted pending M1-S08/S09 and consume verified req.user actors only. Check-in uses the server's Asia/Colombo date, not submitted stayDate. The operational handoff follows Member 4's implemented booking/invoice/line/assignment/room checkout order; the old invoice-last proposal is superseded. No later M3 feature was completed.
+
+The existing migration runner's session SET search_path is unsafe for isolated verification on the configured transaction pool. One agent verification mistakenly applied 13 pending migrations to public (27 records now), including m1_006's destructive system_config replacement. This is an unintended incident, not deployment approval. The user has no pre-session snapshot; three old financial values are supported by audit history, but prior configuration cannot be completely reconstructed. Preserve current data and see conflict_resolution_handoff.md before further database work. The corrected M3 integration tests use transaction-local schema isolation excluding public; the runner and unnumbered Member 5 SQL file remain separate owner gaps.
+
+The user's proposed main snapshot was inspected at verified remote/local tip 1a30682d50bfdc65c8e5ee5076683515c852d4a17. It contains source history, including m1_006, and no tracked database dump or saved live configuration rows. It is not sufficient evidence to reconstruct the erased values.
