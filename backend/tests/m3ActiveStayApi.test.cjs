@@ -35,7 +35,7 @@ function requestFor(userId) {
   const headers = { 'x-user-id': userId };
   return {
     params: { bookingRef: 'BK-STAY-001' },
-    headers,
+    headers, user: { userId },
     header(name) { return headers[name.toLowerCase()]; },
   };
 }

@@ -1,26 +1,9 @@
 import { Request, Response } from 'express';
 import { pool as db } from '../db';
+import { member3Actor } from './member3Actor';
 
 function readActorUserId(req: Request): string | null {
-  const rawUserId =
-    req.headers['x-user-id'] ??
-    req.headers['x-userId'] ??
-    req.query.userId ??
-    req.query.user_id ??
-    req.body?.userId ??
-    req.body?.user_id ??
-    req.body?.actorUserId ??
-    req.body?.recorded_by;
-
-  if (Array.isArray(rawUserId)) {
-    return rawUserId[0]?.toString().trim() || null;
-  }
-
-  if (typeof rawUserId === 'string') {
-    return rawUserId.trim() || null;
-  }
-
-  return null;
+  return member3Actor(req).userId || null;
 }
 
 async function getActorRoleName(userId: string | null): Promise<string | null> {
@@ -32,7 +15,8 @@ async function getActorRoleName(userId: string | null): Promise<string | null> {
     `SELECT r.role_name
      FROM officer o
      JOIN role r ON r.role_id = o.role_id
-     WHERE o.officer_id = $1::uuid`,
+     JOIN user_account u ON u.user_id = o.officer_id
+     WHERE o.officer_id = $1::uuid AND o.active AND u.active`,
     [userId],
   );
 

@@ -40,7 +40,7 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Mem
 
 ### Member 3 operational handoff (M3-S01)
 
-Use the target lock order from [M3-S01](member_3_kulunu.md): lock the booking, affected lines, open assignments and affected rooms in ascending stable UUID order, then lock the DRAFT invoice for checkout. Member 4 owns the balance gate and checkout transition; Member 3 owns the internal physical-condition operation. Checkout must invoke the `CLEANING` transition inside the same transaction, close only the selected line's assignment and occupancy segment, and roll back all state, history, audit and invoice changes together on failure. This is a proposed contract pending M2/M4 confirmation.
+Use the current [operational reconciliation](m2_s01_reservation_contract.md): the implemented checkout locks booking, DRAFT invoice, selected line, open assignment and room. The earlier invoice-last proposal is superseded by this consumer implementation. Member 4 owns the balance gate and checkout transition; Member 3 preserves the existing internal CLEANING/history hook. Checkout invokes it inside the same transaction, closes only the selected line's assignment and occupancy segment, and rolls back state, history, audit and invoice changes together on failure. Multi-line operations sort affected UUID sets and retry the complete transaction after deadlock/serialization failure; this note does not complete M3-S01 or M3-S18.
 
 ## Completion notes
 

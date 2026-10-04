@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
-import { resolveActor } from './invoiceController';
+import { member3Actor } from './member3Actor';
 import { verifyBookingAccess } from '../services/invoiceService';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15,7 +15,7 @@ function errorResponse(res: Response, status: number, code: string, message: str
 
 export async function getActiveStay(req: Request, res: Response): Promise<void> {
   const bookingRef = readParam(req.params.bookingRef);
-  const actor = resolveActor(req);
+  const actor = member3Actor(req);
 
   if (!actor.userId) {
     errorResponse(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication is required to view an active stay.');

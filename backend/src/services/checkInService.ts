@@ -10,7 +10,7 @@ export interface TransactionClient {
 export interface CheckInInput {
   lineId: string;
   actorId: string;
-  stayDate?: string;
+  bookingId?: string;
   schema?: string;
 }
 
@@ -30,7 +30,6 @@ export async function checkInRoomLine(
     throw new Error('lineId and actorId are required.');
   }
 
-  const stayDate = input.stayDate ?? new Date().toISOString().slice(0, 10);
   await client.query('BEGIN');
 
   try {
@@ -38,7 +37,7 @@ export async function checkInRoomLine(
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(input.schema)) {
         throw new Error('Invalid database schema.');
       }
-      await client.query(`SET LOCAL search_path TO "${input.schema}", public`);
+      await client.query(`SET LOCAL search_path TO "${input.schema}"`);
     }
 
     const lineReference = await client.query<{ booking_id: string }>(
@@ -52,6 +51,9 @@ export async function checkInRoomLine(
     }
 
     const bookingId = lineReference.rows[0].booking_id;
+    if (input.bookingId !== undefined && input.bookingId !== bookingId) {
+      throw new Error('Booking room line not found.');
+    }
     const booking = await client.query<{ booking_id: string }>(
       `SELECT booking_id
          FROM booking
@@ -70,7 +72,9 @@ export async function checkInRoomLine(
       stay_end_date: string;
       status: string;
     }>(
-      `SELECT line_id, booking_id, stay_start_date, stay_end_date, status
+      `SELECT line_id, booking_id,
+              to_char(stay_start_date, 'YYYY-MM-DD') AS stay_start_date,
+              to_char(stay_end_date, 'YYYY-MM-DD') AS stay_end_date, status
          FROM booking_room_line
         WHERE line_id = $1::uuid
         FOR UPDATE`,
@@ -82,9 +86,6 @@ export async function checkInRoomLine(
     }
     if (selectedLine.status !== 'BOOKED') {
       throw new Error('Only BOOKED room lines can be checked in.');
-    }
-    if (stayDate < selectedLine.stay_start_date || stayDate >= selectedLine.stay_end_date) {
-      throw new Error('Check-in date is outside the room line stay.');
     }
 
     const assignment = await client.query<{ assignment_id: string; room_id: string }>(
@@ -115,7 +116,15 @@ export async function checkInRoomLine(
       throw new Error('Assigned room must be READY for check-in.');
     }
 
-    const checkedInAt = await client.query<{ now: string }>('SELECT CURRENT_TIMESTAMP AS now');
+    const checkedInAt = await client.query<{ now: string; stay_date: string }>(
+      `SELECT instant AS now,
+              to_char(instant AT TIME ZONE 'Asia/Colombo', 'YYYY-MM-DD') AS stay_date
+         FROM (SELECT clock_timestamp() AS instant) AS clock`,
+    );
+    const stayDate = checkedInAt.rows[0].stay_date;
+    if (stayDate < selectedLine.stay_start_date || stayDate >= selectedLine.stay_end_date) {
+      throw new Error('Check-in date is outside the room line stay.');
+    }
     const checkInInstant = checkedInAt.rows[0].now;
 
     await client.query(

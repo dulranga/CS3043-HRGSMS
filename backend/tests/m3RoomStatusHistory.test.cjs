@@ -7,7 +7,7 @@ const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const migration = readFileSync(
-  path.join(__dirname, '..', 'migrations', 'm3_002_room_status_history.sql'),
+  path.join(__dirname, '..', 'migrations', 'm3_005_room_status_history.sql'),
   'utf8',
 );
 
@@ -36,6 +36,7 @@ test('M3-S03 room status history is append-only and validates condition changes'
     await client.query(`CREATE SCHEMA "${schema}"`);
     await client.query(`SET LOCAL search_path TO "${schema}", public`);
     await client.query(`
+      CREATE TYPE room_condition_enum AS ENUM ('READY', 'CLEANING', 'OUT_OF_SERVICE');
       CREATE TABLE user_account (
         user_id uuid PRIMARY KEY DEFAULT uuidv7()
       );
@@ -59,7 +60,7 @@ test('M3-S03 room status history is append-only and validates condition changes'
     );
     assert.deepEqual(
       columns.rows.map(({ column_name }) => column_name),
-      ['room_history_id', 'room_id', 'old_status', 'new_status', 'changed_at', 'changed_by'],
+      ['room_history_id', 'room_id', 'old_status', 'new_status', 'changed_at', 'changed_by', 'reason'],
     );
     assert.equal(columns.rows.find((row) => row.column_name === 'old_status').data_type, 'USER-DEFINED');
     assert.equal(columns.rows.find((row) => row.column_name === 'changed_by').is_nullable, 'NO');

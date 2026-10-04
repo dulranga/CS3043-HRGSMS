@@ -7,7 +7,7 @@ const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const migration = readFileSync(
-  path.join(__dirname, '..', 'migrations', 'm3_001_service_catalogue.sql'),
+  path.join(__dirname, '..', 'migrations', 'm3_004_service_catalogue.sql'),
   'utf8',
 );
 

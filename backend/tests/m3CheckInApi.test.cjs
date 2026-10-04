@@ -28,7 +28,7 @@ function requestFor(userId, body = {}) {
   const headers = { 'x-user-id': userId };
   return {
     params: { bookingRef: 'BK-API-001', lineId: ids.line },
-    headers,
+    headers, user: { userId },
     body,
     header(name) {
       return headers[name.toLowerCase()];
@@ -88,7 +88,7 @@ async function withScratchSchema(run) {
     await client.query('INSERT INTO booking (booking_id, booking_ref) VALUES ($1, $2)', [ids.booking, 'BK-API-001']);
     await client.query(
       `INSERT INTO booking_room_line (line_id, booking_id, stay_start_date, stay_end_date, status)
-       VALUES ($1, $2, DATE '2026-10-04', DATE '2026-10-10', 'BOOKED')`,
+       VALUES ($1, $2, (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo')::date, (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo')::date + 3, 'BOOKED')`,
       [ids.line, ids.booking],
     );
     await client.query(

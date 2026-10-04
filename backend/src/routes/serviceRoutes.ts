@@ -1,10 +1,13 @@
-import { Router } from 'express';
+import { RequestHandler, Router } from 'express';
 import { listServices, createService, updateService } from '../controllers/serviceController';
 
-const router = Router();
-
-router.get('/', listServices);
-router.post('/', createService);
-router.put('/:serviceId', updateService);
-
-export default router;
+export function createServiceRouter(authorization: {
+  requireRead: RequestHandler;
+  requireChainManager: RequestHandler;
+}): Router {
+  const router = Router();
+  router.get('/', authorization.requireRead, listServices);
+  router.post('/', authorization.requireChainManager, createService);
+  router.put('/:serviceId', authorization.requireChainManager, updateService);
+  return router;
+}

@@ -1,6 +1,7 @@
 -- M3-S04: service usage events and historical price snapshots.
+-- Upgrade m3_001's published mock in place; do not recreate or delete usages.
 
-CREATE TABLE service_usage (
+CREATE TABLE IF NOT EXISTS service_usage (
     usage_id uuid PRIMARY KEY DEFAULT uuidv7(),
     booking_id uuid NOT NULL,
     service_id uuid NOT NULL,
@@ -37,13 +38,27 @@ CREATE TABLE service_usage (
         REFERENCES user_account (user_id) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
 
-CREATE INDEX service_usage_booking_used_at_idx
+ALTER TABLE service_usage DROP CONSTRAINT IF EXISTS service_usage_quantity_check;
+ALTER TABLE service_usage ADD CONSTRAINT service_usage_quantity_check CHECK (
+    quantity > 0 AND quantity <> 'NaN'::numeric
+);
+ALTER TABLE service_usage DROP CONSTRAINT IF EXISTS service_usage_unit_price_snapshot_check;
+ALTER TABLE service_usage ADD CONSTRAINT service_usage_unit_price_snapshot_check CHECK (
+    unit_price_snapshot >= 0 AND unit_price_snapshot <> 'NaN'::numeric
+);
+ALTER TABLE service_usage DROP CONSTRAINT IF EXISTS service_usage_void_consistency_check;
+ALTER TABLE service_usage ADD CONSTRAINT service_usage_void_consistency_check CHECK (
+    (voided = false AND voided_at IS NULL AND voided_by IS NULL)
+    OR (voided = true AND voided_at IS NOT NULL AND voided_by IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS service_usage_booking_used_at_idx
     ON service_usage (booking_id, used_at);
 
-CREATE INDEX service_usage_used_at_idx
+CREATE INDEX IF NOT EXISTS service_usage_used_at_idx
     ON service_usage (used_at);
 
-CREATE INDEX service_usage_service_idx
+CREATE INDEX IF NOT EXISTS service_usage_service_idx
     ON service_usage (service_id);
 
 CREATE OR REPLACE FUNCTION validate_service_usage_stay()
@@ -91,6 +106,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_service_usage_stay_guard ON service_usage;
 CREATE TRIGGER trg_service_usage_stay_guard
 BEFORE INSERT OR UPDATE OF booking_id, booking_room_line_id ON service_usage
 FOR EACH ROW

@@ -61,6 +61,22 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 5 October 2026 — Imandi/dev conflict reconciliation
+
+- Started an uncommitted merge of the verified dev tip and retained both the existing M2-S11 core and Member 3 implementations. Resolved the package test-script conflict without losing either member's scripts; removed committed conflict markers in the ownership summary and replaced stale operational handoffs with the implemented normalized M2-S03–S06/S28 baseline and checkout lock order.
+- Corrected the M2-S11 test's booking function call with explicit UUID/channel/JSON argument casts so same-named functions in public cannot create ambiguous overload resolution. Its isolated suite passes; M2 creation, availability, catalogue/room APIs and reservation/capacity/type concurrency regressions also pass. Backend and frontend builds pass.
+- A verification mistake applied 13 pending migrations to public through the existing runner's session-scoped schema selection on a transaction pool. The system_config replacement erased its prior rows; the user confirmed no snapshot/previous-value record is available. Three legacy values were recovered from audit evidence, but the original state cannot be proven/restored. The full incident, remaining owner gaps and human Git handoff are in `conflict_resolution_handoff.md`. No speculative restoration, commit or publication was performed. Task checkboxes remain unchanged.
+- The user then identified main as a previous snapshot. Verified main at `1a30682d50bfdc65c8e5ee5076683515c852d4a17`; its tracked inventory contains source/migrations/tests and no live database dump/configuration snapshot. It already contains m1_006, so source history does not restore the erased configuration. No branch checkout or database restoration was performed. Git reports no unmerged paths or conflict markers; the resolution is staged and remains uncommitted.
+
+### 4 October 2026 — M2-S11 staff booking list/detail API core (partial; production auth pending)
+
+- Added `backend/src/services/bookingReadService.ts` with parameterized own-branch booking reads. `listStaffBookings` returns each header once with guest details, line-status counts and overall stay bounds; its branch predicate requires at least one assignment in the authorized branch and rejects any booking containing an assignment from another branch. Bounded `limit`/`offset` pagination prevents unbounded list responses.
+- `getStaffBookingDetail` reads the header, every current or terminal room line, every closed/current room assignment, all line-status histories and all line revisions within one repeatable-read, read-only transaction. This gives the client one consistent nested snapshot during concurrent reservation updates. Unknown and out-of-branch booking IDs are indistinguishable to callers.
+- Added `bookingReadController.ts` and `bookingReadRoutes.ts` for `GET /bookings` and `GET /bookings/:bookingId`. The controller rejects invalid UUIDs, pagination and client-supplied branch filters. The route factory requires an injected Front Desk authorization handler and branch context; it does not trust request query/body data for branch scope.
+- Added `backend/tests/m2BookingReadApi.test.ts` and `test:m2-booking-read`. The isolated PostgreSQL/HTTP suite passes unauthenticated and wrong-role denial, branch-filtered list behavior, one header for a two-line/three-assignment booking, complete preserved room-move history, status history, cross-branch concealment, valid other-branch access and invalid input. The focused M2-S10 regression and backend TypeScript build also pass when run sequentially.
+- M2-S11 remains unchecked and its router remains unmounted because M2-S10 and Member 1's M1-S08/M1-S09 production session, Front Desk role and branch-context middleware remain incomplete. After those dependencies land, mount both booking routers and run authenticated end-to-end acceptance checks. No application database migration was needed or applied for M2-S11.
+- Lecture concepts applied: parameterized selection and joins, aggregation at booking-header granularity to prevent duplicate rows, projection into nested application DTOs, bounded pagination, reuse of existing PK/FK history indexes and repeatable-read transaction isolation for a consistent multi-query detail response.
+
 ### 4 October 2026 — M2-S10 staff booking-create transaction/API core (partial; production auth pending)
 
 - Added `backend/migrations/m2_008_staff_booking_create.sql` with `sp_create_booking`. The function accepts multiple separately dated/priced room selections, validates an active own-branch Front Desk actor and guest, locks and rechecks active room/branch/type records, capacity, room blocks, overlapping assignments and current catalogue rates, and rejects stale client quotes. It selects the latest published non-demo billing policy effective on the Asia/Colombo confirmation date under a shared publication lock, so a same-date correction applies only to new bookings while existing invoice policy foreign keys remain unchanged.
@@ -151,6 +167,14 @@ Record actual project-task work here for all five members, including partial or 
 - Lecture concepts applied: typed PK/FK referential integrity, normalized many-to-many `room_type_amenity`, exact `numeric` rates, and ACID rollback in isolated migration tests. Reservation transaction isolation remains for later M2-S06/M2-S10 work.
 
 ## Member 3 — Kulunu
+
+### 5 October 2026 — reconcile existing M3 cores with the current Member 2 baseline
+
+- The historical entries below retain what Member 3 originally reported. Their old correction-task prerequisite claims and invoice-last proposal are superseded by this entry and the current reservation contract.
+- Retained published m3_001/m3_002 mocks and upgraded their existing tables through unique m3_003 usage, m3_004 catalogue and m3_005 history keys. Reused room_condition_enum and preserved IDs, rates, immutable history, reason fields and the existing checkout hook. No M3-S18 authorization or later usage/UI task was implemented.
+- Fixed real date-column comparison, server Asia/Colombo check-in timing and safe database-conflict responses. Protected M3 routes now require injected session middleware and verified req.user; routers remain unmounted while M1-S08/S09 is pending. M3-S07/S08 were returned to unchecked because fixture-level evidence did not complete production authentication acceptance.
+- Eleven existing M3 tests pass. Two new transaction-local isolated tests pass for the complete numbered chain, preserved mock data, real M2 booking creation, partial check-in/active occupancy and M4 checkout history. Both builds pass. Existing M4 checkout API failures and the separate production runner/database verification incident are recorded in `conflict_resolution_handoff.md`.
+- Lecture concepts applied: normalization, referential/domain integrity, exact decimal snapshots, immutable event history, atomic rollback, shared-row locking and transaction-local schema isolation. No commit or publication was performed.
 
 ### 29 September 2026 — M3-S01
 

@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { RequestHandler, Router } from 'express';
 import { postCheckIn } from '../controllers/checkInController';
 
-const router = Router();
-
-router.post('/bookings/:bookingRef/lines/:lineId/checkin', postCheckIn);
-
-export default router;
+export function createCheckInRouter(requireStaff: RequestHandler): Router {
+  const router = Router();
+  router.post('/bookings/:bookingRef/lines/:lineId/checkin', requireStaff, postCheckIn);
+  return router;
+}

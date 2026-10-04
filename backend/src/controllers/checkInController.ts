@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
-import { resolveActor } from './invoiceController';
+import { member3Actor } from './member3Actor';
 import { checkInRoomLine } from '../services/checkInService';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{2}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UUID_ANY_VERSION_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BRANCH_SCOPED_ROLES = new Set(['FRONT_DESK', 'BRANCH_MANAGER']);
 const CHAIN_SCOPED_ROLES = new Set(['CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR']);
@@ -19,7 +18,7 @@ function errorResponse(res: Response, status: number, code: string, message: str
 export async function postCheckIn(req: Request, res: Response): Promise<void> {
   const bookingRef = readParam(req.params.bookingRef);
   const lineId = readParam(req.params.lineId);
-  const actor = resolveActor(req);
+  const actor = member3Actor(req);
 
   if (!actor.userId) {
     errorResponse(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication is required for check-in.');
@@ -93,7 +92,7 @@ export async function postCheckIn(req: Request, res: Response): Promise<void> {
       const result = await checkInRoomLine(client, {
         lineId,
         actorId: actor.userId,
-        stayDate: typeof req.body?.stayDate === 'string' ? req.body.stayDate : undefined,
+        bookingId: target.rows[0].booking_id,
       });
 
       res.status(200).json({
@@ -110,6 +109,10 @@ export async function postCheckIn(req: Request, res: Response): Promise<void> {
     }
   } catch (error: any) {
     const message = error?.message || 'Unable to check in room line.';
+    if (['23514', '23505', '40P01', '40001'].includes(error?.code)) {
+      errorResponse(res, 409, 'CHECK_IN_CONFLICT', 'The room line changed or conflicts with current inventory. Retry the complete request.');
+      return;
+    }
     if (message.includes('not found')) {
       errorResponse(res, 404, 'BOOKING_LINE_NOT_FOUND', message);
       return;

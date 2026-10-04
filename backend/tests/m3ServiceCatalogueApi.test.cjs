@@ -12,7 +12,7 @@ const userSql = require('node:fs').readFileSync(
   'utf8',
 );
 const serviceSql = require('node:fs').readFileSync(
-  path.join(__dirname, '..', 'migrations', 'm3_001_service_catalogue.sql'),
+  path.join(__dirname, '..', 'migrations', 'm3_004_service_catalogue.sql'),
   'utf8',
 );
 
@@ -72,7 +72,7 @@ test('M3-S05 service catalogue API allows CHAIN_MANAGER writes and blocks staff 
       status(code) { this.statusCode = code; return this; },
       json(value) { this.body = value; return this; },
     };
-    await listServices({ query: { active: 'true' }, headers: { 'x-user-id': managerUserId } }, listResponse);
+    await listServices({ query: { active: 'true' }, user: { userId: managerUserId } }, listResponse);
     assert.equal(listResponse.statusCode, 200);
     assert.deepEqual(listResponse.body, []);
 
@@ -84,7 +84,7 @@ test('M3-S05 service catalogue API allows CHAIN_MANAGER writes and blocks staff 
     };
     await createService({
       body: { name: 'Room Service', category: 'Food & Beverage', current_price: 1250.5, active: true },
-      headers: { 'x-user-id': managerUserId },
+      user: { userId: managerUserId },
     }, created);
     assert.equal(created.statusCode, 201);
     assert.equal(created.body.service.name, 'Room Service');
@@ -98,7 +98,7 @@ test('M3-S05 service catalogue API allows CHAIN_MANAGER writes and blocks staff 
     };
     await createService({
       body: { name: 'Laundry', category: 'Housekeeping', current_price: 900 },
-      headers: { 'x-user-id': frontDeskUserId },
+      user: { userId: frontDeskUserId },
     }, forbidden);
     assert.equal(forbidden.statusCode, 403);
 
@@ -112,7 +112,7 @@ test('M3-S05 service catalogue API allows CHAIN_MANAGER writes and blocks staff 
     await updateService({
       params: { serviceId },
       body: { current_price: 1400, active: false },
-      headers: { 'x-user-id': managerUserId },
+      user: { userId: managerUserId },
     }, updated);
     assert.equal(updated.statusCode, 200);
     assert.equal(updated.body.service.current_price, '1400.00');
@@ -124,7 +124,7 @@ test('M3-S05 service catalogue API allows CHAIN_MANAGER writes and blocks staff 
       status(code) { this.statusCode = code; return this; },
       json(value) { this.body = value; return this; },
     };
-    await listServices({ headers: { 'x-user-id': frontDeskUserId } }, listAll);
+    await listServices({ user: { userId: frontDeskUserId } }, listAll);
     assert.equal(listAll.statusCode, 200);
     assert.ok(Array.isArray(listAll.body));
     assert.equal(listAll.body[0].name, 'Room Service');

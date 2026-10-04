@@ -72,7 +72,7 @@ async function seed(client) {
   for (const room of [rooms.rows[0].room_id, secondRoom.rows[0].room_id]) {
     const line = await client.query(
       `INSERT INTO booking_room_line (booking_id, stay_start_date, stay_end_date)
-       VALUES ($1, '2026-10-01', '2026-10-04') RETURNING line_id`,
+       VALUES ($1, (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo')::date, (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo')::date + 3) RETURNING line_id`,
       [booking.rows[0].booking_id],
     );
     await client.query(
@@ -115,7 +115,6 @@ test('M3-S06 checks in one line while the other line remains BOOKED', async () =
     const result = await checkInRoomLine(client, {
       lineId: fixture.lineIds[0],
       actorId: fixture.actorId,
-      stayDate: '2026-10-01',
       schema,
     });
     assert.equal(result.lineId, fixture.lineIds[0]);
@@ -168,7 +167,6 @@ test('M3-S06 rejects non-READY rooms and leaves the line and assignment unchange
       checkInRoomLine(client, {
         lineId: fixture.lineIds[0],
         actorId: fixture.actorId,
-        stayDate: '2026-10-01',
         schema,
       }),
       /READY/,
@@ -216,7 +214,6 @@ test('M3-S06 rolls back line, occupancy, history, and audit when a later write f
       checkInRoomLine(client, {
         lineId: fixture.lineIds[0],
         actorId: fixture.actorId,
-        stayDate: '2026-10-01',
         schema,
       }),
       /forced audit failure/,
