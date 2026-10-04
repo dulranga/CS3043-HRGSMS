@@ -9,6 +9,7 @@ import reportRoutes from './routes/reportRoutes';
 import invoiceRoutes from './routes/invoiceRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import checkoutRoutes from './routes/checkoutRoutes';
+import cancellationRoutes from './routes/cancellationRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
 
 const app: Application = express();
@@ -24,6 +25,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api', invoiceRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', checkoutRoutes);
+app.use('/api', cancellationRoutes);
 app.use('/api', availabilityRoutes);
 
 // Initialize database and start server

@@ -463,10 +463,70 @@ No entries yet.
     - `npm run build --workspace backend`
     - `npm run build --workspace frontend`
   - `git diff --check` passed with 0 errors.
+### 04 October 2026 — M4-S11 (Per-Line & Whole-Booking Cancellation Engine and REST API)
+- Implemented PostgreSQL migration `backend/migrations/m4_008_cancellation_transaction.sql`:
+  - `fn_cancel_room_line(p_booking_id, p_line_id, p_actor_id, p_reason, p_cancel_time)`:
+    - Row-level pessimistic locking in hierarchy (`booking` → `invoice` → `booking_room_line` → `booking_room_assignment`).
+    - Validates invoice is in `DRAFT` status (rejects `FINAL` with `object_not_in_prerequisite_state`).
+    - Enforces line status is `BOOKED` (rejects `CHECKED_IN`, `CHECKED_OUT`, `NO_SHOW`, and already `CANCELLED` lines).
+    - Enforces linked billing policy's no-show cutoff deadline: `(l.stay_start_date + bp.no_show_grace_days) 00:00:00 Asia/Colombo`. Rejects any cancellation attempt at or after cutoff with `23514` (`CANCELLATION_DEADLINE_PASSED`).
+    - Closes open assignment (`unassigned_at = cancel_time`) releasing physical room inventory without deleting assignment history.
+    - Transitions line status to `CANCELLED` and appends immutable status event to `booking_room_line_status_history` (`BOOKED` → `CANCELLED`).
+    - Audits event to `audit_log`.
+    - Automatically refreshes `DRAFT` invoice lines via `fn_refresh_draft_invoice_lines`: removes provisional room-night charges and adds the policy version's flat `CANCELLATION_FEE`, ensuring later policy updates do not affect existing cancellation charges (later-policy fee stability).
+    - Re-evaluates outstanding balance: when prepayments exceed the cancellation fee, identifies credit balance (`is_credit = true`, `credit_amount > 0`) for staff refund processing.
+    - Returns execution receipt table.
+  - `fn_cancel_whole_booking(p_booking_id, p_actor_id, p_reason, p_cancel_time)`:
+    - Atomically verifies eligibility of all booking room lines in deterministic UUID order: requires every line to be in `BOOKED` status and before cutoff. If any line is ineligible (e.g. `CHECKED_IN`), raises `23514` and rolls back all changes atomically (whole-booking rollback guarantee).
+    - Upon verification, atomically cancels all `BOOKED` lines, closes open assignments, appends history rows, refreshes the draft invoice once, and returns batch cancellation receipt.
+  - Procedures `sp_cancel_room_line` and `sp_cancel_booking`: Table 45 compatibility wrappers.
+- Implemented TypeScript models, service, controller, and routes:
+  - `backend/src/models/cancellation.ts`: defined `CancelLineParams`, `CancelLineReceipt`, `CancelWholeBookingParams`, `CancelWholeBookingReceipt`, and `CancellationQuote`.
+  - `backend/src/services/cancellationService.ts`:
+    - `verifyCancellationAccess`: enforces strict access boundaries: 401 for unauthenticated; 403 for guest mismatch (`guest_account.guest_id === booking.guest_id` required per FR-084); 403 for `SERVICE_STAFF` and `AUDITOR`; 403 for cross-branch front desk / branch managers; universal chain-wide access for `CHAIN_MANAGER` and `SYSTEM_ADMINISTRATOR`. Supports both UUID and human-readable `booking_ref`.
+    - `cancelRoomLine`, `cancelWholeBooking`, and `getCancellationQuote`.
+  - `backend/src/controllers/cancellationController.ts`:
+    - Handles line and whole booking cancellation and cancellation quotes.
+    - Implemented explicit repeated-request behavior: default repeated cancellation on already `CANCELLED` line returns 409 Conflict (`LINE_ALREADY_CANCELLED`); idempotent repeat requests (`?idempotent=true` query param or `idempotency-key` header) return 200 OK with `repeated: true`.
+    - Maps database exceptions to HTTP error codes: `400` (`CANCELLATION_DEADLINE_PASSED`, `CANNOT_CANCEL_CHECKED_IN`, `INVALID_LINE_STATUS`, `NOT_ALL_LINES_ELIGIBLE`, `NO_ACTIVE_BOOKED_LINES`, `LINE_BOOKING_MISMATCH`, `INVALID_LINE_ID`), `404` (`BOOKING_NOT_FOUND`, `ROOM_LINE_NOT_FOUND`), and `409` (`LINE_ALREADY_CANCELLED`, `INVOICE_ALREADY_FINAL`).
+  - `backend/src/routes/cancellationRoutes.ts`: mounted routes `POST /bookings/:bookingId/lines/:lineId/cancel`, `POST /bookings/:bookingId/cancel`, `POST /bookings/:bookingId/cancel-all`, `GET /bookings/:bookingId/lines/:lineId/cancellation-quote`, `GET /bookings/:bookingId/cancellation-quote`. Mounted in `backend/src/index.ts` under `/api`.
+- Added automated integration test suite `backend/tests/m4Cancellation.test.cjs` (registered `"test:m4-cancellation"` in `backend/package.json`):
+  1. Unauthenticated request fails with 401 Unauthorized (`AUTHENTICATION_REQUIRED`).
+  2. Online guest cannot cancel another guest reservation (403 `FORBIDDEN`).
+  3. Online guest can cancel their own BOOKED line (200 OK).
+  4. Service staff and auditors cannot cancel reservations (403 `FORBIDDEN`).
+  5. Cross-branch staff cannot cancel other branch reservation (403 `FORBIDDEN`).
+  6. Partial cancellation: cancel Line A, Line B remains `BOOKED` and active with open assignment; invoice lines updated.
+  7. Cutoff boundaries: before cutoff succeeds; at or after cutoff fails (400 `CANCELLATION_DEADLINE_PASSED`).
+  8. Checked-in room line cannot be cancelled (400 `CANNOT_CANCEL_CHECKED_IN`).
+  9. Later-policy fee stability: new policy publication does not change existing booking cancellation fee.
+  10. Prior-payment credit: cancellation removes room nights, creates credit balance, verified with staff manual refund settling to 0.00.
+  11. Whole-booking cancellation atomically cancels all eligible lines.
+  12. Whole-booking rollback: fails and rolls back completely when one room is `CHECKED_IN` (400 `NOT_ALL_LINES_ELIGIBLE`).
+  13. Repeated cancellation: default 409 Conflict; `?idempotent=true` returns 200 OK with `repeated: true`.
+  14. Cancellation quote inspection returns fee and eligibility.
+  15. Stored procedures `sp_cancel_room_line` and `sp_cancel_booking` execute cleanly.
+- Verification:
+  - `npm run test:m4-cancellation --workspace backend` passed (15/15 subtests, 100% pass rate).
+  - All regression test suites passed cleanly:
+    - `npm run test:m4-checkout-api --workspace backend` (18/18 subtests passed)
+    - `npm run test:m4-checkout --workspace backend` (10/10 scenarios passed)
+    - `npm run test:m4-payment-api --workspace backend` (15/15 subtests passed)
+    - `npm run test:m4-posting --workspace backend` (10/10 scenarios passed)
+    - `npm run test:m4-api --workspace backend` (8/8 scenarios passed)
+    - `npm run test:m4-invoice --workspace backend` (11/11 scenarios passed)
+    - `npm run test:m4-billing --workspace backend` (1/1 passed)
+    - `npm run test:m4-payment --workspace backend` (1/1 passed)
+    - `npm run test:migrations --workspace backend` (3/3 passed)
+  - TypeScript builds compiled with 0 errors:
+    - `npm run build --workspace backend`
+    - `npm run build --workspace frontend`
+  - `git diff --check` passed with 0 errors.
 - Lecture concepts applied:
-  - Principle of least privilege and role-based access control (`03_Advanced_SQL.md`).
-  - Multi-tenant data isolation and tenancy boundary enforcement (`03_Advanced_SQL.md`).
-  - Idempotent API state transitions and safe error translation (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Multi-entity pessimistic locking order (`booking` → `invoice` → `line` → `assignment`) avoiding deadlocks (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Transaction atomicity & all-or-nothing rollback semantics in whole-booking cancellation (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Temporal boundary constraints and timezone-aware cutoff evaluation in SQL (`02_Intermediate_SQL.md`, `03_Advanced_SQL.md`).
+  - Authorization and tenant isolation preserving online guest self-service ownership vs. internal staff boundaries (`03_Advanced_SQL.md`).
 
 ## Member 5 — Thusath
 
