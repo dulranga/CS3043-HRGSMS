@@ -121,7 +121,13 @@ function cookieAttributes(response: globalThis.Response): string {
 test('M1-S08 staff/guest login, logout, session expiry, throttling and audit', async () => {
   assert.ok(process.env.PG_URL, 'PG_URL must point to a PostgreSQL 18 test-capable database');
   const schema = `m1_auth_${randomBytes(8).toString('hex')}`;
-  const admin = new Client({ connectionString: process.env.PG_URL });
+  // A transaction-mode pooler (e.g. Neon "-pooler" hosts) rejects search_path
+  // startup options and can move session-level SETs between server connections,
+  // which would leak test writes into the shared schema or read the wrong one.
+  // Both the setup client and the application pool use the direct endpoint.
+  const directUrl = new URL(process.env.PG_URL);
+  directUrl.hostname = directUrl.hostname.replace('-pooler.', '.');
+  const admin = new Client({ connectionString: directUrl.toString() });
   await admin.connect();
   let pool: Pool | undefined;
   const closers: Array<() => Promise<void>> = [];
@@ -129,15 +135,10 @@ test('M1-S08 staff/guest login, logout, session expiry, throttling and audit', a
   try {
     await admin.query(`CREATE SCHEMA "${schema}"`);
     await admin.query(`SET search_path TO "${schema}"`);
+    assert.equal((await admin.query('SELECT current_schema() AS schema')).rows[0].schema, schema);
     for (const sql of migrations) {
       await admin.query(sql);
     }
-    // A transaction-mode pooler (e.g. Neon "-pooler" hosts) rejects search_path
-    // startup options and can move session-level SETs between server connections,
-    // which would leak test writes into the shared schema. Use the direct endpoint
-    // with the scratch schema pinned at connection startup.
-    const directUrl = new URL(process.env.PG_URL);
-    directUrl.hostname = directUrl.hostname.replace('-pooler.', '.');
     pool = new Pool({ connectionString: directUrl.toString(), options: `-c search_path=${schema}`, max: 12 });
     const pinned = await pool.query('SELECT current_schema() AS schema');
     assert.equal(pinned.rows[0].schema, schema, 'application pool must be isolated to the scratch schema');

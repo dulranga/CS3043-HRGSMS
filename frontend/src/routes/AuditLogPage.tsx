@@ -39,7 +39,7 @@ export default function AuditLogPage() {
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const url = new URL("http://localhost:4000/api/admin/audit-logs");
+      const url = new URL("/api/admin/audit-logs", window.location.origin);
       url.searchParams.append("page", String(page));
       url.searchParams.append("limit", "15");
       if (selectedEntity) url.searchParams.append("entity_name", selectedEntity);

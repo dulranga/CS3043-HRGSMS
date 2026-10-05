@@ -101,6 +101,50 @@ Record actual project-task work here for all five members, including partial or 
 - Removed the sidebar wrapping every page. `RootLayout.tsx` is a bare `<Outlet />` again, as before commit 28e094d. That commit also left the dashboard/admin pages with two sidebars, because each page already uses `AppShell`. The staff navigation (Dashboard, Reports & CSV, Branches & Users, System Config, Audit Log) is now in `AppShell`'s sidebar, using the shadcn sidebar menu primitives; `SidebarMenuButton` gained `asChild` so menu items can be links. The new `SessionPanel` in the sidebar footer shows the signed-in user/role with Sign out (or a Sign in link). Public pages (`/`, `/rooms`, `/ui`, `/login`) render without a sidebar. `vite.config.ts` proxies `/api` to `localhost:4000` so the cookie is sent same-origin.
 - Verification: `npm run build:frontend` passes. The repo has no frontend test runner, and the page has not been exercised in a browser against a running backend. Route guards and redirect-on-expiry for other pages are left to M1-S09 and the page owners.
 
+### 4 October 2026 — M1-S09 (staff role/branch authorization middleware)
+
+- Decisions (Dulranga, 4 October 2026): implemented the SRS §6.1.4 working role mapping as the version-controlled matrix, pending TBD-15 sign-off. Payments and checkout are FRONT_DESK-only (own branch), stricter than Member 4's service checks, which still run after the gate. Audit reads go to SYSTEM_ADMINISTRATOR and AUDITOR. Branch-list reads are open to all staff. Account and config reads go to SYSTEM_ADMINISTRATOR and AUDITOR.
+- Added `backend/src/authorization.ts`:
+  - `STAFF_ROLES` and the `PERMISSIONS` matrix. Each permission has its roles and a BRANCH or CHAIN scope: catalogue, room, room-condition, service-usage, booking, checkout, payment, invoice, discount, report, audit, billing-policy, branch, account and config.
+  - `authorizeStaff` decision helper. Guests never get a staff permission. Unknown roles are denied. A BRANCH grant must match the target branch, and a CHAIN grant takes precedence.
+  - Middleware: `requireStaff`, `requirePrincipal` and `requireGuestOrStaff` (guest ownership is still checked by the owning feature).
+  - `routePolicy`, a default-deny method/path policy for routers that take no injected middleware. It has an optional `scopeQueryBranch` that rejects another branch and forces the officer's own branch.
+  - `ADMIN_ROUTE_POLICY` and `REPORT_ROUTE_POLICY`. BRANCH_MANAGER gets only the occupancy, revenue and revenue-export reports, which filter by `branch_id`. The other reports aggregate across branches and stay chain-reader only.
+  - `createAuthorization(auth.authenticate)`, plus `sessionBranchId`/`sessionUserId` as the request context.
+- `backend/src/index.ts` now puts every protected `/api` router behind the session cookie:
+  - `/api/admin` and `/api/reports` go through the route policies.
+  - Invoice routes: guest or invoice reader.
+  - Payment and checkout routes: `payment.record` and `checkout.perform`.
+  - Catalogue: any signed-in user reads; writes need `catalogue.write`.
+  - Room inventory: `room.read`/`room.write`, with the branch and actor taken from the session.
+  - The catalogue and room-inventory routers are mounted for the first time. `/api/availability` stays public.
+  - As a result, `x-user-id`/`x-role` headers no longer reach `resolveActor` on mounted routes.
+- Frontend: changed the `http://localhost:4000` calls in Member 5's `AdminConfigPage`, `AdminOperationsPage`, `AuditLogPage` and `ReportsPage` to relative `/api/...` URLs (with the user's approval). The Vite proxy then sends them same-origin with the cookie. Updated `README.md`.
+- Added `backend/tests/m1Authorization.test.ts` and `test:m1-authorization`:
+  - A per-role matrix unit test.
+  - A clean-schema HTTP integration test using real login cookies and Member 2's real catalogue and room routers. It covers:
+    - AT-24: every non-Chain-Manager role and guests are denied room-type and amenity writes, and the rates stay unchanged.
+    - Branch scope: Branch Manager cross-branch room, block and block-delete attempts all fail. A client-supplied branch is rejected, and room reads are own-branch only.
+    - Every role on every admin, report, payment, checkout and invoice gate. Unmapped admin routes are denied by default.
+    - Spoofed identity headers: 401 without a cookie, 403 with a lower-role cookie.
+    - Report branch pinning, including a blank filter and a repeated parameter.
+    - Mid-session role and branch changes.
+- Test isolation fix: `m1Auth.test.ts` failed once because its setup client used the Neon `-pooler` endpoint with a session-level `search_path`. Its read went to the wrong server connection. Both M1 HTTP tests now connect the setup client to the direct endpoint and assert `current_schema()` first. Checked afterwards: no test rows reached `public`, and no scratch schemas were left behind.
+- Verification:
+  - `test:m1-authorization` 2/2, `test:m1-auth` 3/3, `test:m1-identity` 1, `test:m1-guests` 1, `test:m1-audit` 2, `test:migrations` 3 and `test:m2-room-api` 1 pass.
+  - `test:m2-catalogue-api` failed once, possibly a connection blip. It passed on re-run, and this change does not touch its code path.
+  - `npm run build:backend` and `npm run build:frontend` pass.
+  - A real server start showed spoofed-header requests to admin, reports, rooms, room-types and payments get 401, while availability stays public.
+- Remaining handoffs:
+  1. TBD-15: Members 1/5 and the API owners must sign off on the matrix.
+  2. Member 4: the services still allow CHAIN_MANAGER/SYSTEM_ADMINISTRATOR checkout and any staff role to post payments. The route gate is now stricter, so their services should be aligned.
+  3. Member 5: `updateConfig` takes `updated_by` from the request body. It should use `req.user.userId`.
+  4. Member 5: reports other than occupancy and revenue need a `branch_id` filter before Branch Managers can use them.
+  5. Member 3: the service catalogue (part of AT-24) and the M3-S18 condition route should use `catalogue.write`/`room.condition.write`.
+  6. Member 2: catalogue and room routers are now mounted, but their audit integration (M2-S07/S08) is still open.
+  7. Frontend pages do not yet redirect to `/login` on a 401.
+- Lecture concepts: none. No schema or SQL change. The authorization reads the role and branch that `authenticate` re-reads with the existing parameterized join.
+
 ## Member 2 — Imandi
 
 ### 3 October 2026 — M2-S09 parameterized availability function and API

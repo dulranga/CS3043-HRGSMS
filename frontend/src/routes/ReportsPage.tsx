@@ -23,7 +23,7 @@ export default function ReportsPage() {
 
   // 1. Fetch Branches for the Filter Dropdown
   useEffect(() => {
-    fetch("http://localhost:4000/api/admin/branches")
+    fetch("/api/admin/branches")
       .then((res) => res.json())
       .then((branchesData) => {
         if (Array.isArray(branchesData)) {
@@ -39,7 +39,7 @@ export default function ReportsPage() {
       setLoading(true);
       setError(null);
 
-      const url = new URL(`http://localhost:4000/api/reports/${activeReport}`);
+      const url = new URL(`/api/reports/${activeReport}`, window.location.origin);
       if (selectedBranch) {
         url.searchParams.append("branch_id", selectedBranch);
       }
@@ -65,7 +65,7 @@ export default function ReportsPage() {
 
   // 3. Handle Live CSV Export
   const handleExportCsv = () => {
-    const exportUrl = new URL(`http://localhost:4000/api/reports/${activeReport}/export`);
+    const exportUrl = new URL(`/api/reports/${activeReport}/export`, window.location.origin);
     if (selectedBranch) {
       exportUrl.searchParams.append("branch_id", selectedBranch);
     }

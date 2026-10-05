@@ -2,20 +2,32 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import { initializeDatabase, pool } from './db';
 import { createAuthFromEnv } from './auth';
+import {
+  ADMIN_ROUTE_POLICY,
+  REPORT_ROUTE_POLICY,
+  createAuthorization,
+  requireGuestOrStaff,
+  requireStaff,
+  sessionBranchId,
+  sessionUserId,
+} from './authorization';
 import { createAuthRouter } from './routes/authRoutes';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
 import reportRoutes from './routes/reportRoutes';
 
-import invoiceRoutes from './routes/invoiceRoutes';
-import paymentRoutes from './routes/paymentRoutes';
-import checkoutRoutes from './routes/checkoutRoutes';
+import { createInvoiceRouter } from './routes/invoiceRoutes';
+import { createPaymentRouter } from './routes/paymentRoutes';
+import { createCheckoutRouter } from './routes/checkoutRoutes';
+import { createCatalogueRouter } from './routes/catalogueRoutes';
+import { createRoomInventoryRouter } from './routes/roomInventoryRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
 export const auth = createAuthFromEnv(pool);
+const authorization = createAuthorization(auth.authenticate);
 
 app.use(cors());
 app.use(express.json());
@@ -23,11 +35,31 @@ app.use(express.json());
 app.use('/', homeRoutes);
 app.use('/api/auth', createAuthRouter(auth));
 app.use('/rooms', roomRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api', invoiceRoutes);
-app.use('/api', paymentRoutes);
-app.use('/api', checkoutRoutes);
+app.use('/api/admin', authorization.policy(ADMIN_ROUTE_POLICY), adminRoutes);
+app.use('/api/reports', authorization.policy(REPORT_ROUTE_POLICY), reportRoutes);
+app.use('/api', createInvoiceRouter({
+  authenticate: auth.authenticate,
+  authorizeBooking: requireGuestOrStaff(['invoice.read.branch', 'invoice.read.chain']),
+}));
+app.use('/api', createPaymentRouter({
+  authenticate: auth.authenticate,
+  authorizeStaff: requireStaff('payment.record'),
+}));
+app.use('/api', createCheckoutRouter({
+  authenticate: auth.authenticate,
+  authorizeStaff: requireStaff('checkout.perform'),
+}));
+app.use('/api', createCatalogueRouter({
+  requireRead: authorization.authenticated,
+  requireChainManager: authorization.staff('catalogue.write'),
+}));
+app.use('/api', createRoomInventoryRouter(
+  {
+    requireBranchRead: authorization.staff('room.read'),
+    requireBranchManager: authorization.staff('room.write'),
+  },
+  { branchId: sessionBranchId, actorId: sessionUserId },
+));
 app.use('/api', availabilityRoutes);
 
 // Initialize database and start server
