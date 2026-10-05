@@ -9,6 +9,7 @@ import invoiceRoutes from './routes/invoiceRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import checkoutRoutes from './routes/checkoutRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
+import serviceUsageRoutes from './routes/serviceUsageRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -24,6 +25,7 @@ app.use('/api', invoiceRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', checkoutRoutes);
 app.use('/api', availabilityRoutes);
+app.use('/api', serviceUsageRoutes);
 // M2/M3 protected route factories await Member 1's production session middleware.
 // Mount service, check-in and active-stay routers only with authenticated actors.
 

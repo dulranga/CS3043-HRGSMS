@@ -41,6 +41,7 @@ async function withScratchSchema(run) {
         booking_id uuid NOT NULL,
         service_id uuid NOT NULL,
         booking_room_line_id uuid,
+        used_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
         quantity numeric(10,2) NOT NULL,
         unit_price_snapshot numeric(12,2) NOT NULL,
         recorded_by uuid NOT NULL

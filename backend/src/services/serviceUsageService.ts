@@ -6,6 +6,7 @@ export interface RecordServiceUsageInput {
   quantity: number | string;
   recordedBy: string;
   bookingRoomLineId?: string;
+  usedAt?: string;
 }
 
 export interface RecordedServiceUsage {
@@ -35,6 +36,10 @@ export async function recordServiceUsage(
   }
 
   const quantity = parseQuantity(input.quantity);
+  const usedAt = input.usedAt ? new Date(input.usedAt) : new Date();
+  if (Number.isNaN(usedAt.getTime())) {
+    throw new Error('Service usage time must be a valid timestamp.');
+  }
   await client.query('BEGIN');
 
   try {
@@ -115,13 +120,14 @@ export async function recordServiceUsage(
       unit_price_snapshot: string;
     }>(
       `INSERT INTO service_usage (
-         booking_id, service_id, booking_room_line_id, quantity, unit_price_snapshot, recorded_by
-       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::uuid)
+         booking_id, service_id, booking_room_line_id, used_at, quantity, unit_price_snapshot, recorded_by
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::timestamptz, $5, $6, $7::uuid)
        RETURNING usage_id, booking_id, service_id, booking_room_line_id, quantity, unit_price_snapshot`,
       [
         input.bookingId,
         input.serviceId,
         input.bookingRoomLineId || null,
+        usedAt.toISOString(),
         quantity,
         service.rows[0].current_price,
         input.recordedBy,

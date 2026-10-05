@@ -245,6 +245,13 @@ Record actual project-task work here for all five members, including partial or 
 - Added `backend/tests/m3ServiceUsageRecording.test.cjs` and the `test:m3-service-usage-recording` script. Verification: 2 focused tests passed for price snapshot/draft refresh and cross-booking/FINAL rejection; `npm run build` passed; M3-S06 and M3-S08 regressions passed; `git diff --check` passed.
 - Lecture concepts applied: ACID atomicity and rollback for usage plus billing refresh, row locking for catalogue/invoice consistency, exact fixed-point numeric snapshots, and normalized optional line attribution.
 
+### 05 October 2026 — M3-S10
+
+- Added `backend/src/controllers/serviceUsageController.ts` and `backend/src/routes/serviceUsageRoutes.ts`, exposing `POST /api/bookings/:bookingRef/service-usage` and `GET /api/bookings/:bookingRef/service-usage`.
+- The API uses only verified `req.user` identity, authorizes active own-branch `FRONT_DESK` and `SERVICE_STAFF`, validates service/line UUIDs, positive finite quantities and usage timestamps, rejects cross-branch access, and delegates writes to `recordServiceUsage` so server-side catalogue snapshots and draft-invoice refresh remain transactional.
+- Added `backend/tests/m3ServiceUsageApi.test.cjs` and the `test:m3-service-usage-api` script. Verification: 2 API tests passed for own-branch recording/listing with server price capture and cross-branch/invalid-quantity rejection; M3-S09 recording tests passed; `npm run build` passed.
+- Lecture concepts applied: least-privilege role/branch authorization, parameterized SQL joins, normalized optional room-line attribution, and transaction atomicity across usage and draft-bill refresh.
+
 ## Member 4 — Chamikara
 
 ### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
