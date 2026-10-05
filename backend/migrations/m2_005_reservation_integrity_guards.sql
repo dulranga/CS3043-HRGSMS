@@ -3,10 +3,10 @@
 -- M2-S04 rooms/blocks and M2-S05 assignments.
 -- Capacity reductions and room-type reassignment remain M2-S28.
 
-CREATE INDEX room_block_room_dates_idx
+CREATE INDEX IF NOT EXISTS room_block_room_dates_idx
     ON room_block (room_id, start_date, end_date);
 
-CREATE INDEX room_room_type_idx
+CREATE INDEX IF NOT EXISTS room_room_type_idx
     ON room (room_type_id, room_id);
 
 CREATE FUNCTION m2_validate_assignment_target(

@@ -31,6 +31,8 @@
     "test:m4-payment-api": "node --import tsx --test tests/m4PaymentApi.test.cjs",
     "test:m4-checkout": "node --import tsx --test tests/m4CheckoutTransaction.test.cjs",
     "test:m4-checkout-api": "node --import tsx --test tests/m4CheckoutApi.test.cjs",
+    "test:m4-cancellation": "node --import tsx --test tests/m4Cancellation.test.cjs",
+    "test:m4-no-show": "node --import tsx --test tests/m4NoShow.test.cjs",
     "test:reports": "node --test tests/m5_reports.test.cjs",
     "test:admin": "node --test tests/m5_admin.test.cjs",
     "test:all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs"

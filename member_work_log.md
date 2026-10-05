@@ -650,6 +650,71 @@ Record actual project-task work here for all five members, including partial or 
   - Temporal boundary constraints and timezone-aware cutoff evaluation in SQL (`02_Intermediate_SQL.md`, `03_Advanced_SQL.md`).
   - Authorization and tenant isolation preserving online guest self-service ownership vs. internal staff boundaries (`03_Advanced_SQL.md`).
 
+### 05 October 2026 — M4-S12 (Per-Line No-Show Transition with Cutoff, History, and Linked Policy Fee)
+- Created PostgreSQL migration `backend/migrations/m4_009_no_show_transaction.sql`:
+  - `fn_mark_no_show_room_line(p_booking_id, p_line_id, p_actor_id, p_reason, p_mark_time)`:
+    - Pessimistic locking hierarchy: acquires `FOR UPDATE` row locks in consistent order (`booking` → `invoice` → `booking_room_line` → `booking_room_assignment`) to guarantee deadlock freedom and strict serializability.
+    - Validates prerequisite state: invoice must not be `FINAL` (`55000`); line must exist and belong to booking; line status must be `BOOKED` (`CANNOT_NO_SHOW_CHECKED_IN`, `CANNOT_NO_SHOW_CANCELLED`, `CANNOT_NO_SHOW_CHECKED_OUT`, `LINE_ALREADY_NO_SHOW`).
+    - Enforces temporal cutoff boundary: evaluates cutoff timestamp strictly at local `00:00:00 Asia/Colombo` on current `stay_start_date + invoice-linked no_show_grace_days` (`((v_line.stay_start_date + v_grace_days)::text || ' 00:00:00+05:30')::timestamptz`). Any attempt to declare a no-show before this cutoff deadline fails with `23514` (`EARLY_NO_SHOW_NOT_ALLOWED`).
+    - Closes open assignment (`unassigned_at = v_effective_mark_time`) without deleting assignment history, thereby releasing room physical inventory. Per M2-S01 reservation contract and FR-063, physical room condition is NOT modified (room remains `READY` because the guest never occupied or checked into the room; no cleaning cycle is triggered).
+    - Transitions room line status to `NO_SHOW` and records an immutable entry in `booking_room_line_status_history` (`BOOKED` → `NO_SHOW`) with actor ID, timestamp, and audit trail record in `audit_log`.
+    - Refreshes draft invoice via `fn_refresh_draft_invoice_lines`: eliminates provisional room-night charges for the no-show line and applies the linked policy version's flat `NO_SHOW_FEE` line. Prepayments exceeding the fee surface as an unrefunded credit (`is_credit = true`) for manual staff refund.
+    - Returns execution receipt record.
+  - `fn_mark_no_show_booking(p_booking_id, p_actor_id, p_reason, p_mark_time)`:
+    - Atomically transitions all eligible `BOOKED` lines past cutoff in a booking to `NO_SHOW`, closes their assignments, writes line status histories, logs audits, refreshes the draft invoice once, and returns batch receipt.
+  - Stored procedures `sp_no_show_room_line` and `sp_no_show_booking`: Table 45 compatibility wrappers with optional `p_mark_time` (default `CURRENT_TIMESTAMP`).
+- Implemented TypeScript models, service, controller, and routes:
+  - `backend/src/models/noShow.ts`: defined `MarkNoShowParams`, `MarkNoShowResult`, `NoShowReceipt`, `MarkNoShowBookingParams`, `MarkNoShowBookingResult`, `MarkNoShowBookingReceipt`, and `NoShowQuote`.
+  - `backend/src/services/noShowService.ts`:
+    - `verifyStaffNoShowAccess`: strictly enforces staff-only authority per FR-064 (online guests using `guest_account` cannot declare reservations as no-show, returning 403 Forbidden); 401 for unauthenticated; 403 for `SERVICE_STAFF` and `AUDITOR`; 403 for cross-branch front desk / branch managers; universal chain-wide access for `CHAIN_MANAGER` and `SYSTEM_ADMINISTRATOR`. Resolves either UUID or human-readable `booking_ref`.
+    - `markRoomLineNoShow`, `markBookingNoShow`, and `getNoShowQuote`.
+  - `backend/src/controllers/noShowController.ts`:
+    - Implemented `postMarkLineNoShowHandler`, `postMarkBookingNoShowHandler`, and `getNoShowQuoteHandler`.
+    - Implemented explicit repeated-request behavior: default repeated no-show on an already `NO_SHOW` line returns `409 Conflict` (`LINE_ALREADY_NO_SHOW`); idempotent retry requests (`?idempotent=true` query param or `idempotency-key` header) return `200 OK` with existing receipt.
+    - Safe error mapping for `EARLY_NO_SHOW_NOT_ALLOWED` (400), `CANNOT_NO_SHOW_CHECKED_IN` (400), `CANNOT_NO_SHOW_CANCELLED` (400), `CANNOT_NO_SHOW_CHECKED_OUT` (400), `NOT_ALL_LINES_ELIGIBLE` (400), `NO_ACTIVE_BOOKED_LINES` (400), `BOOKING_NOT_FOUND` (404), `ROOM_LINE_NOT_FOUND` (404), `LINE_ALREADY_NO_SHOW` (409), `INVOICE_ALREADY_FINAL` (409).
+  - `backend/src/routes/noShowRoutes.ts`: mounted routes `POST /bookings/:bookingId/lines/:lineId/no-show`, `POST /bookings/:bookingId/no-show`, `GET /bookings/:bookingId/lines/:lineId/no-show-quote`, `GET /bookings/:bookingId/no-show-quote`. Mounted in `backend/src/index.ts` under `/api`.
+  - Added explicit type casts in `backend/src/services/paymentService.ts` for `fn_record_payment` query parameters to prevent ambiguous function resolution when multiple schemas define `payment_kind_enum`.
+  - Added `IF NOT EXISTS` to indexes in `backend/migrations/m2_005_reservation_integrity_guards.sql` for idempotency across isolated test schemas.
+- Added automated integration test suite `backend/tests/m4NoShow.test.cjs` (registered `"test:m4-no-show"` in `backend/package.json`):
+  1. Unauthenticated request fails with 401 Unauthorized (`AUTHENTICATION_REQUIRED`).
+  2. Online guest cannot mark no-show (403 `FORBIDDEN` per FR-064).
+  3. Service staff and auditors cannot mark reservations as no-show (403 `FORBIDDEN`).
+  4. Cross-branch staff cannot mark other branch reservation as no-show (403 `FORBIDDEN`).
+  5. Early no-show before cutoff deadline fails with 400 (`EARLY_NO_SHOW_NOT_ALLOWED`).
+  6. Exactly at cutoff deadline (00:00:00 Asia/Colombo), no-show succeeds (200 OK).
+  7. After cutoff deadline, no-show transition succeeds (200 OK).
+  8. Partial no-show: Line A marked `NO_SHOW`, Line B remains `BOOKED` and active with open assignment; invoice updated.
+  9. Pre-check-in date revision moves derived cutoff deadline.
+  10. Demo billing policy boundary: `is_demo = true`, `grace_days = 1`, and zero fee (`no_show_fee = 0.00`).
+  11. Later-policy changes do not alter existing booking no-show fee or grace days (later-policy stability).
+  12. Prior-payment credit: no-show removes room nights, creates credit for staff refund, verified with manual staff refund settling balance to 0.00.
+  13. Checked-in room line cannot be marked as NO_SHOW (400 `CANNOT_NO_SHOW_CHECKED_IN`).
+  14. Cancelled room line cannot be marked as NO_SHOW (400 `CANNOT_NO_SHOW_CANCELLED`).
+  15. Repeated NO_SHOW: default 409 Conflict; `?idempotent=true` returns 200 OK with existing receipt.
+  16. No-show quote inspection returns eligibility and cutoff deadline.
+  17. Stored procedures `sp_no_show_room_line` and `sp_no_show_booking` execute cleanly.
+- Verification:
+  - `npm run test:m4-no-show --workspace backend` passed (17/17 subtests, 18/18 tests passed, 100% pass rate).
+  - All regression test suites passed cleanly:
+    - `npm run test:migrations --workspace backend` (3/3 passed)
+    - `npm run test:m4-cancellation --workspace backend` (16/16 tests passed)
+    - `npm run test:m4-checkout-api --workspace backend` (19/19 tests passed)
+    - `npm run test:m4-checkout --workspace backend` (10/10 tests passed)
+    - `npm run test:m4-payment-api --workspace backend` (16/16 tests passed)
+    - `npm run test:m4-api --workspace backend` (9/9 tests passed)
+    - `npm run test:m4-invoice --workspace backend` (12/12 tests passed)
+    - `npm run test:m4-billing --workspace backend` (1/1 passed)
+    - `npm run test:m4-payment --workspace backend` (1/1 passed)
+  - TypeScript builds compiled with 0 errors:
+    - `npm run build --workspace backend`
+    - `npm run build --workspace frontend`
+  - `git diff --check` passed with 0 errors.
+- Lecture concepts applied:
+  - Multi-entity pessimistic locking hierarchy (`booking` → `invoice` → `line` → `assignment`) avoiding deadlocks and race conditions (`05_Storage_Indexing_Query_Processing_Transactions.md`).
+  - Temporal boundary constraints and timezone-aware midnight cutoff calculation in SQL (`02_Intermediate_SQL.md`, `03_Advanced_SQL.md`).
+  - Strict role-based access control and principle of least privilege preventing unauthorized guest and staff transitions (`03_Advanced_SQL.md`).
+  - Exact fixed-point numeric arithmetic (`numeric(14,2)`) and balance reconciliation under concurrency (`01_Introduction_to_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
+
 ## Member 5 — Thusath
 
 No entries yet.
