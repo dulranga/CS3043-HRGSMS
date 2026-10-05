@@ -66,7 +66,8 @@ async function withScratchSchema(run) {
         usage_id uuid PRIMARY KEY DEFAULT uuidv7(), booking_id uuid NOT NULL, service_id uuid NOT NULL,
         booking_room_line_id uuid, used_at timestamptz NOT NULL, quantity numeric(10,2) NOT NULL,
         unit_price_snapshot numeric(12,2) NOT NULL, voided boolean NOT NULL DEFAULT false,
-        voided_at timestamptz, recorded_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP, recorded_by uuid NOT NULL
+        voided_at timestamptz, recorded_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        recorded_by uuid NOT NULL, voided_by uuid
       );
       CREATE TABLE refresh_calls (booking_id uuid NOT NULL, user_id uuid NOT NULL);
       CREATE OR REPLACE FUNCTION fn_refresh_draft_invoice(

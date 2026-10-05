@@ -9,6 +9,7 @@ const express = require('express');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { loadMigrations } = require('../src/migrations/migrate');
 const { checkInRoomLine } = require('../src/services/checkInService');
+const { voidServiceUsage } = require('../src/services/serviceUsageService');
 
 const sourceDir = path.join(__dirname, '..', 'migrations');
 const upgrades = ['m3_003_service_usage.sql', 'm3_004_service_catalogue.sql', 'm3_005_room_status_history.sql'];
@@ -213,8 +214,8 @@ test('numbered current chain supports M2 creation, M3 check-in/stays and M4 chec
     }
 
     const serviceId = (await client.query("INSERT INTO service (name, category, current_price) VALUES ('Baseline laundry', 'Laundry', 50) RETURNING service_id")).rows[0].service_id;
-    await client.query(`INSERT INTO service_usage (booking_id, booking_room_line_id, service_id, quantity, unit_price_snapshot, recorded_by)
-      VALUES ($1, $2, $3, 1.25, 50, $4)`, [fixture.booking_id, first.line_id, serviceId, fixture.staffId]);
+    const usageId = (await client.query(`INSERT INTO service_usage (booking_id, booking_room_line_id, service_id, quantity, unit_price_snapshot, recorded_by)
+      VALUES ($1, $2, $3, 1.25, 50, $4) RETURNING usage_id`, [fixture.booking_id, first.line_id, serviceId, fixture.staffId])).rows[0].usage_id;
     await client.query('UPDATE service SET current_price = 75 WHERE service_id = $1', [serviceId]);
     assert.equal((await client.query('SELECT unit_price_snapshot FROM service_usage WHERE service_id = $1', [serviceId])).rows[0].unit_price_snapshot, '50.00');
     await assert.rejects(client.query(`INSERT INTO service_usage (booking_id, booking_room_line_id, service_id, quantity, unit_price_snapshot, recorded_by)
@@ -231,6 +232,30 @@ test('numbered current chain supports M2 creation, M3 check-in/stays and M4 chec
     assert.equal(history.length, 1);
     assert.equal(history[0].new_status, 'CLEANING');
     assert.ok(history[0].reason);
+
+    // M3-S11 void against the real chain: the DRAFT refresh drops the charge and
+    // the settled payment becomes a credit, while the original row is retained.
+    const voided = await voidServiceUsage(client, {
+      usageId: usageId,
+      bookingId: fixture.booking_id,
+      voidedBy: fixture.managerId,
+      reason: 'Baseline void',
+    });
+    assert.equal(voided.voidedAmount, '62.50');
+    assert.equal(voided.balance.isCredit, true);
+    assert.equal((await client.query('SELECT fn_service_total($1) AS total', [fixture.booking_id])).rows[0].total, '0.00');
+    const voidedRow = (await client.query('SELECT voided, voided_by, quantity, unit_price_snapshot, recorded_by FROM service_usage WHERE usage_id = $1', [usageId])).rows[0];
+    assert.equal(voidedRow.voided, true);
+    assert.equal(voidedRow.voided_by, fixture.managerId);
+    assert.deepEqual(
+      { quantity: voidedRow.quantity, unit_price_snapshot: voidedRow.unit_price_snapshot, recorded_by: voidedRow.recorded_by },
+      { quantity: '1.25', unit_price_snapshot: '50.00', recorded_by: fixture.staffId },
+    );
+    await assert.rejects(
+      client.query('UPDATE service_usage SET voided = false, voided_at = NULL, voided_by = NULL WHERE usage_id = $1', [usageId]),
+      { code: '23514' },
+    );
+    await assert.rejects(client.query('DELETE FROM service_usage WHERE usage_id = $1', [usageId]), { code: '23514' });
     assert.equal((await client.query("SELECT count(*)::int AS count FROM pg_type WHERE typnamespace = $1::regnamespace AND typname = 'room_condition'", [schema])).rows[0].count, 0);
   });
 });
