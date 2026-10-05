@@ -5,8 +5,9 @@ import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
 import reportRoutes from './routes/reportRoutes';
-
 import invoiceRoutes from './routes/invoiceRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+import checkoutRoutes from './routes/checkoutRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
 
 const app: Application = express();
@@ -20,7 +21,11 @@ app.use('/rooms', roomRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api', invoiceRoutes);
+app.use('/api', paymentRoutes);
+app.use('/api', checkoutRoutes);
 app.use('/api', availabilityRoutes);
+// M2/M3 protected route factories await Member 1's production session middleware.
+// Mount service, check-in and active-stay routers only with authenticated actors.
 
 // Initialize database and start server
 async function startServer(): Promise<void> {

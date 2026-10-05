@@ -22,8 +22,12 @@ const guestMigration = readFileSync(
   path.join(__dirname, '..', 'migrations', 'm1_003_create_guest_and_guest_account.sql'),
   'utf8',
 );
+const auditLogMigration = readFileSync(
+  path.join(__dirname, '..', 'migrations', 'm1_004_create_audit_log.sql'),
+  'utf8',
+);
 const billingPolicyMigration = readFileSync(
-  path.join(__dirname, '..', 'migrations', 'm1_004_billing_policy_mock.sql'),
+  path.join(__dirname, '..', 'migrations', 'm1_005_create_billing_policy.sql'),
   'utf8',
 );
 const catalogueMigration = readFileSync(
@@ -71,6 +75,7 @@ test('M4-S04 deterministic billing calculations, policy rules, and rounding reco
     await client.query(branchRoleMigration);
     await client.query(accountOfficerMigration);
     await client.query(guestMigration);
+    await client.query(auditLogMigration);
     await client.query(billingPolicyMigration);
     await client.query(catalogueMigration);
     await client.query(bookingMigration);
@@ -78,11 +83,25 @@ test('M4-S04 deterministic billing calculations, policy rules, and rounding reco
     await client.query(invoiceMigration);
     await client.query(billingCalcMigration);
 
-    // 0. Base setup: user and guest
+    // 0. Base setup: branch, user, officer, and guest
+    const bRes = await client.query(`
+      INSERT INTO branch (name, city, address)
+      VALUES ('Colombo Base', 'Colombo', 'Galle Face, Colombo')
+      RETURNING branch_id;
+    `);
+    const branchId = bRes.rows[0].branch_id;
+    const roleCMRes = await client.query(`SELECT role_id FROM role WHERE role_name = 'CHAIN_MANAGER' LIMIT 1;`);
+    const cmRoleId = roleCMRes.rows[0].role_id;
+
     const userRes = await client.query(
       `INSERT INTO user_account (username, active) VALUES ('billing_admin', true) RETURNING user_id`,
     );
     const userId = userRes.rows[0].user_id;
+
+    await client.query(`
+      INSERT INTO officer (officer_id, full_name, role_id, branch_id)
+      VALUES ($1, 'Billing Admin Officer', $2, $3);
+    `, [userId, cmRoleId, branchId]);
 
     const guestRes = await client.query(
       `INSERT INTO guest (full_name, email, active) VALUES ('Billing Guest', 'guest@test.com', true) RETURNING guest_id`,

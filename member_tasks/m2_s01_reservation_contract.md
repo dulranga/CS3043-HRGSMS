@@ -53,6 +53,17 @@ The operation owner writes exactly one `booking_room_line_status_history` row pe
 
 M2-S06 implements that database contract. Assignment and active-line rechecks lock the line, booking, target room, branch and room type; block writes lock the target room; parent updates take their own row lock and recheck current assignments. Multi-line procedures must process line and room UUIDs in deterministic order. SQLSTATE `23514` represents a business-state conflict, `23505` covers duplicate open-line assignment, and a caller that receives deadlock `40P01` or serialization failure `40001` retries the complete transaction with bounded backoff rather than replaying only one statement.
 
+## M3 operational reconciliation — 5 October 2026
+
+The direct normalized M2-S03–S06 baseline and M2-S28 guards are implemented. Check-in, active stays and checkout consume `booking_room_line` and `booking_room_assignment`; the retired correction tasks are not dependencies. No booking-header status, room pointer or stored OCCUPIED condition is present.
+
+- Check-in takes booking, selected line, open assignment and room locks in one transaction. It verifies BOOKED, physical READY and the server's current Asia/Colombo hotel date, writes CHECKED_IN, occupancy start, line history and audit together, and leaves other lines and the physical condition unchanged.
+- Member 4's implemented checkout takes booking, DRAFT invoice, selected line, assignment and room locks, checks exact-zero consolidated balance, closes occupancy/assignment, writes CHECKED_OUT/history and invokes the existing internal CLEANING/history hook atomically. The earlier proposed invoice-last order is superseded by this actual consumer order.
+- M2's immediate guards also lock shared line/booking/room/branch/type rows. Multi-line consumers sort affected UUID sets. SQLSTATE 23514/23505 is a safe business conflict; 40P01/40001 rolls back the whole transaction and permits a complete-request retry. This reconciliation does not claim arbitrary direct SQL is deadlock-free.
+- Member 3 retains the published `m3_001` service/usage mock and `m3_002` condition/history mock for existing consumers. `m3_003_service_usage.sql`, `m3_004_service_catalogue.sql` and `m3_005_room_status_history.sql` upgrade those tables without replacing IDs, price snapshots, history, `reason` or the checkout hook. History uses Member 2's `room_condition_enum`; no second physical-condition enum is introduced.
+- Member 3's service/check-in/active-stay routers require injected Member 1 authentication and trust only the verified `req.user` actor. They remain unmounted alongside Member 2's protected routers while M1-S08/S09 is pending. Header/body/query actor IDs and client stay dates are not authorization or clock sources.
+- Full M3-S18 direct condition authorization, later service recording/void orchestration, room moves and all pending UI work remain outside this reconciliation. The existing checkout hook is preserved as an interim dependency, not evidence that M3-S18 is complete.
+
 ## Decisions still needed for later dependent work
 
 | SRS gate | Decision to record | Accountable owner and dependent work |
