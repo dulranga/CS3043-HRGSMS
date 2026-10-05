@@ -4,6 +4,7 @@ import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
+import ServiceCataloguePage from './routes/ServiceCataloguePage';
 import UIRoutePage from './routes/UIRoutePage';
 import DashboardPage from './routes/DashboardPage';
 import AdminConfigPage from './routes/AdminConfigPage';
@@ -75,6 +76,12 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+const serviceCatalogueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/services',
+  component: ServiceCataloguePage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   roomsRoute,
@@ -86,6 +93,7 @@ const routeTree = rootRoute.addChildren([
   auditLogRoute,
   adminOperationsRoute,
   reportsRoute,
+  serviceCatalogueRoute,
 ]);
 
 export const router = createRouter({ routeTree });

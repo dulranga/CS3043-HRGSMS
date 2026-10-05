@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "test:m3-check-in-ui": "node --import tsx --test tests/m3CheckInUi.test.ts",
     "test:m3-active-stay-ui": "node --import tsx --test tests/m3ActiveStayUi.test.ts tests/m3ActiveStayPanel.test.tsx",
+    "test:m3-service-catalogue-ui": "node --import tsx --test tests/m3ServiceCatalogueUi.test.ts tests/m3ServiceCataloguePanel.test.tsx",
     "preview": "vite preview"
   },
   "dependencies": {
