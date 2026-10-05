@@ -18,6 +18,8 @@ import { createGuestProfiles } from './guestProfiles';
 import { createGuestProfileRouter } from './routes/guestProfileRoutes';
 import { createGuestAccount } from './guestAccount';
 import { createGuestAccountRouter } from './routes/guestAccountRoutes';
+import { createStaffAccounts } from './staffAccounts';
+import { createStaffAccountRouter } from './routes/staffAccountRoutes';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -48,6 +50,10 @@ app.use('/api', createGuestProfileRouter(createGuestProfiles({ db: pool }), {
 }));
 app.use('/api/guest/profile', createGuestAccountRouter(createGuestAccount({ db: pool }), {
   requireGuest: authorization.guest,
+}));
+app.use('/api', createStaffAccountRouter(createStaffAccounts({ db: pool }), {
+  requireRead: authorization.staff('account.read'),
+  requireWrite: authorization.staff('account.write'),
 }));
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', authorization.policy(ADMIN_ROUTE_POLICY), adminRoutes);
