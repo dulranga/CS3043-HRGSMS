@@ -179,7 +179,10 @@ The backend runs on `http://localhost:4000` and exposes:
 - `GET /` — Home endpoint
 - `GET /rooms` — Get all rooms
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session` — session cookie authentication (M1-S08)
+- `POST /api/auth/register` — public online guest registration; `POST /api/guests/:guestId/link-code` — FRONT_DESK issues a 24-hour link code so an existing guest profile can be claimed (M1-S10)
 - Additional endpoints as per SRS requirements
+
+Online guest registration (M1-S10) creates a new `user_account` + `guest` + `guest_account`, but refuses details (email, phone or NIC) that match an existing guest profile. That guest must instead get a link code from the front desk after an identity check and register with `{ username, password, linkCode }`. Codes are HMAC-signed with `SESSION_SECRET`, bound to one guest, never stored, and stop working once the profile is linked. Failed attempts are audited and limited to 10 per client address per 15 minutes. Registration does not sign in; the client calls `/api/auth/login` next. Run `npm run test:m1-guest-registration --workspace backend`.
 
 Protected `/api/*` routes require the session cookie; identity headers such as `x-user-id`/`x-role` are ignored when the router is mounted with Member 1's middleware. Staff permissions come from the version-controlled role matrix in `backend/src/authorization.ts` (M1-S09; SRS §6.1.4 working mapping pending TBD-15 sign-off). `/api/admin/*` and `/api/reports/*` use a default-deny route policy, so a new route there must be added to `ADMIN_ROUTE_POLICY`/`REPORT_ROUTE_POLICY` before it is reachable. Run `npm run test:m1-authorization --workspace backend` for the per-role, cross-branch and AT-24 checks. The frontend calls the API through relative `/api/...` URLs (Vite proxies them) so the cookie is sent.
 

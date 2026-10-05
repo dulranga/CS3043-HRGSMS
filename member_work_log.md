@@ -145,6 +145,32 @@ Record actual project-task work here for all five members, including partial or 
   7. Frontend pages do not yet redirect to `/login` on a 401.
 - Lecture concepts: none. No schema or SQL change. The authorization reads the role and branch that `authenticate` re-reads with the existing parameterized join.
 
+### 5 October 2026 — M1-S10 (online guest registration and verified guest_account linking)
+
+- Decisions (Dulranga, 5 October 2026):
+  - Proof of identity for an existing guest is a staff-issued link code: FRONT_DESK checks identity in person or by phone, then issues the code. There is no email/SMS provider in the stack.
+  - A new sign-up whose email, phone or NIC matches an existing guest profile is refused with a message to ask the front desk for a link code. No duplicate profile is created.
+  - Only FRONT_DESK may issue codes (new permission `guest.link.issue`, chain-wide because `guest` has no branch FK).
+- Added `backend/src/guestRegistration.ts`:
+  - Link codes: version + guest UUID + expiry + 6-byte nonce, with a 16-byte HMAC-SHA256 tag keyed by `SESSION_SECRET` under its own domain prefix; about 58 base64url characters. They are valid for 24 hours and stored nowhere. A code cannot be re-targeted to another guest or extended. It is effectively single-use because `guest_account.guest_id` is unique. Issuing a new code does not revoke earlier ones; they simply stop working once the profile is linked or they expire.
+  - `POST /api/auth/register` (public). New-guest mode needs `fullName` and an email or phone (FR-017); email is lowercased, phone reduced to digits with an optional `+`, NIC trimmed/uppercased (format validation still awaits the FR-018 team decision). Link mode takes only `{ username, password, linkCode }`; submitted profile fields are ignored, so a claimant cannot overwrite the guest's details. Usernames are 3–64 characters and unique case-insensitively, so "Alice" cannot impersonate "alice" or a staff name.
+  - Everything runs in one transaction. Advisory locks on the sorted email/phone/NIC keys serialize registrations sharing an identifier; the claimed guest row is locked `FOR UPDATE` and must be active and unlinked; a concurrent claim that still reaches the insert gets the unique violation mapped to `LINK_CODE_USED`.
+  - Rejections (matching profile, invalid/expired/used code, inactive guest) roll back to a savepoint, so no account is left behind, and are audited as `guest_registration` failures by the system principal. More than 10 failures per client address in 15 minutes returns 429 with Retry-After.
+  - Success audits `CREATE` rows for `user_account`, `guest` (new profiles only; NIC is masked) and `guest_account` (verification method and the code's nonce ID), with the new account as actor. Registration does not sign in; the client calls `/api/auth/login`, which keeps throttling and LOGIN audit in one place.
+  - `POST /api/guests/:guestId/link-code` returns 404 for unknown IDs and 409 for inactive or already-linked guests. Issuance is audited with the officer as actor and the nonce ID, never the code.
+- Added `backend/src/routes/guestRegistrationRoutes.ts` and mounted it in `backend/src/index.ts` before the other `/api` routers, with `authorization.staff('guest.link.issue')` on the issue route. Updated the M1-S09 matrix test for the new FRONT_DESK permission, `README.md`, and `package.json` (`test:m1-guest-registration`).
+- Added `backend/tests/m1GuestRegistration.test.ts`:
+  - Validation and link-code unit tests (signature, guest binding, expiry, wrong key, tampered guest/expiry, whitespace tolerance).
+  - A clean-schema HTTP test: new registration with normalized fields, hashed password and audit without password/NIC; login gives a GUEST principal; that session gets 403 on staff routes and the link-code route, and the m1_003 trigger rejects making it an officer (FR-081). Case-insensitive and staff-name username collisions. Email/phone/NIC matches refused with nothing created. Every non-FRONT_DESK role and guests denied issuance; unknown/inactive/linked cases. Forged, re-targeted, expired and inactive-guest codes refused. Two concurrent claims of one code produce exactly one link, no orphan account and unchanged guest details; the link audit traces back to the issuing officer; reuse fails. Per-client throttling, and the short-password policy.
+- Verification: `test:m1-guest-registration` 3/3, `test:m1-authorization` 2/2, `test:m1-auth` 3/3 and `test:m1-guests` 1/1 pass. `npm run build:backend`, `npm run build:frontend` and `git diff --check` pass. Checked afterwards: no test rows in `public.audit_log` and no scratch schemas left.
+- Remaining handoffs:
+  1. `req.ip` is the socket address. Behind a reverse proxy, the app needs a reviewed `trust proxy` setting, or all clients share one throttle bucket (in local dev through the Vite proxy they already do).
+  2. M1-S11's staff guest create should take the same `guest-identity:*` advisory locks and duplicate rules, so staff and online creation cannot race into duplicates.
+  3. A 58-character code is easy to paste but awkward to read out by phone. A shorter stored code would need a new table and owner review.
+  4. Frontend registration/link screens are M1-S15; the staff "issue link code" button belongs with M1-S16.
+  5. Members 2/3 can now mount their online-guest routers: real GUEST sessions with `guestId` exist.
+- Lecture concepts applied: transaction atomicity with a savepoint (a rejected registration leaves no partial rows), row-level `FOR UPDATE` locking and transaction-scoped advisory locks to serialize concurrent claims and same-identifier registrations, and the existing unique constraints as the final concurrency guard.
+
 ## Member 2 — Imandi
 
 ### 5 October 2026 — M2-S14 online guest own-booking list/detail core (partial; production auth pending)

@@ -55,7 +55,7 @@ const guestPrincipal: AuthPrincipal = { userId: 'u-guest', username: 'guest', ki
 
 test('M1-S09 permission matrix matches the SRS §6.1.4 working mapping for every seeded role', () => {
   const expected: Record<StaffRole, string[]> = {
-    FRONT_DESK: ['room.read', 'service_usage.record', 'booking.manage', 'checkout.perform', 'payment.record', 'invoice.read.branch', 'branch.read'],
+    FRONT_DESK: ['room.read', 'service_usage.record', 'booking.manage', 'checkout.perform', 'payment.record', 'invoice.read.branch', 'guest.link.issue', 'branch.read'],
     SERVICE_STAFF: ['room.read', 'room.condition.write', 'service_usage.record', 'branch.read'],
     BRANCH_MANAGER: ['room.read', 'room.write', 'invoice.read.branch', 'discount.apply', 'report.read.branch', 'branch.read'],
     CHAIN_MANAGER: ['catalogue.write', 'invoice.read.chain', 'report.read.chain', 'billing_policy.publish', 'branch.read'],

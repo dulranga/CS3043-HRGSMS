@@ -12,6 +12,8 @@ import {
   sessionUserId,
 } from './authorization';
 import { createAuthRouter } from './routes/authRoutes';
+import { createGuestRegistrationFromEnv } from './guestRegistration';
+import { createGuestRegistrationRouter } from './routes/guestRegistrationRoutes';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -34,6 +36,9 @@ app.use(express.json());
 
 app.use('/', homeRoutes);
 app.use('/api/auth', createAuthRouter(auth));
+app.use('/api', createGuestRegistrationRouter(createGuestRegistrationFromEnv(pool), {
+  requireLinkIssuer: authorization.staff('guest.link.issue'),
+}));
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', authorization.policy(ADMIN_ROUTE_POLICY), adminRoutes);
 app.use('/api/reports', authorization.policy(REPORT_ROUTE_POLICY), reportRoutes);

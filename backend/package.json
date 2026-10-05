@@ -29,6 +29,7 @@
         "test:m1-system-config": "node --import tsx --test tests/m1SystemConfig.test.ts",
         "test:m1-auth": "node --import tsx --test tests/m1Auth.test.ts",
         "test:m1-authorization": "node --import tsx --test tests/m1Authorization.test.ts",
+        "test:m1-guest-registration": "node --import tsx --test tests/m1GuestRegistration.test.ts",
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
         "test:m4-payment": "node --test tests/m4Payment.test.cjs",
         "test:m4-billing": "node --test tests/m4BillingCalculation.test.cjs",

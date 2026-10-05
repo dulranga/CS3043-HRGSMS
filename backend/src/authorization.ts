@@ -48,6 +48,9 @@ export const PERMISSIONS = {
   'invoice.read.branch': { roles: ['FRONT_DESK', 'BRANCH_MANAGER'], scope: 'BRANCH' },
   'invoice.read.chain': { roles: ['CHAIN_MANAGER', 'AUDITOR'], scope: 'CHAIN' },
   'discount.apply': { roles: ['BRANCH_MANAGER'], scope: 'BRANCH' },
+  // Guest profiles are chain-wide (no branch FK): FRONT_DESK issues the
+  // single-guest link code after checking identity (M1-S10, FR-083).
+  'guest.link.issue': { roles: ['FRONT_DESK'], scope: 'CHAIN' },
   // Reports and audit.
   'report.read.branch': { roles: ['BRANCH_MANAGER'], scope: 'BRANCH' },
   'report.read.chain': { roles: ['CHAIN_MANAGER', 'AUDITOR'], scope: 'CHAIN' },
