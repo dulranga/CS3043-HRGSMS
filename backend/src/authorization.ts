@@ -147,6 +147,19 @@ export const requirePrincipal: RequestHandler = (req, res, next) => {
   next();
 };
 
+// Only an online guest. Staff are denied.
+export const requireGuest: RequestHandler = (req, res, next) => {
+  if (!req.user) {
+    deny(res, { allowed: false, status: 401, code: 'AUTHENTICATION_REQUIRED' });
+    return;
+  }
+  if (req.user.kind !== 'GUEST' || !req.user.guestId) {
+    deny(res, { allowed: false, status: 403, code: 'FORBIDDEN' });
+    return;
+  }
+  next();
+};
+
 // An online guest, or staff holding one of the given permissions. The owning
 // feature must still check that the guest owns the requested record.
 export function requireGuestOrStaff(permissions: Permission | readonly Permission[]): RequestHandler {
@@ -247,6 +260,7 @@ export function createAuthorization(authenticate: RequestHandler) {
   const guard = (check: RequestHandler) => withAuthentication(authenticate, check);
   return {
     authenticated: guard(requirePrincipal),
+    guest: guard(requireGuest),
     staff: (permissions: Permission | readonly Permission[], options?: StaffRequirementOptions) =>
       guard(requireStaff(permissions, options)),
     guestOrStaff: (permissions: Permission | readonly Permission[]) => guard(requireGuestOrStaff(permissions)),

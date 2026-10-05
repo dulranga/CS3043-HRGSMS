@@ -16,6 +16,8 @@ import { createGuestRegistrationFromEnv } from './guestRegistration';
 import { createGuestRegistrationRouter } from './routes/guestRegistrationRoutes';
 import { createGuestProfiles } from './guestProfiles';
 import { createGuestProfileRouter } from './routes/guestProfileRoutes';
+import { createGuestAccount } from './guestAccount';
+import { createGuestAccountRouter } from './routes/guestAccountRoutes';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -43,6 +45,9 @@ app.use('/api', createGuestRegistrationRouter(createGuestRegistrationFromEnv(poo
 }));
 app.use('/api', createGuestProfileRouter(createGuestProfiles({ db: pool }), {
   requireGuestManager: authorization.staff('guest.manage'),
+}));
+app.use('/api/guest/profile', createGuestAccountRouter(createGuestAccount({ db: pool }), {
+  requireGuest: authorization.guest,
 }));
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', authorization.policy(ADMIN_ROUTE_POLICY), adminRoutes);
