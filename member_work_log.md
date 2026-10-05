@@ -238,6 +238,13 @@ Record actual project-task work here for all five members, including partial or 
 - Added `backend/tests/m3ActiveStayApi.test.cjs` and the `test:m3-active-stay` script. Verification: 2 focused tests passed for two distinct active rooms/future-line exclusion and cross-branch denial; `npm run build` passed; `git diff --check` passed.
 - Lecture concepts applied: normalized line-assignment joins for derived occupancy, parameterized SQL for safe read access, and least-privilege branch authorization for staff tenancy.
 
+### 05 October 2026 — M3-S09
+
+- Added `backend/src/services/serviceUsageService.ts` with transactional service-usage recording. The service locks the booking, invoice, service catalogue row and optional room line; requires at least one CHECKED_IN line; validates same-booking attribution; snapshots the active service's current price server-side; ignores client-supplied price fields; inserts the usage event; invokes Member 4's `fn_refresh_draft_invoice` hook; and rolls back on failure.
+- FINAL invoices are rejected before insertion. Booking-wide usage remains unallocated to a room line while still requiring a checked-in line; room-specific usage requires a CHECKED_IN line from the same booking.
+- Added `backend/tests/m3ServiceUsageRecording.test.cjs` and the `test:m3-service-usage-recording` script. Verification: 2 focused tests passed for price snapshot/draft refresh and cross-booking/FINAL rejection; `npm run build` passed; M3-S06 and M3-S08 regressions passed; `git diff --check` passed.
+- Lecture concepts applied: ACID atomicity and rollback for usage plus billing refresh, row locking for catalogue/invoice consistency, exact fixed-point numeric snapshots, and normalized optional line attribution.
+
 ## Member 4 — Chamikara
 
 ### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
