@@ -59,7 +59,7 @@ test('applies ordered migrations to a clean schema and runs a smoke assertion', 
     'SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2',
     [schema, 'widgets'],
   );
-  const names = columns.rows.map((row) => row.column_name);
+  const names = columns.rows.map((row: { column_name: string }) => row.column_name);
   assert.ok(names.includes('widget_id'));
   assert.ok(names.includes('active'));
 });

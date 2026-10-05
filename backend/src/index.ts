@@ -61,6 +61,8 @@ app.use('/api', createRoomInventoryRouter(
   { branchId: sessionBranchId, actorId: sessionUserId },
 ));
 app.use('/api', availabilityRoutes);
+// M2/M3 protected route factories await Member 1's production session middleware.
+// Mount service, check-in and active-stay routers only with authenticated actors.
 
 // Initialize database and start server
 async function startServer(): Promise<void> {
