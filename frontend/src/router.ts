@@ -3,6 +3,7 @@ import RootLayout from './components/RootLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import CheckInPage from './routes/CheckInPage';
+import ActiveStayPage from './routes/ActiveStayPage';
 import UIRoutePage from './routes/UIRoutePage';
 import DashboardPage from './routes/DashboardPage';
 import AdminConfigPage from './routes/AdminConfigPage';
@@ -30,6 +31,12 @@ const checkInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/check-in',
   component: CheckInPage,
+});
+
+const activeStayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/stays',
+  component: ActiveStayPage,
 });
 
 const uiRoute = createRoute({
@@ -72,6 +79,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   roomsRoute,
   checkInRoute,
+  activeStayRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,

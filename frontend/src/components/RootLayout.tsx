@@ -29,6 +29,14 @@ export default function RootLayout() {
           </Link>
 
           <Link
+            to="/stays"
+            activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
+            className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
+          >
+            Active Stays
+          </Link>
+
+          <Link
             to="/dashboard"
             activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
             className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
