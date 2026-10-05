@@ -11,6 +11,21 @@ export type UsageRole = 'FRONT_DESK' | 'SERVICE_STAFF' | 'CHAIN_MANAGER' | 'BRAN
  */
 export const USAGE_RECORDING_ROLES: ReadonlyArray<UsageRole> = ['FRONT_DESK', 'SERVICE_STAFF'];
 
+/**
+ * SRS §4.6.2 / M3-S11: a void is the auditable reversal of a recorded charge,
+ * so only managers may perform one. This is deliberately the inverse of
+ * `USAGE_RECORDING_ROLES`: the roles that record a charge can never void it,
+ * which is what makes a reversal a separate authority rather than an undo.
+ */
+export const USAGE_VOID_ROLES: ReadonlyArray<UsageRole> = [
+  'BRANCH_MANAGER',
+  'CHAIN_MANAGER',
+  'SYSTEM_ADMINISTRATOR',
+];
+
+/** `audit_log.after_value->>'reason'` is stored as `varchar(255)`. */
+export const MAX_VOID_REASON_LENGTH = 255;
+
 export const UNALLOCATED_LABEL = 'Unallocated (booking-wide)';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,7 +52,50 @@ export interface ServiceUsageRecord {
   amount: string;
   voided: boolean;
   voidedAt: string | null;
+  /** M3-S11's reversal actor, so the retained row can show who reversed it. */
+  voidedBy: string | null;
+  recordedAt: string | null;
   recordedBy: string | null;
+}
+
+/**
+ * M3-S11 void authority. `BRANCH_MANAGER` is own-branch only, which the client
+ * cannot verify, so the branch decision stays with the server and a refusal is
+ * reported as authoritative.
+ */
+export interface VoidCapabilities {
+  role: UsageRole | null;
+  canVoid: boolean;
+  denial: string | null;
+}
+
+export interface VoidDraft {
+  usageId: string;
+  reason: string;
+}
+
+export interface VoidDraftValidation {
+  valid: boolean;
+  errors: { usageId?: string; reason?: string };
+  payload: { reason?: string };
+}
+
+export interface VoidBillingOutcome {
+  totalAmount: string;
+  netPaid: string;
+  balance: string;
+  isCredit: boolean;
+  creditAmount: string;
+}
+
+export interface VoidResult {
+  usageId: string;
+  /** Server-computed `ROUND(quantity * unit_price_snapshot, 2)` for the reversal. */
+  voidedAmount: string;
+  voidedAt: string;
+  voidedBy: string;
+  invoiceId: string | null;
+  billing: VoidBillingOutcome | null;
 }
 
 export interface UsageLineOption {
@@ -106,6 +164,51 @@ export function resolveUsageCapabilities(role: UsageRole | null): UsageCapabilit
 export function describeUsageDenial(role: UsageRole | null): string {
   const base = 'Only active Front Desk or Service Staff of this branch may record service usage.';
   return role ? `${base} Signed in as ${role}.` : base;
+}
+
+/**
+ * M3-S11's counterpart to `resolveUsageCapabilities`. The two sets are disjoint
+ * on purpose: whoever records a charge cannot reverse it.
+ */
+export function resolveVoidCapabilities(role: UsageRole | null): VoidCapabilities {
+  const canVoid = role !== null && USAGE_VOID_ROLES.includes(role);
+
+  return {
+    role,
+    canVoid,
+    denial: canVoid
+      ? null
+      : role
+        ? 'Only an active Branch Manager of this branch, Chain Manager or System Administrator may void service usage.'
+        : 'Your role is not a service-usage void authority, so recorded charges are read-only.',
+  };
+}
+
+export function describeVoidDenial(role: UsageRole | null): string {
+  const base =
+    'Only an active Branch Manager of this branch, Chain Manager or System Administrator may void service usage.';
+  return role ? `${base} Signed in as ${role}.` : base;
+}
+
+/**
+ * FR-048: the void is a reversal, not a deletion. A row that is already voided
+ * keeps its original quantity, snapshot, actor and time, so it stays in the
+ * list for reporting and can never be voided a second time.
+ */
+export function voidRowState(
+  record: Pick<ServiceUsageRecord, 'usageId' | 'voided' | 'voidedAt'>,
+  capabilities: VoidCapabilities,
+): { canVoid: boolean; reason: string | null } {
+  if (record.voided) {
+    return {
+      canVoid: false,
+      reason: 'This charge was already voided, so it cannot be voided again. The original row is retained.',
+    };
+  }
+  if (!capabilities.canVoid) {
+    return { canVoid: false, reason: capabilities.denial };
+  }
+  return { canVoid: true, reason: null };
 }
 
 /**
@@ -230,6 +333,8 @@ export function parseUsageList(payload: unknown): ServiceUsageRecord[] {
       amount: toMoneyString(row.amount as string),
       voided: row.voided === true,
       voidedAt: typeof row.voided_at === 'string' ? row.voided_at : null,
+      voidedBy: typeof row.voided_by === 'string' ? row.voided_by : null,
+      recordedAt: typeof row.recorded_at === 'string' ? row.recorded_at : null,
       recordedBy: typeof row.recorded_by === 'string' ? row.recorded_by : null,
     });
   }
@@ -270,6 +375,131 @@ export function applyRecordedUsage(
 export function compareUsage(left: ServiceUsageRecord, right: ServiceUsageRecord): number {
   if (left.usedAt !== right.usedAt) return left.usedAt < right.usedAt ? -1 : 1;
   return left.usageId < right.usageId ? -1 : left.usageId > right.usageId ? 1 : 0;
+}
+
+const EMPTY_VOID_DRAFT: VoidDraft = { usageId: '', reason: '' };
+
+export function emptyVoidDraft(): VoidDraft {
+  return { ...EMPTY_VOID_DRAFT };
+}
+
+/** `POST /api/bookings/:bookingRef/service-usage/:usageId/void` from M3-S11. */
+export function voidRequestPath(bookingRef: string, usageId: string): string {
+  return `${usageRequestPath(bookingRef)}/${encodeURIComponent(usageId.trim())}/void`;
+}
+
+/**
+ * The reason is optional: M3-S11 stores it on the audit row, and the reversal
+ * itself is server-authorized. Only the length the audit column can hold is
+ * enforced here, so a long note is trimmed rather than silently truncated.
+ */
+export function validateVoidDraft(draft: VoidDraft): VoidDraftValidation {
+  const errors: VoidDraftValidation['errors'] = {};
+  const usageId = draft.usageId.trim();
+  const reason = draft.reason.trim();
+
+  if (!usageId) {
+    errors.usageId = 'Choose the recorded charge to void.';
+  } else if (!UUID_PATTERN.test(usageId)) {
+    errors.usageId = 'Choose a valid recorded charge to void.';
+  }
+  if (reason.length > MAX_VOID_REASON_LENGTH) {
+    errors.reason = `Keep the reason under ${MAX_VOID_REASON_LENGTH} characters.`;
+  }
+
+  const payload: VoidDraftValidation['payload'] = {};
+  if (reason) {
+    payload.reason = reason;
+  }
+
+  return { valid: Object.keys(errors).length === 0, errors, payload };
+}
+
+/**
+ * M3-S11's 200 body. `billing` is Member 4's refreshed balance, reported so a
+ * void that produces a credit is visible instead of silently over-refunding.
+ */
+export function parseVoidResult(payload: unknown): VoidResult | null {
+  const row = (payload ?? {}) as Record<string, unknown>;
+  if (typeof row.usage_id !== 'string' || !row.usage_id) {
+    return null;
+  }
+  const billing = (row.billing ?? null) as Record<string, unknown> | null;
+  const text = (value: unknown): string => (typeof value === 'string' || typeof value === 'number' ? String(value) : '0');
+
+  return {
+    usageId: row.usage_id,
+    voidedAmount: toMoneyString(typeof row.voided_amount === 'string' ? row.voided_amount : null),
+    voidedAt: typeof row.voided_at === 'string' ? row.voided_at : '',
+    voidedBy: typeof row.voided_by === 'string' ? row.voided_by : '',
+    invoiceId: typeof row.invoice_id === 'string' ? row.invoice_id : null,
+    billing: billing
+      ? {
+          totalAmount: toMoneyString(text(billing.totalAmount)),
+          netPaid: toMoneyString(text(billing.netPaid)),
+          balance: toMoneyString(text(billing.balance)),
+          isCredit: billing.isCredit === true,
+          creditAmount: toMoneyString(text(billing.creditAmount)),
+        }
+      : null,
+  };
+}
+
+/**
+ * FR-048: a void only adds reversal metadata. The original service, room-line
+ * attribution, quantity, unit-price snapshot, amount, recording actor and
+ * timestamps are copied through untouched, so the retained row still reports
+ * what was originally charged.
+ */
+export function applyVoidedUsage(records: ServiceUsageRecord[], result: VoidResult): ServiceUsageRecord[] {
+  return records.map((record) =>
+    record.usageId === result.usageId
+      ? {
+          ...record,
+          voided: true,
+          voidedAt: result.voidedAt || record.voidedAt,
+          voidedBy: result.voidedBy || record.voidedBy,
+        }
+      : record,
+  );
+}
+
+const VOID_FAILURE_MESSAGES: Record<string, string> = {
+  AUTHENTICATION_REQUIRED: 'Sign in with an active staff account to void service usage.',
+  VOID_ACCESS_DENIED:
+    'Voiding is limited to an active Branch Manager of this branch, Chain Manager or System Administrator.',
+  USAGE_NOT_FOUND: 'That service charge is no longer available to void.',
+  USAGE_ALREADY_VOIDED:
+    'This charge was already voided, so it cannot be voided again. The original row is retained.',
+  INVOICE_FINAL:
+    'This booking’s invoice is FINAL, so the charge cannot be voided here. Escalate to management as FR-058 requires.',
+  INVALID_SERVICE_USAGE_VOID_INPUT: 'A booking reference and valid charge reference are required.',
+  VOID_REJECTED: 'The void was rejected by the server.',
+};
+
+export function describeVoidFailure(failure: UsageFailure): string {
+  const mapped = VOID_FAILURE_MESSAGES[failure.code];
+  if (!mapped) return failure.message || VOID_FAILURE_MESSAGES.VOID_REJECTED;
+  return failure.message ? `${mapped} (${failure.message})` : mapped;
+}
+
+/** A repeat void is a distinct state: the row is already reversed. */
+export function isVoidRepeat(failure: UsageFailure): boolean {
+  return failure.code === 'USAGE_ALREADY_VOIDED';
+}
+
+/**
+ * M3-S10 scopes the usage list read to the recording roles, so a void authority
+ * can be refused the list itself. Saying so is better than showing an empty
+ * charge list that looks like an uncharged booking.
+ */
+export function describeListDenial(role: UsageRole | null, canVoid: boolean): string {
+  if (!canVoid) {
+    return 'Service usage is restricted to active Front Desk or Service Staff of this branch.';
+  }
+  const base =
+    'Your role may void service usage, but the usage list read is still limited to active Front Desk or Service Staff, so no charge can be shown for voiding.';
+  return role ? `${base} Signed in as ${role}.` : base;
 }
 
 const USAGE_FAILURE_MESSAGES: Record<string, string> = {

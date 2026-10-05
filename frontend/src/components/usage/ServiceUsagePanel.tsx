@@ -20,6 +20,14 @@ import {
   usageAvailability,
   usageTotals,
 } from "@/lib/serviceUsageViewModel";
+import {
+  UsageVoidWiring,
+  VoidConfirmation,
+  VoidFailureNotice,
+  VoidOutcome,
+  VoidPermissionBanner,
+  VoidRowAction,
+} from "@/components/usage/ServiceUsageVoidPanel";
 
 const USAGE_TABLE_WRAPPER_CLASS = "w-full overflow-x-auto";
 const USAGE_GRID_CLASS = "grid grid-cols-1 md:grid-cols-2 gap-4";
@@ -245,9 +253,10 @@ function RecordUsageForm({
 interface UsageRowProps {
   record: ServiceUsageRecord;
   lines: UsageLineOption[];
+  voidWiring?: UsageVoidWiring;
 }
 
-function UsageRow({ record, lines }: UsageRowProps) {
+function UsageRow({ record, lines, voidWiring }: UsageRowProps) {
   const unallocated = !record.bookingRoomLineId;
 
   return (
@@ -285,7 +294,18 @@ function UsageRow({ record, lines }: UsageRowProps) {
         ) : (
           <Badge variant="secondary">BILLABLE</Badge>
         )}
+        {record.voided && record.voidedAt ? (
+          <p className="mt-1 text-xs text-muted-foreground tracking-tight">
+            Reversed {record.voidedAt}
+            {record.voidedBy ? ` by ${record.voidedBy}` : ''}
+          </p>
+        ) : null}
       </td>
+      {voidWiring ? (
+        <td className="py-2 px-3 whitespace-nowrap">
+          <VoidRowAction record={record} wiring={voidWiring} />
+        </td>
+      ) : null}
     </tr>
   );
 }
@@ -299,6 +319,11 @@ interface ServiceUsagePanelProps {
   errors: UsageDraftValidation['errors'];
   isSaving: boolean;
   writeFailure: UsageFailure | null;
+  /**
+   * M3-S16's void workflow. Omitted when voiding is not offered, in which case
+   * no void control, column or confirmation appears at all.
+   */
+  voidWiring?: UsageVoidWiring;
   onDraftChange: (draft: UsageDraft) => void;
   onSubmit: () => void;
 }
@@ -312,15 +337,22 @@ export function ServiceUsagePanel({
   errors,
   isSaving,
   writeFailure,
+  voidWiring,
   onDraftChange,
   onSubmit,
 }: ServiceUsagePanelProps) {
   const totals = usageTotals(records);
+  const voidTarget = voidWiring
+    ? records.find((record) => record.usageId === voidWiring.draft.usageId) ?? null
+    : null;
 
   return (
     <div className="space-y-6">
       <UsagePermissionBanner capabilities={capabilities} checkedInLines={lines} />
       {writeFailure ? <UsageWriteFailure failure={writeFailure} /> : null}
+      {voidWiring ? <VoidPermissionBanner capabilities={voidWiring.capabilities} /> : null}
+      {voidWiring?.result ? <VoidOutcome result={voidWiring.result} /> : null}
+      {voidWiring?.failure ? <VoidFailureNotice failure={voidWiring.failure} /> : null}
 
       <RecordUsageForm
         capabilities={capabilities}
@@ -362,6 +394,10 @@ export function ServiceUsagePanel({
         </Card>
       </div>
 
+      {voidWiring && voidTarget ? (
+        <VoidConfirmation record={voidTarget} lines={lines} wiring={voidWiring} />
+      ) : null}
+
       <div className={USAGE_TABLE_WRAPPER_CLASS}>
         <table className="w-full text-sm">
           <thead>
@@ -372,17 +408,22 @@ export function ServiceUsagePanel({
               <th className="py-2 px-3 font-semibold tracking-tight text-right">Unit price snapshot</th>
               <th className="py-2 px-3 font-semibold tracking-tight text-right">Amount</th>
               <th className="py-2 px-3 font-semibold tracking-tight">State</th>
+              {voidWiring ? (
+                <th className="py-2 px-3 font-semibold tracking-tight">Void</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {records.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-4 px-3 text-center text-muted-foreground">
+                <td colSpan={voidWiring ? 7 : 6} className="py-4 px-3 text-center text-muted-foreground">
                   No service usage has been recorded for this booking.
                 </td>
               </tr>
             ) : (
-              records.map((record) => <UsageRow key={record.usageId} record={record} lines={lines} />)
+              records.map((record) => (
+                <UsageRow key={record.usageId} record={record} lines={lines} voidWiring={voidWiring} />
+              ))
             )}
           </tbody>
         </table>

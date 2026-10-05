@@ -20,18 +20,27 @@ import {
   UsageFailure,
   UsageLineOption,
   UsageRole,
+  VoidDraft,
   applyRecordedUsage,
+  applyVoidedUsage,
+  describeListDenial,
   describeSupportFailure,
   describeUsageFailure,
   emptyUsageDraft,
+  emptyVoidDraft,
   isUsageAccessDenial,
+  isVoidRepeat,
   parseRecordedUsage,
   parseUsageFailure,
   parseUsageList,
+  parseVoidResult,
   resolveUsageCapabilities,
+  resolveVoidCapabilities,
   usageAvailability,
   usageRequestPath,
   validateUsageDraft,
+  validateVoidDraft,
+  voidRequestPath,
 } from "@/lib/serviceUsageViewModel";
 
 const API_BASE = "http://localhost:4000/api";
@@ -70,8 +79,14 @@ export default function ServiceUsagePage() {
   const [supportFailures, setSupportFailures] = useState<string[]>([]);
   const [denied, setDenied] = useState<UsageFailure | null>(null);
   const [writeFailure, setWriteFailure] = useState<UsageFailure | null>(null);
+  const [voidDraft, setVoidDraft] = useState<VoidDraft>(emptyVoidDraft());
+  const [voidErrors, setVoidErrors] = useState<{ usageId?: string; reason?: string }>({});
+  const [isVoiding, setIsVoiding] = useState<boolean>(false);
+  const [voidFailure, setVoidFailure] = useState<UsageFailure | null>(null);
+  const [voidResult, setVoidResult] = useState<ReturnType<typeof parseVoidResult>>(null);
 
   const capabilities = useMemo(() => resolveUsageCapabilities(role), [role]);
+  const voidCapabilities = useMemo(() => resolveVoidCapabilities(role), [role]);
 
   const load = useCallback(async (reference: string) => {
     setLoading(true);
@@ -216,11 +231,97 @@ export default function ServiceUsagePage() {
     }
   }, [capabilities.canRecord, draft, lines, loadedRef]);
 
+  const handleVoidSelect = useCallback((usageId: string) => {
+    setVoidDraft({ usageId, reason: '' });
+    setVoidErrors({});
+    setVoidFailure(null);
+    setVoidResult(null);
+  }, []);
+
+  const handleVoidReasonChange = useCallback((reason: string) => {
+    setVoidDraft((current) => ({ ...current, reason }));
+  }, []);
+
+  const handleVoidCancel = useCallback(() => {
+    setVoidDraft(emptyVoidDraft());
+    setVoidErrors({});
+  }, []);
+
+  const handleVoidConfirm = useCallback(async () => {
+    const validation = validateVoidDraft(voidDraft);
+    setVoidErrors(validation.errors);
+    if (!validation.valid || !voidCapabilities.canVoid || !loadedRef) {
+      return;
+    }
+
+    // FR-048 allows one reversal per charge. The disabled control and the
+    // server's USAGE_ALREADY_VOIDED already cover this, so a stale render is
+    // also refused locally instead of sending a request the server must reject.
+    const target = records.find((record) => record.usageId === voidDraft.usageId);
+    if (!target || target.voided) {
+      setVoidFailure({
+        status: 0,
+        code: 'USAGE_ALREADY_VOIDED',
+        message: 'This charge was already voided, so it cannot be voided again.',
+      });
+      return;
+    }
+
+    setIsVoiding(true);
+    setVoidFailure(null);
+
+    try {
+      const response = await fetch(`${API_BASE}${voidRequestPath(loadedRef, voidDraft.usageId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validation.payload),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const failure = parseUsageFailure(response.status, payload);
+        setVoidFailure(failure);
+        // Someone else may have reversed the charge already, so re-read the
+        // list and show the retained row instead of a stale local guess.
+        if (isVoidRepeat(failure)) {
+          await load(loadedRef);
+        }
+        return;
+      }
+
+      const result = parseVoidResult(payload);
+      if (result) {
+        setRecords((current) => applyVoidedUsage(current, result));
+        setVoidResult(result);
+        setVoidDraft(emptyVoidDraft());
+        setVoidErrors({});
+      } else {
+        setVoidFailure({
+          status: 0,
+          code: 'VOID_REJECTED',
+          message: 'The server confirmed the void without a readable reversal record.',
+        });
+      }
+    } catch {
+      setVoidFailure({
+        status: 0,
+        code: 'VOID_REJECTED',
+        message: 'Unable to reach the service-usage API.',
+      });
+    } finally {
+      setIsVoiding(false);
+    }
+  }, [loadedRef, load, records, voidCapabilities.canVoid, voidDraft]);
+
   useEffect(() => {
     setRecords([]);
     setLines([]);
     setLoadedRef('');
     setSupportFailures([]);
+    setVoidDraft(emptyVoidDraft());
+    setVoidErrors({});
+    setVoidFailure(null);
+    setVoidResult(null);
   }, [bookingRef]);
 
   return (
@@ -306,7 +407,7 @@ export default function ServiceUsagePage() {
                 role="alert"
                 className="rounded-xl border-2 border-destructive bg-card p-3 text-sm text-destructive"
               >
-                {describeUsageFailure(denied)}
+                {describeListDenial(role, voidCapabilities.canVoid)}
               </p>
             ) : null}
 
@@ -349,6 +450,18 @@ export default function ServiceUsagePage() {
                 errors={draftErrors}
                 isSaving={isSaving}
                 writeFailure={writeFailure}
+                voidWiring={{
+                  capabilities: voidCapabilities,
+                  draft: voidDraft,
+                  errors: voidErrors,
+                  isVoiding,
+                  failure: voidFailure,
+                  result: voidResult,
+                  onSelect: handleVoidSelect,
+                  onReasonChange: handleVoidReasonChange,
+                  onCancel: handleVoidCancel,
+                  onConfirm: () => void handleVoidConfirm(),
+                }}
                 onDraftChange={setDraft}
                 onSubmit={() => void handleSubmit()}
               />
