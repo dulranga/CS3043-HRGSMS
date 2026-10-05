@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:m3-check-in-ui": "node --import tsx --test tests/m3CheckInUi.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
