@@ -171,6 +171,27 @@ Record actual project-task work here for all five members, including partial or 
   5. Members 2/3 can now mount their online-guest routers: real GUEST sessions with `guestId` exist.
 - Lecture concepts applied: transaction atomicity with a savepoint (a rejected registration leaves no partial rows), row-level `FOR UPDATE` locking and transaction-scoped advisory locks to serialize concurrent claims and same-identifier registrations, and the existing unique constraints as the final concurrency guard.
 
+### 5 October 2026 — M1-S11 (staff guest-profile search/create/update API)
+
+- Decisions (Dulranga, 5 October 2026): FRONT_DESK only (new `guest.manage`, chain-wide because `guest` has no branch FK); NIC shown as `•••••` + last 4 characters (fixed prefix, so length is hidden); deactivate/reactivate included in this task.
+- Added `backend/src/guestIdentity.ts`, shared with M1-S10: profile-field parsing/normalization (lowercase email, digits-only phone, uppercase NIC), `maskNic`, sorted `guest-identity:*` advisory locks and `findGuestIdentityMatches` (normalizes legacy stored values in SQL). `guestRegistration.ts` now uses it; behaviour unchanged and its tests still pass.
+- Added `backend/src/guestProfiles.ts` and `backend/src/routes/guestProfileRoutes.ts`, mounted in `backend/src/index.ts` with `authorization.staff('guest.manage')`:
+  - `POST /api/guests/search` — body `{ query?, nic?, includeInactive?, limit? }` (POST keeps NICs out of URLs/logs). `query` (2–100 chars) matches name, email or phone digits (4+ digits) as a substring with LIKE metacharacters escaped; `nic` matches exactly only, so partial NICs never match. Active-first, default 20/max 50, `meta.truncated`. Inactive excluded unless requested.
+  - `GET /api/guests/:guestId` — detail with `maskedNic`, `hasNic`, `hasOnlineAccount`.
+  - `POST /api/guests` — needs `fullName` and email or phone (FR-017). NIC match → 409 `GUEST_NIC_EXISTS` (never overridable). Email/phone match → 409 `POSSIBLE_DUPLICATE` with masked candidates (`matchedOn`) unless `confirmNotDuplicate: true` (e.g. family sharing a phone). Unknown fields → 400.
+  - `PATCH /api/guests/:guestId` — partial; `null` clears email/phone/NIC but one contact must remain. Only changed identifiers are duplicate-checked (excluding self). Inactive profiles must be reactivated first. A no-op writes nothing. Audit `UPDATE` stores only changed fields. Bookings/invoices reference `guest_id`, so history is untouched (FR-021).
+  - `POST /api/guests/:guestId/deactivate|reactivate` with optional `reason`. Deactivation is refused with `GUEST_HAS_OPEN_BOOKINGS` while any BOOKED/CHECKED_IN line exists. The guest row is locked `FOR UPDATE`, which conflicts with the `FOR KEY SHARE` taken by `m2_008` booking creation, so the two serialize. Deactivating disables a linked online login immediately (auth re-reads `guest.active`); the `guest_account` link stays.
+  - All writes run in one transaction, respond only after COMMIT, and audit with the officer as actor; NIC is `[REDACTED]` by `appendAudit`.
+- Tests: `backend/tests/m1GuestProfiles.test.ts` (`test:m1-guest-profiles`), M1 + M2-S02..S06 migrations in a scratch schema. Covers masking/validation units; 401 anonymous and 403 for every non-FRONT_DESK role and an online guest on all six routes with nothing changed; name/email/legacy-phone/exact-NIC search, partial-NIC probes, `%%`/`__`/SQL-injection strings as literal data (AT-10), raw NIC absent from every response; create normalization and audit; NIC duplicate not overridable; email/phone duplicate then confirm; concurrent same-email creates (one 201, one 409); update audit diff, no-op, NIC/email conflicts, contact rule, unknown field, NIC clear, booking ref unchanged; deactivation blocked by an assigned BOOKED line, online login 403 after deactivate and restored after reactivate, already-active/inactive and edit-inactive errors; limit/truncation.
+- Verification: `test:m1-guest-profiles` 2/2, `test:m1-guest-registration` 3/3, `test:m1-authorization` 2/2 (matrix updated), `test:m1-auth` 3/3, `test:m1-guests` 1/1; backend and frontend builds and `git diff --check` pass; no scratch schemas or `public.audit_log` guest rows left.
+- Remaining handoffs:
+  1. Name/email substring search is a sequential scan. Fine at project scale; a `pg_trgm` GIN index would need a migration and team review if NFR-002 timing becomes a problem.
+  2. Concurrent PATCHes are serialized by the row lock but last-write-wins; no `expectedUpdatedAt` check yet. The M1-S16 UI could send one if the team wants it.
+  3. Deactivation only checks open booking lines; unpaid invoices are not checked (Member 4 contract).
+  4. Booking/payment history in the profile view (FR-020) waits for Members 2/4 endpoints.
+  5. UI is M1-S16 (search before create per FR-019, duplicate candidates, masked NIC).
+- Lecture concepts applied: transaction atomicity (respond only after COMMIT), row-level `FOR UPDATE` vs `FOR KEY SHARE` lock compatibility to serialize deactivation with booking creation, advisory locks for duplicate detection under concurrency, parameterized queries with escaped LIKE patterns against SQL injection, and the partial unique index on NIC as the final guard.
+
 ## Member 2 — Imandi
 
 ### 5 October 2026 — M2-S14 online guest own-booking list/detail core (partial; production auth pending)

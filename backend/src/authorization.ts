@@ -51,6 +51,8 @@ export const PERMISSIONS = {
   // Guest profiles are chain-wide (no branch FK): FRONT_DESK issues the
   // single-guest link code after checking identity (M1-S10, FR-083).
   'guest.link.issue': { roles: ['FRONT_DESK'], scope: 'CHAIN' },
+  // Staff guest-profile search/create/update/deactivate (M1-S11).
+  'guest.manage': { roles: ['FRONT_DESK'], scope: 'CHAIN' },
   // Reports and audit.
   'report.read.branch': { roles: ['BRANCH_MANAGER'], scope: 'BRANCH' },
   'report.read.chain': { roles: ['CHAIN_MANAGER', 'AUDITOR'], scope: 'CHAIN' },

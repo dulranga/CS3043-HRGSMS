@@ -180,7 +180,10 @@ The backend runs on `http://localhost:4000` and exposes:
 - `GET /rooms` — Get all rooms
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session` — session cookie authentication (M1-S08)
 - `POST /api/auth/register` — public online guest registration; `POST /api/guests/:guestId/link-code` — FRONT_DESK issues a 24-hour link code so an existing guest profile can be claimed (M1-S10)
+- `POST /api/guests/search`, `POST /api/guests`, `GET|PATCH /api/guests/:guestId`, `POST /api/guests/:guestId/deactivate|reactivate` — FRONT_DESK guest-profile maintenance (M1-S11)
 - Additional endpoints as per SRS requirements
+
+Staff guest profiles (M1-S11) are FRONT_DESK-only and chain-wide (`guest.manage`). Responses never contain the raw NIC, only `maskedNic` (`•••••567V`) and `hasNic`. Search takes `{ query?, nic?, includeInactive?, limit? }` in a POST body so NICs stay out of URLs: `query` (2–100 characters) matches name, email or phone digits as a literal substring, and `nic` matches exactly only. Create/update share the M1-S10 identity locks: a NIC match is always refused (`GUEST_NIC_EXISTS`); an email/phone match returns `POSSIBLE_DUPLICATE` with masked candidates unless `confirmNotDuplicate: true`. Deactivation is refused while the guest has a BOOKED or CHECKED_IN line and immediately disables a linked online login. Run `npm run test:m1-guest-profiles --workspace backend`.
 
 Online guest registration (M1-S10) creates a new `user_account` + `guest` + `guest_account`, but refuses details (email, phone or NIC) that match an existing guest profile. That guest must instead get a link code from the front desk after an identity check and register with `{ username, password, linkCode }`. Codes are HMAC-signed with `SESSION_SECRET`, bound to one guest, never stored, and stop working once the profile is linked. Failed attempts are audited and limited to 10 per client address per 15 minutes. Registration does not sign in; the client calls `/api/auth/login` next. Run `npm run test:m1-guest-registration --workspace backend`.
 

@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { appendAudit } from './audit';
 import { PasswordPolicyError, SYSTEM_PRINCIPAL_USER_ID, hashPassword } from './auth';
+import { findGuestIdentityMatches, lockGuestIdentities, parseGuestProfileFields } from './guestIdentity';
 
 // M1-S10 online guest registration and verified guest_account linking
 // (SRS §4.1, FR-017/081/083, AT-15). Two paths:
@@ -30,10 +31,7 @@ const MAC_BYTES = 16;
 const PAYLOAD_BYTES = 1 + 16 + 4 + NONCE_BYTES;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const USERNAME_PATTERN = /^[A-Za-z0-9._@-]{3,64}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
 const PASSWORD_INPUT_MAX_LENGTH = 1024;
-const NAME_MAX_LENGTH = 255;
 
 // ---------------------------------------------------------------------------
 // Link codes
@@ -114,12 +112,6 @@ function optionalString(record: Record<string, unknown>, key: string, errors: Re
   return trimmed === '' ? null : trimmed;
 }
 
-// Phone numbers are compared and stored as digits with an optional leading +,
-// so "077 123-4567" and "0771234567" are the same contact.
-export function normalizePhone(value: string): string {
-  return value.replace(/[\s().-]/g, '');
-}
-
 export function validateRegistrationInput(body: unknown): { value?: RegistrationInput; errors?: Record<string, string> } {
   const errors: Record<string, string> = {};
   const record = (body && typeof body === 'object' && !Array.isArray(body) ? body : {}) as Record<string, unknown>;
@@ -141,28 +133,14 @@ export function validateRegistrationInput(body: unknown): { value?: Registration
     return { value: { mode: 'LINK', username, password, linkCode } };
   }
 
-  const fullName = optionalString(record, 'fullName', errors);
-  if (!fullName && !errors.fullName) errors.fullName = 'is required';
-  else if (fullName && fullName.length > NAME_MAX_LENGTH) errors.fullName = `must be at most ${NAME_MAX_LENGTH} characters`;
-
-  const emailRaw = optionalString(record, 'email', errors);
-  const email = emailRaw ? emailRaw.toLowerCase() : null;
-  if (email && (email.length > NAME_MAX_LENGTH || !EMAIL_PATTERN.test(email))) errors.email = 'must be a valid email address';
-
-  const phoneRaw = optionalString(record, 'phone', errors);
-  const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
-  if (phone && !PHONE_PATTERN.test(phone)) errors.phone = 'must be 7-15 digits with an optional leading +';
-
+  const profile = parseGuestProfileFields(record, errors, false);
+  const email = profile.email ?? null;
+  const phone = profile.phone ?? null;
   // FR-017: at least one usable contact method.
   if (!email && !phone && !errors.email && !errors.phone) errors.contact = 'an email address or phone number is required';
 
-  // FR-018 leaves NIC format validation to a team decision; only normalize.
-  const nicRaw = optionalString(record, 'nic', errors);
-  const nic = nicRaw ? nicRaw.toUpperCase() : null;
-  if (nic && nic.length > NAME_MAX_LENGTH) errors.nic = `must be at most ${NAME_MAX_LENGTH} characters`;
-
   if (Object.keys(errors).length > 0) return { errors };
-  return { value: { mode: 'NEW', username, password, fullName: fullName as string, email, phone, nic } };
+  return { value: { mode: 'NEW', username, password, fullName: profile.fullName as string, email, phone, nic: profile.nic ?? null } };
 }
 
 // ---------------------------------------------------------------------------
@@ -271,27 +249,10 @@ export function createGuestRegistration(options: GuestRegistrationOptions) {
   }
 
   async function registerNew(client: Queryable, input: Extract<RegistrationInput, { mode: 'NEW' }>, passwordHash: string) {
-    // Serialize registrations that share any identifier (sorted, so two
-    // requests cannot deadlock), then refuse a match with an existing profile.
-    const keys = [
-      input.email && `email:${input.email}`,
-      input.phone && `phone:${input.phone}`,
-      input.nic && `nic:${input.nic}`,
-    ]
-      .filter((key): key is string => Boolean(key))
-      .sort();
-    for (const key of keys) {
-      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`guest-identity:${key}`]);
-    }
-    const existing = await client.query(
-      `SELECT 1 FROM guest
-        WHERE ($1::text IS NOT NULL AND lower(btrim(email)) = $1)
-           OR ($2::text IS NOT NULL AND regexp_replace(phone, '[\\s().-]', '', 'g') = $2)
-           OR ($3::text IS NOT NULL AND nic = $3)
-        LIMIT 1`,
-      [input.email, input.phone, input.nic],
-    );
-    if (existing.rowCount) {
+    // Serialize registrations that share any identifier, then refuse a match
+    // with an existing profile. The match details are never returned here.
+    await lockGuestIdentities(client, input);
+    if ((await findGuestIdentityMatches(client, input)).length > 0) {
       throw new RegistrationRejection(409, 'PROFILE_EXISTS', PROFILE_EXISTS_MESSAGE, 'PROFILE_EXISTS');
     }
 
