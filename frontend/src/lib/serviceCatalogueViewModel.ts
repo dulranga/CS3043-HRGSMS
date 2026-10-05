@@ -1,3 +1,7 @@
+import { MONEY_PATTERN, formatLkr, toMoneyString } from './money';
+
+export { formatLkr, toMoneyString };
+
 export type CatalogueRole =
   | 'FRONT_DESK'
   | 'SERVICE_STAFF'
@@ -69,8 +73,6 @@ export interface DraftValidation {
 
 export type ActiveFilter = 'all' | 'active' | 'inactive';
 
-const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
-
 const DENIAL_TEMPLATES: Record<string, string> = {
   create: 'Only a Chain Manager may add a service to the chain-wide catalogue.',
   price: 'Only a Chain Manager may change a service price.',
@@ -99,25 +101,6 @@ export function resolveCatalogueCapabilities(role: CatalogueRole | null): Catalo
 export function describeCatalogueDenial(role: CatalogueRole | null, action: keyof typeof DENIAL_TEMPLATES): string {
   const base = DENIAL_TEMPLATES[action];
   return role ? `${base} Signed in as ${role}.` : base;
-}
-
-export function toMoneyString(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return '0.00';
-  const text = String(value).trim();
-  if (!text) return '0.00';
-  if (!MONEY_PATTERN.test(text)) {
-    const parsed = Number(text);
-    return Number.isFinite(parsed) ? parsed.toFixed(2) : '0.00';
-  }
-  const [whole, fraction = ''] = text.split('.');
-  return `${whole}.${fraction.padEnd(2, '0')}`;
-}
-
-export function formatLkr(value: string | number | null | undefined): string {
-  const money = toMoneyString(value);
-  const [whole, fraction] = money.split('.');
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `LKR ${grouped}.${fraction}`;
 }
 
 function normalizeService(row: Record<string, unknown>): ServiceRecord | null {

@@ -49,6 +49,14 @@ export default function RootLayout() {
           </div>
 
           <Link
+            to="/service-usage"
+            activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
+            className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
+          >
+            Service Usage
+          </Link>
+
+          <Link
             to="/admin/services"
             activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
             className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
