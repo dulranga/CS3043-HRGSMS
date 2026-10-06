@@ -88,7 +88,7 @@ Record actual project-task work here for all five members, including partial or 
   - Transaction-scoped advisory locks serializing concurrent attempts (two-session race test).
   - Atomic commit of the audit evidence before the session is issued.
 
-### 4 October 2026 — M1-S14 (staff/guest login UI) — implemented, not yet checked off
+### 4 October 2026 — M1-S14 (staff/guest login UI) — implemented and browser-verified
 
 - Added the shadcn `Alert` primitive (`frontend/src/components/ui/alert.tsx`, styled per `DESIGN.md`).
 - Added `frontend/src/lib/auth.ts`: API client, role labels, a redirect sanitizer that blocks open redirects, and the landing page per user type (staff `/dashboard`, guest `/`).
@@ -100,6 +100,7 @@ Record actual project-task work here for all five members, including partial or 
   - Separate messages for wrong credentials, disabled account, throttling (with retry minutes), connection failure and expired session. The password field is cleared after a failure.
 - Removed the sidebar wrapping every page. `RootLayout.tsx` is a bare `<Outlet />` again, as before commit 28e094d. That commit also left the dashboard/admin pages with two sidebars, because each page already uses `AppShell`. The staff navigation (Dashboard, Reports & CSV, Branches & Users, System Config, Audit Log) is now in `AppShell`'s sidebar, using the shadcn sidebar menu primitives; `SidebarMenuButton` gained `asChild` so menu items can be links. The new `SessionPanel` in the sidebar footer shows the signed-in user/role with Sign out (or a Sign in link). Public pages (`/`, `/rooms`, `/ui`, `/login`) render without a sidebar. `vite.config.ts` proxies `/api` to `localhost:4000` so the cookie is sent same-origin.
 - Verification: `npm run build:frontend` passes. The repo has no frontend test runner, and the page has not been exercised in a browser against a running backend. Route guards and redirect-on-expiry for other pages are left to M1-S09 and the page owners.
+- Verification (6 October 2026, M1-S14 check-off): `npm run build:frontend` passes. `npm run test:m1-auth --workspace backend` 3/3 confirms the login contract the page maps — `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED` (disabled account, officer and guest), throttling and session expiry, with no session cookie issued on failure. The page was then exercised end-to-end in real headless Chrome via the Chrome DevTools Protocol (throwaway script against the Vite dev server proxying the running backend), 9/9 checks: the sign-in form renders with the shadcn primitives; an empty submit shows the required-field validation and marks the username `aria-invalid` without calling the API; the real backend `INVALID_CREDENTIALS` response shows the incorrect-credentials alert; a fulfilled `ACCOUNT_DISABLED` response shows the disabled-account alert and clears the password field; and no uncaught JavaScript errors occur. Route guards and redirect-on-expiry for other pages remain with M1-S09 and the page owners.
 
 ### 4 October 2026 — M1-S09 (staff role/branch authorization middleware)
 
