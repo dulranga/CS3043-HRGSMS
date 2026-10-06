@@ -886,6 +886,42 @@ Includes:
 Related: M4-S08, M4-S13
 ```
 
+### M4-S15: Build staff per-line checkout UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`checkoutViewModel.ts`)**: Created the checkout view model wrapping the `POST` checkout API response. Added rigorous error code parsing to surface clear messages for balance gate failures, invalid line states, and authorization blocks.
+- **CheckoutPanel (`CheckoutPanel.tsx`)**: Built the primary checkout component.
+  - Implemented the exact-zero balance guard by leveraging `invoice.summary.isSettled` and `invoice.status`.
+  - Disables checkout and shows clear alert blocks if the booking has an outstanding balance or unrefunded credit.
+  - Renders a list of eligible (`CHECKED_IN`) room lines using the active stay data.
+  - Provides a single-click "Check out room" button with loading state feedback.
+- **CheckoutPage (`CheckoutPage.tsx`)**: Created the `/checkout` route. Lookups the booking by UUID, fetches both the invoice and active stay lines concurrently, merges them, and passes them to the panel. Refetches data seamlessly upon successful line checkout to trigger state re-evaluations.
+- **Testing (`m4CheckoutUi.test.ts`)**: Tested error translation mapping for the view model logic.
+- **Build Checks**: Rebuilt the frontend and backend successfully.
+
+**Acceptance Verification:**
+- Consolidated exact-zero balance guard: ✅ Verified. Checks `invoice.summary.isSettled` to prevent checkout.
+- DRAFT provisional statement/FINAL state: ✅ UI indicates `DRAFT` or `FINAL` statement status in the UI block.
+- Remaining-room, positive-balance, credit display safely: ✅ Yes, using shared view models from `activeStayViewModel` and `invoiceViewModel`.
+- Frontend build passes: ✅ Tested via `npm run build:frontend`.
+
+**Git Handoff Text:**
+```text
+feat(checkout): M4-S15 implement staff per-line checkout UI
+
+Builds the CheckoutPage route that strictly enforces the zero-balance
+gate prior to allowing staff to check out individual room lines. Includes:
+- Integration with InvoiceDetail and ActiveStay API endpoints
+- Exact zero-balance gate using 'isSettled' and 'isCredit' checks
+- Display of DRAFT vs FINAL statement lifecycle status
+- Elegant per-line checkout handling with inline error rendering
+
+Related: M4-S10, M4-S13
+```
+
 ## Member 5 — Thusath
 
 No entries yet.

@@ -4,6 +4,7 @@ import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
+import CheckoutPage from './routes/CheckoutPage';
 import ServiceCataloguePage from './routes/ServiceCataloguePage';
 import ServiceUsagePage from './routes/ServiceUsagePage';
 import UIRoutePage from './routes/UIRoutePage';
@@ -41,6 +42,12 @@ const activeStayRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/stays',
   component: ActiveStayPage,
+});
+
+const checkoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/checkout',
+  component: CheckoutPage,
 });
 
 const uiRoute = createRoute({
@@ -108,6 +115,7 @@ const routeTree = rootRoute.addChildren([
   roomsRoute,
   checkInRoute,
   activeStayRoute,
+  checkoutRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,

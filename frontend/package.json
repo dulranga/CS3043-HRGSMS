@@ -13,6 +13,7 @@
     "test:m3-service-usage-void-ui": "node --import tsx --test tests/m3ServiceUsageVoidUi.test.ts tests/m3ServiceUsageVoidPanel.test.tsx",
     "test:m4-invoice-ui": "node --import tsx --test tests/m4InvoiceUi.test.ts",
     "test:m4-payment-ui": "node --import tsx --test tests/m4PaymentUi.test.ts",
+    "test:m4-checkout-ui": "node --import tsx --test tests/m4CheckoutUi.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
