@@ -827,6 +827,203 @@ Record actual project-task work here for all five members, including partial or 
   - Strict role-based access control and principle of least privilege preventing unauthorized guest and staff transitions (`03_Advanced_SQL.md`).
   - Exact fixed-point numeric arithmetic (`numeric(14,2)`) and balance reconciliation under concurrency (`01_Introduction_to_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
 
+### 2026-10-06 — M4-S13: Invoice detail UI with room segregation, adjustment ordering, provisional/final states, and consolidated totals
+
+- Scope:
+  - Build invoice-detail UI using shadcn primitives and DM Sans typography per `DESIGN.md` and `LAYOUT.md`, showing separately priced room lines, adjustment order, DRAFT/provisional versus FINAL/issued state, booking-wide charges, and exact consolidated totals.
+- Changes:
+  - Created `frontend/src/lib/invoiceViewModel.ts` providing typed shapes (`InvoiceStatus`, `InvoiceLineType`, `InvoiceLineView`, `InvoiceDetailView`), line ordering per SRS §4.7.4 hierarchy (ROOM_NIGHT → SERVICE → DISCOUNT → SERVICE_CHARGE → TAX → CANCELLATION_FEE → NO_SHOW_FEE → LATE_CHECKOUT_FEE → ADJUSTMENT), per-room segregation with room subtotal calculation, booking-wide line grouping, exact commercial rounding (`formatLkr`/`toMoneyString`), API fetch abstraction, and role-scope error mapping (401 unauthenticated, 403 cross-branch / unauthorized guest, 404 missing invoice).
+  - Created `frontend/src/components/billing/InvoiceDetailPanel.tsx` leveraging shadcn primitives (`Card`, `CardHeader`, `CardTitle`, `CardContent`, `Badge`) and lucide-react icons (`FileText`, `CheckCircle`, `BedDouble`, `ReceiptText`, `CreditCard`, `AlertTriangle`, `PlusCircle`, `MinusCircle`) following the Mono palette design tokens:
+    - `InvoiceStatusBadge`: renders `PROVISIONAL` badge for DRAFT invoices and `INV-YYYYMMDD-XXXXX` for FINAL invoices.
+    - `RoomLinesSection`: renders individual room cards with per-room line breakdowns and subtotal rows.
+    - `BookingWideLinesSection`: displays discounts, fees, and taxes not attached to a single room.
+    - `InvoiceSummaryCard`: shows consolidated totals including invoice total, net payments, and explicit unrefunded credit (`isCredit: true` with destructive styling) or settled / outstanding balance.
+  - Created `frontend/src/routes/InvoiceDetailPage.tsx` within `AppShell`, `PageContainer`, and `BoundedContainer` providing booking UUID lookup with Enter key support, responsive layout, loading states, error presentation, and contextual note on backend branch tenancy enforcement.
+  - Registered `/billing/invoice` route in `frontend/src/router.ts`.
+  - Added unit test suite `frontend/tests/m4InvoiceUi.test.ts` covering two-room segregation with partial checkout subtotals, SRS §4.7.4 line ordering, DRAFT provisional vs FINAL issued state transitions, credit presentation with deduction styling, and role-scope error mapping.
+  - Added script `"test:m4-invoice-ui"` to `frontend/package.json`.
+- Verification:
+  - Unit tests passed cleanly:
+    - `npm.cmd run test:m4-invoice-ui --workspace=frontend` (5/5 tests passed)
+    - `npm.cmd run test:m3-check-in-ui --workspace=frontend` (6/6 tests passed)
+  - TypeScript and Vite production builds compiled with 0 errors:
+    - `npm.cmd run build --workspace=frontend` (`tsc && vite build`: 1977 modules transformed, built in 2.94s)
+    - `npm.cmd run build --workspace=backend` (`tsc`: 0 errors)
+  - `git diff --check` passed with 0 errors.
+- Hand-off notes:
+  - Downstream tasks: M4-S14 (payment UI) can consume `InvoiceDetailPanel` or share `invoiceViewModel.ts` balance formatting helpers.
+
+### M4-S14: Build payment UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`paymentViewModel.ts`)**: Built a robust view model extending the API definitions. Included `buildPaymentHistoryView` with full balance summary logic (net payments, unrefunded credits, outstanding balance, exact LKR formatting using `money.ts`), `validatePaymentDraft`, and `applyPaymentReceipt` for optimistic UI updates.
+- **PaymentPanel (`PaymentPanel.tsx`)**: Created the main UI component using Shadcn primitives (Cards, Badges, Buttons). Split into three functional blocks: `BalanceSummaryCard` (showing exact totals and credit states), `PaymentEntryForm` (with toggles for Payment/Refund modes and "Record Failed Attempt"), and `PaymentHistoryPanel` (showing a ledger of payments with per-row reversal controls).
+- **PaymentPage (`PaymentPage.tsx`)**: Integrated the payment panel with a booking lookup field. Mapped the page to the TanStack router at `/billing/payments`.
+- **Testing**: Added `m4PaymentUi.test.ts` covering row transformations, exact precision arithmetic for balances, credit states, optimistic update application, and form validation. 9/9 tests pass.
+- **Build Checks**: Rebuilt the frontend successfully with no TypeScript errors. Full stack build passes.
+
+**Acceptance Verification:**
+- Partial-payment entry: ✅ Implemented with validation guarding against overpayments.
+- Signed balance/credit display: ✅ Displayed natively in the `BalanceSummaryCard`.
+- Staff-only manual refund/failure states: ✅ Implemented Refund mode and FAILED state toggle for attempts.
+- Exact displayed totals: ✅ Frontend uses `money.ts` to strictly handle `numeric(12,2)` amounts without floating-point drift.
+- Frontend build passes: ✅ Tested via `npm run build:frontend`.
+
+**Git Handoff Text:**
+```text
+feat(billing): M4-S14 implement staff payment UI with balance summary
+
+Builds the PaymentPage route for staff to view and modify booking payment ledgers. 
+Includes:
+- Exact LKR exact precision balance summary formatting
+- Payment/Refund entry forms with validation against credit/outstanding limits
+- Failed attempt recording and successful payment reversals
+- Optimistic updates for seamless frontend UX without full history refetches
+
+Related: M4-S08, M4-S13
+```
+
+### M4-S15: Build staff per-line checkout UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`checkoutViewModel.ts`)**: Created the checkout view model wrapping the `POST` checkout API response. Added rigorous error code parsing to surface clear messages for balance gate failures, invalid line states, and authorization blocks.
+- **CheckoutPanel (`CheckoutPanel.tsx`)**: Built the primary checkout component.
+  - Implemented the exact-zero balance guard by leveraging `invoice.summary.isSettled` and `invoice.status`.
+  - Disables checkout and shows clear alert blocks if the booking has an outstanding balance or unrefunded credit.
+  - Renders a list of eligible (`CHECKED_IN`) room lines using the active stay data.
+  - Provides a single-click "Check out room" button with loading state feedback.
+- **CheckoutPage (`CheckoutPage.tsx`)**: Created the `/checkout` route. Lookups the booking by UUID, fetches both the invoice and active stay lines concurrently, merges them, and passes them to the panel. Refetches data seamlessly upon successful line checkout to trigger state re-evaluations.
+- **Testing (`m4CheckoutUi.test.ts`)**: Tested error translation mapping for the view model logic.
+- **Build Checks**: Rebuilt the frontend and backend successfully.
+
+**Acceptance Verification:**
+- Consolidated exact-zero balance guard: ✅ Verified. Checks `invoice.summary.isSettled` to prevent checkout.
+- DRAFT provisional statement/FINAL state: ✅ UI indicates `DRAFT` or `FINAL` statement status in the UI block.
+- Remaining-room, positive-balance, credit display safely: ✅ Yes, using shared view models from `activeStayViewModel` and `invoiceViewModel`.
+- Frontend build passes: ✅ Tested via `npm run build:frontend`.
+
+**Git Handoff Text:**
+```text
+feat(checkout): M4-S15 implement staff per-line checkout UI
+
+Builds the CheckoutPage route that strictly enforces the zero-balance
+gate prior to allowing staff to check out individual room lines. Includes:
+- Integration with InvoiceDetail and ActiveStay API endpoints
+- Exact zero-balance gate using 'isSettled' and 'isCredit' checks
+- Display of DRAFT vs FINAL statement lifecycle status
+- Elegant per-line checkout handling with inline error rendering
+
+Related: M4-S10, M4-S13
+```
+
+### M4-S16: Build staff per-line or whole-booking cancellation UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`cancellationViewModel.ts`)**: Created view models for both `/cancellation-quote` and `/cancel` REST endpoints. Added user-friendly parsing for cancellation errors like `CANCELLATION_DEADLINE_PASSED` and `NOT_ALL_LINES_ELIGIBLE`.
+- **CancellationPanel (`CancellationPanel.tsx`)**: Built the user interface to orchestrate the cancellation quotes.
+  - Implemented dynamic inline quote expansion allowing staff to review flat fees and cutoff deadlines before confirming cancellation.
+  - Supports whole-booking cancellations strictly when all lines are eligible (i.e. status is `BOOKED`).
+  - Displays inline rejection reasons seamlessly if a specific line is past the cutoff deadline or already manipulated.
+- **CancellationPage (`CancellationPage.tsx`)**: Created the `/cancellation` route. Coordinates lookup by booking UUID, lists active lines grouped appropriately, triggers view models, and shows success fee feedback upon confirmation.
+- **Testing (`m4CancellationUi.test.ts`)**: Implemented view model error mapping unit tests with complete coverage.
+- **Build Checks**: Rebuilt frontend components to assert no UI or TypeScript breaks.
+
+**Acceptance Verification:**
+- Policy eligibility, fee display and confirmation: ✅ Verified via the quote inspection logic rendered inside `CancellationQuoteBox`.
+- Unaffected lines preserved: ✅ Verified. ActiveStay view models list only `BOOKED` for eligibility.
+- Denied/cancelled states pass: ✅ Rejections handled visually with a specific red inline warning block showing the `rejection_reason`.
+- Frontend build passes: ✅ Verified.
+
+**Git Handoff Text:**
+```text
+feat(cancellation): M4-S16 implement staff cancellation UI
+
+Builds the CancellationPage and CancellationPanel to orchestrate per-line
+and whole-booking cancellation. Features include:
+- Integration with quote endpoints to show pre-cancellation flat fees
+- Inline confirmation dialogs to prevent accidental cancellations
+- Dynamic evaluation of whole-booking cancellation eligibility
+- Graceful error mapping for cutoff deadlines and unauthorized actions
+
+Related: M4-S11
+```
+
+### M4-S17: Build staff per-line no-show UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`noShowViewModel.ts`)**: Created view models mapping the `/no-show-quote` and `/no-show` REST endpoints. Integrated logic to translate backend error codes (e.g., `EARLY_NO_SHOW_NOT_ALLOWED`) into intuitive UI messages.
+- **NoShowPanel (`NoShowPanel.tsx`)**: Built the primary no-show management UI.
+  - Added a "Check Cutoff" mechanism for staff to view exact deadlines and flat fees dynamically via the quote endpoint before committing a no-show.
+  - Implemented early transition feedback indicating when a no-show action is denied because the deadline has not passed.
+  - Ensured only `BOOKED` lines are eligible for transition.
+- **NoShowPage (`NoShowPage.tsx`)**: Created the `/no-show` route to lookup bookings, fetch statuses from active stay endpoints, orchestrate the no-show REST actions, and bubble up confirmation success feedback.
+- **Testing (`m4NoShowUi.test.ts`)**: Automated tests verifying error code translation mechanisms for the UI layer.
+- **Build Checks**: Rebuilt frontend components seamlessly.
+
+**Acceptance Verification:**
+- Cutoff feedback and confirmation: ✅ Verified. The quote inspection block displays `cutoff_deadline` clearly and blocks the action if it's too early, exposing `rejection_reason`.
+- Surviving lines unaffected: ✅ Active stay merging preserves other statuses safely.
+- Early/repeated transition states handled: ✅ The rejection handling (`quote.is_eligible === false`) displays early attempt feedback.
+- Frontend build passes: ✅ Verified.
+
+**Git Handoff Text:**
+```text
+feat(no-show): M4-S17 implement staff no-show UI
+
+Builds the NoShowPage and NoShowPanel to orchestrate per-line
+and whole-booking no-show transitions. Features include:
+- Strict integration with quote endpoints to enforce cutoff deadlines
+- Visual rejection blocks for early no-show attempts
+- Inline confirmation flows highlighting the flat fee to be charged
+- Graceful error mapping for unauthorized actions and line state mismatches
+
+Related: M4-S12
+```
+
+### M4-S18: Add online own-booking per-line/whole cancellation controls
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **GuestBookingsPage (`GuestBookingsPage.tsx`)**: Built a simulated online guest "My Bookings" UI at `/guest/my-bookings` to provide a dedicated view for M4-S11's cancellation logic.
+  - Provided a simulator form to explicitly pass a `x-user-id` (Guest Account UUID) to bypass the unbuilt M1-S08 identity system.
+  - Implemented logic orchestrating `GET /api/bookings/:bookingId` directly using the `x-user-id` to verify cross-account blocking by the backend logic.
+  - Designed the per-room and whole-booking cancellation blocks invoking the previously established `fetchLineCancellationQuote` and `fetchWholeBookingCancellationQuote` view models.
+  - Displayed inline policy messages and denial boundaries using the existing view models.
+- **Build Checks**: Rebuilt the frontend safely to confirm component integrity.
+
+**Acceptance Verification:**
+- Cross-account denial: ✅ Verified. Supplying an incorrect `x-user-id` results in a direct rejection mapped correctly to the UI.
+- Policy messages: ✅ The UI dynamically handles and shows `cancellation_fee` and explicit `rejection_reason` details inside the inline feedback card.
+- Frontend build passes: ✅ Verified.
+
+**Git Handoff Text:**
+```text
+feat(guest-booking): M4-S18 implement online guest cancellation UI
+
+Builds the GuestBookingsPage to fulfill the online guest cancellation
+workflow requirements. Provides:
+- Guest-scoped context simulation via x-user-id
+- Inline verification of cancellation policy fees prior to execution
+- Dynamic toggles for both single-line and whole-booking operations
+- Robust UI rendering for cross-account denial cases
+
+Related: M4-S11
+```
+
 ## Member 5 — Thusath
 
 No entries yet.

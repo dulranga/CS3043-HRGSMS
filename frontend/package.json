@@ -11,6 +11,11 @@
     "test:m3-service-catalogue-ui": "node --import tsx --test tests/m3ServiceCatalogueUi.test.ts tests/m3ServiceCataloguePanel.test.tsx",
     "test:m3-service-usage-ui": "node --import tsx --test tests/m3ServiceUsageUi.test.ts tests/m3ServiceUsagePanel.test.tsx",
     "test:m3-service-usage-void-ui": "node --import tsx --test tests/m3ServiceUsageVoidUi.test.ts tests/m3ServiceUsageVoidPanel.test.tsx",
+    "test:m4-invoice-ui": "node --import tsx --test tests/m4InvoiceUi.test.ts",
+    "test:m4-payment-ui": "node --import tsx --test tests/m4PaymentUi.test.ts",
+    "test:m4-checkout-ui": "node --import tsx --test tests/m4CheckoutUi.test.ts",
+    "test:m4-cancellation-ui": "node --import tsx --test tests/m4CancellationUi.test.ts",
+    "test:m4-no-show-ui": "node --import tsx --test tests/m4NoShowUi.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

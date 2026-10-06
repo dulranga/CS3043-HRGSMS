@@ -4,6 +4,10 @@ import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
+import CheckoutPage from './routes/CheckoutPage';
+import CancellationPage from './routes/CancellationPage';
+import NoShowPage from './routes/NoShowPage';
+import GuestBookingsPage from './routes/GuestBookingsPage';
 import ServiceCataloguePage from './routes/ServiceCataloguePage';
 import ServiceUsagePage from './routes/ServiceUsagePage';
 import UIRoutePage from './routes/UIRoutePage';
@@ -12,6 +16,8 @@ import AdminConfigPage from './routes/AdminConfigPage';
 import AuditLogPage from './routes/AuditLogPage';
 import AdminOperationsPage from './routes/AdminOperationsPage';
 import ReportsPage from './routes/ReportsPage';
+import InvoiceDetailPage from './routes/InvoiceDetailPage';
+import PaymentPage from './routes/PaymentPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -39,6 +45,30 @@ const activeStayRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/stays',
   component: ActiveStayPage,
+});
+
+const checkoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/checkout',
+  component: CheckoutPage,
+});
+
+const cancellationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/cancellation',
+  component: CancellationPage,
+});
+
+const noShowRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/no-show',
+  component: NoShowPage,
+});
+
+const guestBookingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/guest/my-bookings',
+  component: GuestBookingsPage,
 });
 
 const uiRoute = createRoute({
@@ -77,6 +107,18 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+const invoiceDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/billing/invoice',
+  component: InvoiceDetailPage,
+});
+
+const paymentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/billing/payments',
+  component: PaymentPage,
+});
+
 const serviceCatalogueRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/services',
@@ -94,6 +136,10 @@ const routeTree = rootRoute.addChildren([
   roomsRoute,
   checkInRoute,
   activeStayRoute,
+  checkoutRoute,
+  cancellationRoute,
+  noShowRoute,
+  guestBookingsRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,
@@ -102,6 +148,8 @@ const routeTree = rootRoute.addChildren([
   reportsRoute,
   serviceCatalogueRoute,
   serviceUsageRoute,
+  invoiceDetailRoute,
+  paymentRoute,
 ]);
 
 export const router = createRouter({ routeTree });
