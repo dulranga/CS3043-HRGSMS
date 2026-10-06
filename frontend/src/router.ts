@@ -11,6 +11,7 @@ import ReportsPage from './routes/ReportsPage';
 import LoginPage from './routes/LoginPage';
 import RegisterPage from './routes/RegisterPage';
 import GuestProfilesPage from './routes/GuestProfilesPage';
+import AccountPage from './routes/AccountPage';
 import { safeRedirectPath } from './lib/auth';
 
 const rootRoute = createRootRoute({
@@ -71,6 +72,12 @@ const guestsRoute = createRoute({
   component: GuestProfilesPage,
 });
 
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  component: AccountPage,
+});
+
 interface LoginSearch {
   redirect?: string;
   reason?: 'expired';
@@ -113,6 +120,7 @@ const routeTree = rootRoute.addChildren([
   adminOperationsRoute,
   reportsRoute,
   guestsRoute,
+  accountRoute,
 ]);
 
 export const router = createRouter({ routeTree });

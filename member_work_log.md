@@ -259,6 +259,23 @@ Record actual project-task work here for all five members, including partial or 
   4. Booking/payment history on the profile is not shown here; it depends on Members 2/4 read endpoints (M1-S18).
 - Lecture concepts applied: none. This is a frontend-only change (no schema or SQL modification).
 
+### 6 October 2026 — M1-S17 (online guest own-profile UI)
+
+- Added `frontend/src/lib/guestAccount.ts`, a typed client for the M1-S12 `/api/guest/profile` endpoints over the session cookie: `getOwnProfile()` and `updateOwnProfile(input)`, with a `GuestAccountError` carrying the server `code` and `fields`. The client never sends or accepts a guest ID — the server derives the guest from the session.
+- Added `frontend/src/routes/AccountPage.tsx` at `/account` (registered in `router.ts`). It renders standalone with a guest-only top bar (SkyNest brand + sign out) and deliberately no staff sidebar, search or navigation:
+  - Reads and edits the signed-in guest's own profile. It shows a masked NIC only and uses dirty-field diffing so a blank NIC field means "keep current" (the raw NIC is never returned by the API), and enforces the FR-017 one-contact rule.
+  - **Own-record state:** the profile (name, email, phone, masked NIC, member since, last updated) is authoritative; there is no ID parameter, so cross-account access is structurally impossible.
+  - **Forbidden-update states:** a staff session — or a server `FORBIDDEN` — shows a "this area is for guest accounts" card; a deactivated/invalid session (`GUEST_INACTIVE`, `AUTHENTICATION_REQUIRED`) shows a session-ended card; `POSSIBLE_DUPLICATE` offers a "these are my details — save" confirm (`confirmNotDuplicate`), while `GUEST_NIC_EXISTS` has no override.
+  - Accessibility: labels/`htmlFor`, `aria-invalid`/`aria-describedby`, focus to the first invalid field, `role="status"` success, and `role="alert"` warnings.
+- `frontend/src/routes/IndexPage.tsx` now shows a "My account" link for signed-in guests instead of Log in/Sign up, so the page is reachable without a staff sidebar.
+- Verification: `npm run build:frontend` (tsc + vite) passes; `git diff --check` clean. As there is no frontend test runner, I confirmed the server side directly: started the built backend and `curl`ed `/api/guest/profile` — `GET` and `PATCH` both return `401 {"error":{"code":"AUTHENTICATION_REQUIRED"}}` anonymously; `npm run test:m1-guest-account --workspace backend` passes 2/2 (own-profile validation plus access control and duplicate rules). The page has not been exercised in a real browser.
+- Remaining handoffs:
+  1. No frontend test runner, so the page is verified by inspection plus the live API contract, not an automated UI test (same gap as M1-S14–S16).
+  2. The M1-S12 `POSSIBLE_DUPLICATE` response carries no candidate list (unlike M1-S11), so the guest UI can only ask for confirmation, not show masked candidates. A candidate echo on the guest path would need a Member 1 API change.
+  3. Booking/payment history is intentionally not on this page yet; M1-S18 will add it to the same `/account` summary once Members 2/4 read endpoints are mounted.
+  4. FR-018 NIC format validation remains an open team decision; NIC is treated as an opaque optional string.
+- Lecture concepts applied: none. This is a frontend-only change (no schema or SQL modification).
+
 ## Member 2 — Imandi
 
 ### 5 October 2026 — M2-S14 online guest own-booking list/detail core (partial; production auth pending)

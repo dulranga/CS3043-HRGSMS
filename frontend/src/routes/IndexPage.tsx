@@ -16,6 +16,7 @@ import { Link } from "@tanstack/react-router";
 import { PropertyCard } from "@/components/project/PropertyCard";
 import { SearchWidget } from "@/components/project/SearchWidget";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -119,6 +120,8 @@ const testimonials = [
 /* ------------------------------------------------------------------ */
 
 export default function IndexPage() {
+  const { user } = useAuth();
+  const isGuest = user?.kind === "GUEST";
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
       {/* ── Navigation ── */}
@@ -161,21 +164,33 @@ export default function IndexPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="rounded-full border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-            >
-              <Link to="/login">Log in</Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-            >
-              <Link to="/register">Sign up</Link>
-            </Button>
+            {isGuest ? (
+              <Button
+                asChild
+                size="sm"
+                className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
+              >
+                <Link to="/account">My account</Link>
+              </Button>
+            ) : (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
+                >
+                  <Link to="/login">Log in</Link>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
+                >
+                  <Link to="/register">Sign up</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </nav>
