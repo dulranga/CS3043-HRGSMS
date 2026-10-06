@@ -103,7 +103,16 @@ export async function recordPayment(
         new_balance,
         is_credit,
         credit_amount
-       FROM fn_record_payment($1, $2, $3, $4, $5, $6, $7, $8)`,
+       FROM fn_record_payment(
+        $1::uuid,
+        $2::uuid,
+        $3::payment_kind_enum,
+        $4::numeric,
+        $5::payment_method_enum,
+        $6::varchar,
+        $7::payment_status_enum,
+        $8::timestamptz
+       )`,
     [
       bookingId,
       recordedBy,

@@ -29,7 +29,7 @@ test('M4-S07: Locked payment and refund posting with balance reconciliation', as
 
   try {
     await client.query(`CREATE SCHEMA ${scratchSchema}`);
-    await client.query(`SET search_path TO ${scratchSchema}, public`);
+    await client.query(`SET search_path TO ${scratchSchema}`);
 
     // Apply migrations in order
     const migrationFiles = [
@@ -500,8 +500,8 @@ test('M4-S07: Locked payment and refund posting with balance reconciliation', as
       await client1.connect();
       await client2.connect();
 
-      await client1.query(`SET search_path TO ${scratchSchema}, public`);
-      await client2.query(`SET search_path TO ${scratchSchema}, public`);
+      await client1.query(`SET search_path TO ${scratchSchema}`);
+      await client2.query(`SET search_path TO ${scratchSchema}`);
 
       const p1Promise = client1.query(`
         SELECT * FROM fn_record_payment($1, $2, 'PAYMENT', 4000.00, 'CASH', 'CONC-PAY-A');
