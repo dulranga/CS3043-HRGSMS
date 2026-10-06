@@ -28,7 +28,7 @@ Planning checklist, not evidence of implementation. Each `M4-Sxx` is intended as
 | [x] | M4-S13 | Build invoice-detail UI using shadcn primitives, showing separately priced room lines, adjustment order, DRAFT/provisional versus FINAL/issued state, booking-wide charges and exact consolidated totals. Done when two-room/partial-checkout and role-scope checks and frontend build pass. Depends on M4-S06. |
 | [x] | M4-S14 | Build payment UI with partial-payment entry, signed balance/credit and staff-only manual refund/failure states. Done when exact displayed totals and frontend build pass. Depends on M4-S08. |
 | [x] | M4-S15 | Build staff per-line checkout UI with consolidated exact-zero balance guard, DRAFT provisional statement and confirmation; show FINAL only after last terminal line and settlement. Done when remaining-room, positive-balance, credit and rollback states display safely. Depends on M4-S10. |
-| [ ] | M4-S16 | Build staff per-line or whole-booking cancellation UI with policy eligibility, fee display and confirmation. Done when unaffected lines and denied/cancelled states pass. Depends on M4-S11. |
+| [x] | M4-S16 | Build staff per-line or whole-booking cancellation UI with policy eligibility, fee display and confirmation. Done when unaffected lines and denied/cancelled states pass. Depends on M4-S11. |
 | [ ] | M4-S17 | Build staff per-line no-show UI with cutoff feedback and confirmation. Done when another line survives and early/repeated transition states pass. Depends on M4-S12. |
 | [ ] | M4-S18 | Add online own-booking per-line/whole cancellation controls to Member 2's My Bookings UI. Done when cross-account denial, policy messages and frontend build pass. Depends on M4-S11 and Member 2 own-booking UI. |
 

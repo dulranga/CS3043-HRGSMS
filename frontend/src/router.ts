@@ -5,6 +5,7 @@ import RoomsPage from './routes/RoomsPage';
 import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
 import CheckoutPage from './routes/CheckoutPage';
+import CancellationPage from './routes/CancellationPage';
 import ServiceCataloguePage from './routes/ServiceCataloguePage';
 import ServiceUsagePage from './routes/ServiceUsagePage';
 import UIRoutePage from './routes/UIRoutePage';
@@ -48,6 +49,12 @@ const checkoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/checkout',
   component: CheckoutPage,
+});
+
+const cancellationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/cancellation',
+  component: CancellationPage,
 });
 
 const uiRoute = createRoute({
@@ -116,6 +123,7 @@ const routeTree = rootRoute.addChildren([
   checkInRoute,
   activeStayRoute,
   checkoutRoute,
+  cancellationRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,

@@ -14,6 +14,7 @@
     "test:m4-invoice-ui": "node --import tsx --test tests/m4InvoiceUi.test.ts",
     "test:m4-payment-ui": "node --import tsx --test tests/m4PaymentUi.test.ts",
     "test:m4-checkout-ui": "node --import tsx --test tests/m4CheckoutUi.test.ts",
+    "test:m4-cancellation-ui": "node --import tsx --test tests/m4CancellationUi.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

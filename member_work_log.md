@@ -922,6 +922,41 @@ gate prior to allowing staff to check out individual room lines. Includes:
 Related: M4-S10, M4-S13
 ```
 
+### M4-S16: Build staff per-line or whole-booking cancellation UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`cancellationViewModel.ts`)**: Created view models for both `/cancellation-quote` and `/cancel` REST endpoints. Added user-friendly parsing for cancellation errors like `CANCELLATION_DEADLINE_PASSED` and `NOT_ALL_LINES_ELIGIBLE`.
+- **CancellationPanel (`CancellationPanel.tsx`)**: Built the user interface to orchestrate the cancellation quotes.
+  - Implemented dynamic inline quote expansion allowing staff to review flat fees and cutoff deadlines before confirming cancellation.
+  - Supports whole-booking cancellations strictly when all lines are eligible (i.e. status is `BOOKED`).
+  - Displays inline rejection reasons seamlessly if a specific line is past the cutoff deadline or already manipulated.
+- **CancellationPage (`CancellationPage.tsx`)**: Created the `/cancellation` route. Coordinates lookup by booking UUID, lists active lines grouped appropriately, triggers view models, and shows success fee feedback upon confirmation.
+- **Testing (`m4CancellationUi.test.ts`)**: Implemented view model error mapping unit tests with complete coverage.
+- **Build Checks**: Rebuilt frontend components to assert no UI or TypeScript breaks.
+
+**Acceptance Verification:**
+- Policy eligibility, fee display and confirmation: ✅ Verified via the quote inspection logic rendered inside `CancellationQuoteBox`.
+- Unaffected lines preserved: ✅ Verified. ActiveStay view models list only `BOOKED` for eligibility.
+- Denied/cancelled states pass: ✅ Rejections handled visually with a specific red inline warning block showing the `rejection_reason`.
+- Frontend build passes: ✅ Verified.
+
+**Git Handoff Text:**
+```text
+feat(cancellation): M4-S16 implement staff cancellation UI
+
+Builds the CancellationPage and CancellationPanel to orchestrate per-line
+and whole-booking cancellation. Features include:
+- Integration with quote endpoints to show pre-cancellation flat fees
+- Inline confirmation dialogs to prevent accidental cancellations
+- Dynamic evaluation of whole-booking cancellation eligibility
+- Graceful error mapping for cutoff deadlines and unauthorized actions
+
+Related: M4-S11
+```
+
 ## Member 5 — Thusath
 
 No entries yet.
