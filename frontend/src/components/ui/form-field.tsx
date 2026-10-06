@@ -28,4 +28,4 @@ export const useFormField = () => {
   };
 };
 
-export const FormField = (props: React.HTMLAttributes<HTMLFormElement>) => <form {...props} />;
+export const FormField = (props: React.FormHTMLAttributes<HTMLFormElement>) => <form {...props} />;

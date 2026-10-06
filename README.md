@@ -259,6 +259,12 @@ Refer to the project documentation:
 - **Requirements & Specifications** → Check `SkyNest_HRGSMS_SRS_v1.0.md`
 - **Agent Guidelines** → Check `AGENTS.md`
 
+## Member 2 availability search (M2-S16)
+
+Open `/rooms` for the shared staff/direct-guest availability search. It uses public `GET /api/availability` and `GET /api/availability/options`; the latter exposes only active branch IDs/names/cities and active room-type IDs/names, so the UI does not depend on protected administration endpoints or hard-coded UUIDs. Choose a branch, per-room dates/guest count, optional type and immediate READY-only filter, then add multiple rooms. Each selected line retains its own criteria and exact catalogue rate; mixed branches and overlapping selections of the same room are refused, while adjacent intervals are allowed. Recheck selected rooms to show stale inventory or catalogue changes without silently dropping lines.
+
+Selections remain on the page and reserve no inventory. Booking confirmation, authenticated staff/guest identity and effective-policy quotes belong to the later booking tasks; this screen issues GET requests only. The configured database must contain active room types/rooms to show real results. The development-only `/tests/availability-preview.html` fixture supplies sample data and conflict/rate-change simulations without database access and is excluded from the production build. Run `npm run test:m2-availability-ui --workspace frontend` (15 tests) and `npm run test:m2-availability --workspace backend` (isolated database/API suite).
+
 ## 📄 License
 
 This is a university project (CS3043 - Hotel Room Group Staff Management System).
