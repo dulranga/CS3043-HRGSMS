@@ -1,9 +1,10 @@
 import { Link, Outlet } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
 
 export default function RootLayout() {
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 border-r border-border p-4 space-y-4 bg-card">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <aside className="w-full shrink-0 border-b md:w-64 md:border-b-0 md:border-r border-border p-4 space-y-4 bg-card">
         <h2 className="font-semibold text-lg tracking-tight">Hotel System</h2>
         <nav className="flex flex-col gap-1 text-sm">
           <Link
@@ -64,6 +65,10 @@ export default function RootLayout() {
             Service Catalogue
           </Link>
 
+          <Button variant="ghost" className="justify-start" asChild>
+            <Link to="/admin/rooms">Room administration</Link>
+          </Button>
+
           <Link
             to="/admin/reports"
             activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
@@ -95,7 +100,7 @@ export default function RootLayout() {
         </nav>
       </aside>
 
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="min-w-0 flex-1 p-4 md:p-6 overflow-y-auto">
         <Outlet />
       </main>
     </div>
