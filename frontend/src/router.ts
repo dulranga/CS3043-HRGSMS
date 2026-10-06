@@ -12,6 +12,7 @@ import AdminConfigPage from './routes/AdminConfigPage';
 import AuditLogPage from './routes/AuditLogPage';
 import AdminOperationsPage from './routes/AdminOperationsPage';
 import ReportsPage from './routes/ReportsPage';
+import InvoiceDetailPage from './routes/InvoiceDetailPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -77,6 +78,12 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+const invoiceDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/billing/invoice',
+  component: InvoiceDetailPage,
+});
+
 const serviceCatalogueRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/services',
@@ -102,6 +109,7 @@ const routeTree = rootRoute.addChildren([
   reportsRoute,
   serviceCatalogueRoute,
   serviceUsageRoute,
+  invoiceDetailRoute,
 ]);
 
 export const router = createRouter({ routeTree });

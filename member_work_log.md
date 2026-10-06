@@ -827,6 +827,32 @@ Record actual project-task work here for all five members, including partial or 
   - Strict role-based access control and principle of least privilege preventing unauthorized guest and staff transitions (`03_Advanced_SQL.md`).
   - Exact fixed-point numeric arithmetic (`numeric(14,2)`) and balance reconciliation under concurrency (`01_Introduction_to_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
 
+### 2026-10-06 — M4-S13: Invoice detail UI with room segregation, adjustment ordering, provisional/final states, and consolidated totals
+
+- Scope:
+  - Build invoice-detail UI using shadcn primitives and DM Sans typography per `DESIGN.md` and `LAYOUT.md`, showing separately priced room lines, adjustment order, DRAFT/provisional versus FINAL/issued state, booking-wide charges, and exact consolidated totals.
+- Changes:
+  - Created `frontend/src/lib/invoiceViewModel.ts` providing typed shapes (`InvoiceStatus`, `InvoiceLineType`, `InvoiceLineView`, `InvoiceDetailView`), line ordering per SRS §4.7.4 hierarchy (ROOM_NIGHT → SERVICE → DISCOUNT → SERVICE_CHARGE → TAX → CANCELLATION_FEE → NO_SHOW_FEE → LATE_CHECKOUT_FEE → ADJUSTMENT), per-room segregation with room subtotal calculation, booking-wide line grouping, exact commercial rounding (`formatLkr`/`toMoneyString`), API fetch abstraction, and role-scope error mapping (401 unauthenticated, 403 cross-branch / unauthorized guest, 404 missing invoice).
+  - Created `frontend/src/components/billing/InvoiceDetailPanel.tsx` leveraging shadcn primitives (`Card`, `CardHeader`, `CardTitle`, `CardContent`, `Badge`) and lucide-react icons (`FileText`, `CheckCircle`, `BedDouble`, `ReceiptText`, `CreditCard`, `AlertTriangle`, `PlusCircle`, `MinusCircle`) following the Mono palette design tokens:
+    - `InvoiceStatusBadge`: renders `PROVISIONAL` badge for DRAFT invoices and `INV-YYYYMMDD-XXXXX` for FINAL invoices.
+    - `RoomLinesSection`: renders individual room cards with per-room line breakdowns and subtotal rows.
+    - `BookingWideLinesSection`: displays discounts, fees, and taxes not attached to a single room.
+    - `InvoiceSummaryCard`: shows consolidated totals including invoice total, net payments, and explicit unrefunded credit (`isCredit: true` with destructive styling) or settled / outstanding balance.
+  - Created `frontend/src/routes/InvoiceDetailPage.tsx` within `AppShell`, `PageContainer`, and `BoundedContainer` providing booking UUID lookup with Enter key support, responsive layout, loading states, error presentation, and contextual note on backend branch tenancy enforcement.
+  - Registered `/billing/invoice` route in `frontend/src/router.ts`.
+  - Added unit test suite `frontend/tests/m4InvoiceUi.test.ts` covering two-room segregation with partial checkout subtotals, SRS §4.7.4 line ordering, DRAFT provisional vs FINAL issued state transitions, credit presentation with deduction styling, and role-scope error mapping.
+  - Added script `"test:m4-invoice-ui"` to `frontend/package.json`.
+- Verification:
+  - Unit tests passed cleanly:
+    - `npm.cmd run test:m4-invoice-ui --workspace=frontend` (5/5 tests passed)
+    - `npm.cmd run test:m3-check-in-ui --workspace=frontend` (6/6 tests passed)
+  - TypeScript and Vite production builds compiled with 0 errors:
+    - `npm.cmd run build --workspace=frontend` (`tsc && vite build`: 1977 modules transformed, built in 2.94s)
+    - `npm.cmd run build --workspace=backend` (`tsc`: 0 errors)
+  - `git diff --check` passed with 0 errors.
+- Hand-off notes:
+  - Downstream tasks: M4-S14 (payment UI) can consume `InvoiceDetailPanel` or share `invoiceViewModel.ts` balance formatting helpers.
+
 ## Member 5 — Thusath
 
 No entries yet.
