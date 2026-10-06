@@ -957,6 +957,41 @@ and whole-booking cancellation. Features include:
 Related: M4-S11
 ```
 
+### M4-S17: Build staff per-line no-show UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`noShowViewModel.ts`)**: Created view models mapping the `/no-show-quote` and `/no-show` REST endpoints. Integrated logic to translate backend error codes (e.g., `EARLY_NO_SHOW_NOT_ALLOWED`) into intuitive UI messages.
+- **NoShowPanel (`NoShowPanel.tsx`)**: Built the primary no-show management UI.
+  - Added a "Check Cutoff" mechanism for staff to view exact deadlines and flat fees dynamically via the quote endpoint before committing a no-show.
+  - Implemented early transition feedback indicating when a no-show action is denied because the deadline has not passed.
+  - Ensured only `BOOKED` lines are eligible for transition.
+- **NoShowPage (`NoShowPage.tsx`)**: Created the `/no-show` route to lookup bookings, fetch statuses from active stay endpoints, orchestrate the no-show REST actions, and bubble up confirmation success feedback.
+- **Testing (`m4NoShowUi.test.ts`)**: Automated tests verifying error code translation mechanisms for the UI layer.
+- **Build Checks**: Rebuilt frontend components seamlessly.
+
+**Acceptance Verification:**
+- Cutoff feedback and confirmation: ✅ Verified. The quote inspection block displays `cutoff_deadline` clearly and blocks the action if it's too early, exposing `rejection_reason`.
+- Surviving lines unaffected: ✅ Active stay merging preserves other statuses safely.
+- Early/repeated transition states handled: ✅ The rejection handling (`quote.is_eligible === false`) displays early attempt feedback.
+- Frontend build passes: ✅ Verified.
+
+**Git Handoff Text:**
+```text
+feat(no-show): M4-S17 implement staff no-show UI
+
+Builds the NoShowPage and NoShowPanel to orchestrate per-line
+and whole-booking no-show transitions. Features include:
+- Strict integration with quote endpoints to enforce cutoff deadlines
+- Visual rejection blocks for early no-show attempts
+- Inline confirmation flows highlighting the flat fee to be charged
+- Graceful error mapping for unauthorized actions and line state mismatches
+
+Related: M4-S12
+```
+
 ## Member 5 — Thusath
 
 No entries yet.

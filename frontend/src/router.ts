@@ -6,6 +6,7 @@ import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
 import CheckoutPage from './routes/CheckoutPage';
 import CancellationPage from './routes/CancellationPage';
+import NoShowPage from './routes/NoShowPage';
 import ServiceCataloguePage from './routes/ServiceCataloguePage';
 import ServiceUsagePage from './routes/ServiceUsagePage';
 import UIRoutePage from './routes/UIRoutePage';
@@ -55,6 +56,12 @@ const cancellationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cancellation',
   component: CancellationPage,
+});
+
+const noShowRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/no-show',
+  component: NoShowPage,
 });
 
 const uiRoute = createRoute({
@@ -124,6 +131,7 @@ const routeTree = rootRoute.addChildren([
   activeStayRoute,
   checkoutRoute,
   cancellationRoute,
+  noShowRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,
