@@ -20,6 +20,8 @@ import { createGuestAccount } from './guestAccount';
 import { createGuestAccountRouter } from './routes/guestAccountRoutes';
 import { createStaffAccounts } from './staffAccounts';
 import { createStaffAccountRouter } from './routes/staffAccountRoutes';
+import { createBranches } from './branches';
+import { createBranchRouter } from './routes/branchRoutes';
 import homeRoutes from './routes/homeRoutes';
 import roomRoutes from './routes/roomRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -54,6 +56,10 @@ app.use('/api/guest/profile', createGuestAccountRouter(createGuestAccount({ db: 
 app.use('/api', createStaffAccountRouter(createStaffAccounts({ db: pool }), {
   requireRead: authorization.staff('account.read'),
   requireWrite: authorization.staff('account.write'),
+}));
+app.use('/api', createBranchRouter(createBranches({ db: pool }), {
+  requireRead: authorization.staff('branch.read'),
+  requireWrite: authorization.staff('branch.write'),
 }));
 app.use('/rooms', roomRoutes);
 app.use('/api/admin', authorization.policy(ADMIN_ROUTE_POLICY), adminRoutes);
