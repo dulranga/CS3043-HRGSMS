@@ -34,6 +34,7 @@
         "test:m1-guest-account": "node --import tsx --test tests/m1GuestAccount.test.ts",
         "test:m1-staff-accounts": "node --import tsx --test tests/m1StaffAccounts.test.ts",
         "test:m1-branches": "node --import tsx --test tests/m1Branches.test.ts",
+        "test:m1-guest-booking-summary": "node --import tsx --test tests/m1GuestBookingSummary.test.ts",
         "test:m2-room-lines": "node --test tests/m2RoomLines.test.cjs",
         "test:m4-payment": "node --test tests/m4Payment.test.cjs",
         "test:m4-billing": "node --test tests/m4BillingCalculation.test.cjs",

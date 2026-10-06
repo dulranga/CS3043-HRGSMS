@@ -18,6 +18,7 @@ import { createGuestProfiles } from './guestProfiles';
 import { createGuestProfileRouter } from './routes/guestProfileRoutes';
 import { createGuestAccount } from './guestAccount';
 import { createGuestAccountRouter } from './routes/guestAccountRoutes';
+import { createOnlineGuestBookingReadRouter } from './routes/onlineGuestBookingReadRoutes';
 import { createStaffAccounts } from './staffAccounts';
 import { createStaffAccountRouter } from './routes/staffAccountRoutes';
 import { createBranches } from './branches';
@@ -53,6 +54,13 @@ app.use('/api', createGuestProfileRouter(createGuestProfiles({ db: pool }), {
 app.use('/api/guest/profile', createGuestAccountRouter(createGuestAccount({ db: pool }), {
   requireGuest: authorization.guest,
 }));
+// M1-S18: expose Member 2's read-only online guest booking list/detail (M2-S14)
+// behind Member 1's production guest session middleware. Ownership is derived
+// from the authenticated user; no client-supplied guest id is accepted.
+app.use('/api/guest', createOnlineGuestBookingReadRouter(
+  { requireOnlineGuest: authorization.guest },
+  { authenticatedUserId: sessionUserId },
+));
 app.use('/api', createStaffAccountRouter(createStaffAccounts({ db: pool }), {
   requireRead: authorization.staff('account.read'),
   requireWrite: authorization.staff('account.write'),

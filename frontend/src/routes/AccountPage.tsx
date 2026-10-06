@@ -33,6 +33,7 @@ import {
   type GuestAccountProfile,
   type GuestAccountUpdateInput,
 } from "@/lib/guestAccount";
+import { GuestReservations } from "@/components/account/GuestReservations";
 import { cn } from "@/lib/utils";
 
 // M1-S17 online guest own-profile UI. Guest-only and free of staff search or
@@ -416,7 +417,7 @@ export default function AccountPage() {
               </dl>
             </CardContent>
             <CardFooter className="text-xs text-muted-foreground">
-              Reservations and payment history will appear here once booking and billing features are enabled.
+              Your profile details are used for your reservations and billing. Keep them up to date.
             </CardFooter>
           </Card>
         ) : (
@@ -585,6 +586,19 @@ export default function AccountPage() {
             </form>
           </Card>
         )}
+
+        <section aria-labelledby="account-reservations-heading" className="space-y-3">
+          <div>
+            <h2 id="account-reservations-heading" className="font-display text-lg font-semibold tracking-tight">
+              Your reservations
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Only bookings linked to your guest account are shown. Each booking lists all of its room lines, and
+              payments are shown once per booking.
+            </p>
+          </div>
+          <GuestReservations />
+        </section>
       </div>
     );
   }
