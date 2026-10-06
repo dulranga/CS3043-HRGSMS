@@ -240,6 +240,25 @@ Record actual project-task work here for all five members, including partial or 
   4. The live smoke test's bogus-link-code probe wrote one `guest_registration` failure row to `public.audit_log` (the endpoint audits failures by design and the table is append-only, so it was left in place).
 - Lecture concepts applied: none. This is a frontend-only change with no schema or SQL modification.
 
+### 6 October 2026 — M1-S16 (staff guest-search/profile UI)
+
+- Added two dependency-free shadcn primitives, exported from `frontend/src/components/ui/index.ts`: `table.tsx` (`Table`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`/`TableFooter`/`TableCaption`, styled with the Mono border/motion tokens) and `badge.tsx` (`Badge` with `default`/`secondary`/`destructive`/`outline`/`muted` variants). No custom primitives were invented.
+- Added `frontend/src/lib/guests.ts`, a typed client for the M1-S10/M1-S11 guest APIs over the session cookie: `searchGuests`, `getGuest`, `createGuest`, `updateGuest`, `setGuestActive`, `issueGuestLinkCode`, plus `GuestApiError` carrying the server `code`, `fields`, duplicate `candidates` and `openBookings`. Search is POST so full NICs never reach a URL or access log.
+- Added `frontend/src/routes/GuestProfilesPage.tsx` at `/guests` (registered in `router.ts` and added to the `AppShell` "Management" sidebar):
+  - **Search (FR-019):** name/email/phone literal-substring search and an exact-only full-NIC field, an "include deactivated" `aria-pressed` toggle, a results table with masked NIC (`•••••567V`), online-account and active state, and a row "View" action. Empty, no-result and truncated states are handled.
+  - **Create:** full name plus at least one contact (FR-017), optional NIC; duplicate handling as below.
+  - **Detail:** profile summary (clear email/phone, masked NIC only, created/updated) and actions. **Edit** uses dirty-field diffing and sends only changed keys, because the API never returns the raw NIC — a blank NIC field means "keep current", and the helper text says so. **Deactivate/Reactivate** with an optional reason; `GUEST_HAS_OPEN_BOOKINGS` is shown with the open-booking count. **Issue link code** (the action deferred from M1-S15) is offered only while the profile is active and unlinked; the returned code is shown once with a copy button and expiry.
+  - **Duplicate handling:** `POSSIBLE_DUPLICATE` lists masked candidates with their matched fields and offers "This is a different person — continue" (re-submits with `confirmNotDuplicate: true`); `GUEST_NIC_EXISTS` lists candidates but offers no override (one profile per NIC); each candidate has a "Use this profile" action.
+  - **Branch/role denial:** non-FRONT_DESK sessions — including BRANCH_MANAGER, who holds `room.write` but not `guest.manage` — render an "Access restricted" card, and a server `FORBIDDEN`/`AUTHENTICATION_REQUIRED` flips to the same state. `guest.manage`/`guest.link.issue` are FRONT_DESK-only and chain-wide.
+  - **Accessibility:** every input has a `Label`/`htmlFor`; error states set `aria-invalid`/`aria-describedby` and focus the first invalid field; mode toggles use `aria-pressed`; the results region is `aria-live="polite"`; icon-only buttons carry `aria-label`.
+- Verification: `npm run build:frontend` (tsc + vite) passes; `git diff --check` clean. Because there is no frontend test runner, I confirmed the server side directly: started the built backend and `curl`ed the mounted routes — `POST /api/guests/search`, `GET /api/guests/:id` and `POST /api/guests/:id/link-code` all return `401 {"error":{"code":"AUTHENTICATION_REQUIRED"}}` anonymously; `npm run test:m1-guest-profiles --workspace backend` passes 2/2 (masking/validation plus search/create/update/deactivate with privacy, permissions and duplicate rules). The page has not been exercised in a real browser.
+- Remaining handoffs:
+  1. No frontend test runner exists, so the page is verified by code inspection plus the live API contract, not an automated UI test. A component-test setup (vitest + Testing Library) would need team agreement.
+  2. `GuestProfilesPage` and the other staff pages still do not redirect to `/login` on a 401 — the known M1-S09 frontend gap. The page shows the restricted/sign-in state instead.
+  3. FR-018 still leaves NIC format validation and passport alternatives to a team decision; this UI treats NIC as an opaque, optional string and only enforces a 255-character cap.
+  4. Booking/payment history on the profile is not shown here; it depends on Members 2/4 read endpoints (M1-S18).
+- Lecture concepts applied: none. This is a frontend-only change (no schema or SQL modification).
+
 ## Member 2 — Imandi
 
 ### 5 October 2026 — M2-S14 online guest own-booking list/detail core (partial; production auth pending)

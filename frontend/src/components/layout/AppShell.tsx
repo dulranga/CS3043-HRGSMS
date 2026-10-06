@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ClipboardList, FileBarChart, LayoutDashboard, Settings, Users, type LucideIcon } from "lucide-react";
+import { ClipboardList, Contact, FileBarChart, LayoutDashboard, Settings, Users, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
@@ -27,6 +27,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Management",
     items: [
+      { to: "/guests", label: "Guests", icon: Contact },
       { to: "/admin/reports", label: "Reports & CSV", icon: FileBarChart },
       { to: "/admin/operations", label: "Branches & Users", icon: Users },
       { to: "/admin/config", label: "System Config", icon: Settings },
