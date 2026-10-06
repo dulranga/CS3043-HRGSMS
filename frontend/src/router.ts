@@ -13,6 +13,7 @@ import AuditLogPage from './routes/AuditLogPage';
 import AdminOperationsPage from './routes/AdminOperationsPage';
 import ReportsPage from './routes/ReportsPage';
 import InvoiceDetailPage from './routes/InvoiceDetailPage';
+import PaymentPage from './routes/PaymentPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -84,6 +85,12 @@ const invoiceDetailRoute = createRoute({
   component: InvoiceDetailPage,
 });
 
+const paymentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/billing/payments',
+  component: PaymentPage,
+});
+
 const serviceCatalogueRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/services',
@@ -110,6 +117,7 @@ const routeTree = rootRoute.addChildren([
   serviceCatalogueRoute,
   serviceUsageRoute,
   invoiceDetailRoute,
+  paymentRoute,
 ]);
 
 export const router = createRouter({ routeTree });

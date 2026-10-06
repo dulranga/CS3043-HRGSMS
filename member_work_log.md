@@ -853,6 +853,39 @@ Record actual project-task work here for all five members, including partial or 
 - Hand-off notes:
   - Downstream tasks: M4-S14 (payment UI) can consume `InvoiceDetailPanel` or share `invoiceViewModel.ts` balance formatting helpers.
 
+### M4-S14: Build payment UI
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **ViewModel (`paymentViewModel.ts`)**: Built a robust view model extending the API definitions. Included `buildPaymentHistoryView` with full balance summary logic (net payments, unrefunded credits, outstanding balance, exact LKR formatting using `money.ts`), `validatePaymentDraft`, and `applyPaymentReceipt` for optimistic UI updates.
+- **PaymentPanel (`PaymentPanel.tsx`)**: Created the main UI component using Shadcn primitives (Cards, Badges, Buttons). Split into three functional blocks: `BalanceSummaryCard` (showing exact totals and credit states), `PaymentEntryForm` (with toggles for Payment/Refund modes and "Record Failed Attempt"), and `PaymentHistoryPanel` (showing a ledger of payments with per-row reversal controls).
+- **PaymentPage (`PaymentPage.tsx`)**: Integrated the payment panel with a booking lookup field. Mapped the page to the TanStack router at `/billing/payments`.
+- **Testing**: Added `m4PaymentUi.test.ts` covering row transformations, exact precision arithmetic for balances, credit states, optimistic update application, and form validation. 9/9 tests pass.
+- **Build Checks**: Rebuilt the frontend successfully with no TypeScript errors. Full stack build passes.
+
+**Acceptance Verification:**
+- Partial-payment entry: ✅ Implemented with validation guarding against overpayments.
+- Signed balance/credit display: ✅ Displayed natively in the `BalanceSummaryCard`.
+- Staff-only manual refund/failure states: ✅ Implemented Refund mode and FAILED state toggle for attempts.
+- Exact displayed totals: ✅ Frontend uses `money.ts` to strictly handle `numeric(12,2)` amounts without floating-point drift.
+- Frontend build passes: ✅ Tested via `npm run build:frontend`.
+
+**Git Handoff Text:**
+```text
+feat(billing): M4-S14 implement staff payment UI with balance summary
+
+Builds the PaymentPage route for staff to view and modify booking payment ledgers. 
+Includes:
+- Exact LKR exact precision balance summary formatting
+- Payment/Refund entry forms with validation against credit/outstanding limits
+- Failed attempt recording and successful payment reversals
+- Optimistic updates for seamless frontend UX without full history refetches
+
+Related: M4-S08, M4-S13
+```
+
 ## Member 5 — Thusath
 
 No entries yet.
