@@ -992,6 +992,38 @@ and whole-booking no-show transitions. Features include:
 Related: M4-S12
 ```
 
+### M4-S18: Add online own-booking per-line/whole cancellation controls
+
+**Date:** 2026-10-06
+**Status:** ✅ Completed
+
+**Implementation Details:**
+- **GuestBookingsPage (`GuestBookingsPage.tsx`)**: Built a simulated online guest "My Bookings" UI at `/guest/my-bookings` to provide a dedicated view for M4-S11's cancellation logic.
+  - Provided a simulator form to explicitly pass a `x-user-id` (Guest Account UUID) to bypass the unbuilt M1-S08 identity system.
+  - Implemented logic orchestrating `GET /api/bookings/:bookingId` directly using the `x-user-id` to verify cross-account blocking by the backend logic.
+  - Designed the per-room and whole-booking cancellation blocks invoking the previously established `fetchLineCancellationQuote` and `fetchWholeBookingCancellationQuote` view models.
+  - Displayed inline policy messages and denial boundaries using the existing view models.
+- **Build Checks**: Rebuilt the frontend safely to confirm component integrity.
+
+**Acceptance Verification:**
+- Cross-account denial: ✅ Verified. Supplying an incorrect `x-user-id` results in a direct rejection mapped correctly to the UI.
+- Policy messages: ✅ The UI dynamically handles and shows `cancellation_fee` and explicit `rejection_reason` details inside the inline feedback card.
+- Frontend build passes: ✅ Verified.
+
+**Git Handoff Text:**
+```text
+feat(guest-booking): M4-S18 implement online guest cancellation UI
+
+Builds the GuestBookingsPage to fulfill the online guest cancellation
+workflow requirements. Provides:
+- Guest-scoped context simulation via x-user-id
+- Inline verification of cancellation policy fees prior to execution
+- Dynamic toggles for both single-line and whole-booking operations
+- Robust UI rendering for cross-account denial cases
+
+Related: M4-S11
+```
+
 ## Member 5 — Thusath
 
 No entries yet.

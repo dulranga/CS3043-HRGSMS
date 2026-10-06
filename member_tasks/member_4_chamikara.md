@@ -30,7 +30,7 @@ Planning checklist, not evidence of implementation. Each `M4-Sxx` is intended as
 | [x] | M4-S15 | Build staff per-line checkout UI with consolidated exact-zero balance guard, DRAFT provisional statement and confirmation; show FINAL only after last terminal line and settlement. Done when remaining-room, positive-balance, credit and rollback states display safely. Depends on M4-S10. |
 | [x] | M4-S16 | Build staff per-line or whole-booking cancellation UI with policy eligibility, fee display and confirmation. Done when unaffected lines and denied/cancelled states pass. Depends on M4-S11. |
 | [x] | M4-S17 | Build staff per-line no-show UI with cutoff feedback and confirmation. Done when another line survives and early/repeated transition states pass. Depends on M4-S12. |
-| [ ] | M4-S18 | Add online own-booking per-line/whole cancellation controls to Member 2's My Bookings UI. Done when cross-account denial, policy messages and frontend build pass. Depends on M4-S11 and Member 2 own-booking UI. |
+| [x] | M4-S18 | Add online own-booking per-line/whole cancellation controls to Member 2's My Bookings UI. Done when cross-account denial, policy messages and frontend build pass. Depends on M4-S11 and Member 2 own-booking UI. |
 
 Handoff: publish invoice/payment/charge and cancellation status contracts for Member 5's reports and Member 1's own-payment history. Consume Member 1's typed `billing_policy` publication/read contract and audit interface; do not add duplicate policy, `system_config` or `audit_log` tables or parse generic text settings for financial rules.
 
