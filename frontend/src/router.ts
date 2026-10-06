@@ -9,6 +9,7 @@ import AuditLogPage from './routes/AuditLogPage';
 import AdminOperationsPage from './routes/AdminOperationsPage';
 import ReportsPage from './routes/ReportsPage';
 import LoginPage from './routes/LoginPage';
+import RegisterPage from './routes/RegisterPage';
 import { safeRedirectPath } from './lib/auth';
 
 const rootRoute = createRootRoute({
@@ -78,9 +79,25 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 
+interface RegisterSearch {
+  redirect?: string;
+  mode?: 'NEW' | 'LINK';
+}
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  validateSearch: (search: Record<string, unknown>): RegisterSearch => ({
+    redirect: safeRedirectPath(search.redirect),
+    mode: search.mode === 'LINK' ? 'LINK' : search.mode === 'NEW' ? 'NEW' : undefined,
+  }),
+  component: RegisterPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
+  registerRoute,
   roomsRoute,
   uiRoute,
   dashboardRoute,

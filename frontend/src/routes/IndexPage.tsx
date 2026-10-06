@@ -170,10 +170,11 @@ export default function IndexPage() {
               <Link to="/login">Log in</Link>
             </Button>
             <Button
+              asChild
               size="sm"
               className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
             >
-              Sign up
+              <Link to="/register">Sign up</Link>
             </Button>
           </div>
         </div>
@@ -387,12 +388,15 @@ export default function IndexPage() {
           </p>
           <div className="flex items-center justify-center gap-4">
             <Button
+              asChild
               size="lg"
               variant="secondary"
               className="rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] px-8 font-semibold"
             >
-              Get Started
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <Link to="/register">
+                Get Started
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
             </Button>
             <Button
               size="lg"

@@ -222,6 +222,24 @@ Record actual project-task work here for all five members, including partial or 
   4. Officer searches are sequential scans; fine at this scale, same `pg_trgm` note as M1-S11.
 - Lecture concepts applied: transaction atomicity with commit-before-response and unique-violation mapping, transaction-scoped advisory locks to serialize identity claims under concurrency, row-level `FOR UPDATE` on the target officer, parameterized queries with escaped LIKE patterns, and referential-integrity pre-checks (EXISTS) ahead of FK enforcement so errors are user-attributable.
 
+### 6 October 2026 — M1-S15 (online registration/link UI)
+
+- Added `frontend/src/lib/registration.ts`: a typed client for the public `POST /api/auth/register` endpoint (`registerGuest`), a `RegistrationError` carrying the server `code`, `retryAfterSeconds` and `fields`, and client-side checks that mirror the server policy (`PASSWORD_MIN_LENGTH` 8 / `PASSWORD_MAX_BYTES` 72, username/email/phone patterns). It builds the exact M1-S10 request bodies (`{ username, password, fullName, email?, phone?, nic? }` for a new guest, `{ username, password, linkCode }` for linking) and omits blank optional fields.
+- Added `frontend/src/routes/RegisterPage.tsx` at `/register` (public, registered in `router.ts` with a `validateSearch` for `redirect` and `mode`). One form, two paths behind a `New guest` / `I have a link code` toggle group:
+  - New guest: full name, email-or-phone (FR-017), optional NIC (with a privacy note), username and password.
+  - Link: link code, username and password.
+  - Reuses the shadcn `Card`, `Input`, `Label`, `Button` and `Alert` primitives and the `LoginPage` split brand-panel layout (single card on mobile); no new handbuilt components.
+  - Safe failure handling (the acceptance criterion): `PROFILE_EXISTS` renders as an informational alert that never says which detail matched and offers a button to switch to the link-code path; `INVALID_LINK_CODE`, `LINK_CODE_USED`, `USERNAME_TAKEN` (inline on the field) and `TOO_MANY_ATTEMPTS` (retry minutes from `Retry-After`) are shown without leaking data; `VALIDATION_ERROR.fields` maps to inline messages, with the server's combined `contact` rule surfaced on the email field, and focus moves to the first invalid field. `NETWORK_ERROR` and unexpected codes fall back to a generic message.
+  - Everything is labelled, with `aria-invalid`/`aria-describedby`, and the password has a show/hide toggle. Success shows a created-vs-linked confirmation and a link to `/login`, carrying a sanitized `redirect`.
+- Discoverability: the homepage `Sign up` and `Get Started` calls to action now link to `/register`, and the sign-in page gained a "New guest? Create an account" link that preserves `redirect`. Documented the route in `README.md`.
+- Verification: `npm run build:frontend` (tsc + vite) and `npm run build:backend` pass; `git diff --check` is clean. Because there is no frontend test runner, I confirmed the server contract directly: started the built backend and `curl`ed `POST /api/auth/register` — an empty body returns `400 {"error":{"code":"VALIDATION_ERROR",...,"fields":{"contact":"an email address or phone number is required"}}}`, matching the client parser, and a bogus link code returns `400 {"error":{"code":"INVALID_LINK_CODE",...}}`; `npm run test:m1-guest-registration --workspace backend` passes 3/3. The page has not been exercised in a real browser.
+- Remaining handoffs:
+  1. No frontend test runner exists, so the page's error mapping is verified by code inspection plus the live server contract, not by an automated UI test. A minimal component-test setup (vitest + Testing Library) would need team agreement.
+  2. The staff "issue link code" button and the FRONT_DESK link-code flow are M1-S16, not here.
+  3. A link code is ~58 characters; the link field accepts whitespace and the client trims it, but a shorter human-readable code would need a new server design (M1-S10 handoff).
+  4. The live smoke test's bogus-link-code probe wrote one `guest_registration` failure row to `public.audit_log` (the endpoint audits failures by design and the table is append-only, so it was left in place).
+- Lecture concepts applied: none. This is a frontend-only change with no schema or SQL modification.
+
 ## Member 2 — Imandi
 
 ### 5 October 2026 — M2-S14 online guest own-booking list/detail core (partial; production auth pending)

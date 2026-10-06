@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { CircleAlert, Clock, Eye, EyeOff, Hotel, LoaderCircle, Lock } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
@@ -268,6 +268,16 @@ export default function LoginPage() {
                   {submitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
                   {submitting ? "Signing in…" : "Sign in"}
                 </Button>
+                <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                  New guest?{" "}
+                  <Link
+                    to="/register"
+                    search={redirectTo ? { redirect: redirectTo } : {}}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Create an account
+                  </Link>
+                </p>
                 <p className="text-center text-xs leading-relaxed text-muted-foreground">
                   Forgotten your password? Staff should contact a system administrator; guests should contact the hotel
                   front desk.
