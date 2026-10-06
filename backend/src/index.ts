@@ -11,6 +11,7 @@ import checkoutRoutes from './routes/checkoutRoutes';
 import cancellationRoutes from './routes/cancellationRoutes';
 import noShowRoutes from './routes/noShowRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
+import serviceUsageRoutes from './routes/serviceUsageRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -28,6 +29,7 @@ app.use('/api', checkoutRoutes);
 app.use('/api', cancellationRoutes);
 app.use('/api', noShowRoutes);
 app.use('/api', availabilityRoutes);
+app.use('/api', serviceUsageRoutes);
 // M2/M3 protected route factories await Member 1's production session middleware.
 // Mount service, check-in and active-stay routers only with authenticated actors.
 

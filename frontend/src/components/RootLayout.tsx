@@ -21,6 +21,22 @@ export default function RootLayout() {
             Rooms
           </Link>
           <Link
+            to="/check-in"
+            activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
+            className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
+          >
+            Guest Check-In
+          </Link>
+
+          <Link
+            to="/stays"
+            activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
+            className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
+          >
+            Active Stays
+          </Link>
+
+          <Link
             to="/dashboard"
             activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
             className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
@@ -31,6 +47,22 @@ export default function RootLayout() {
           <div className="pt-4 pb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Management
           </div>
+
+          <Link
+            to="/service-usage"
+            activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
+            className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
+          >
+            Service Usage
+          </Link>
+
+          <Link
+            to="/admin/services"
+            activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}
+            className="px-3 py-2 rounded-md hover:bg-muted transition-colors"
+          >
+            Service Catalogue
+          </Link>
 
           <Link
             to="/admin/reports"

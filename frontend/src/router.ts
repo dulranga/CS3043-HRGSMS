@@ -2,6 +2,10 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import RootLayout from './components/RootLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
+import CheckInPage from './routes/CheckInPage';
+import ActiveStayPage from './routes/ActiveStayPage';
+import ServiceCataloguePage from './routes/ServiceCataloguePage';
+import ServiceUsagePage from './routes/ServiceUsagePage';
 import UIRoutePage from './routes/UIRoutePage';
 import DashboardPage from './routes/DashboardPage';
 import AdminConfigPage from './routes/AdminConfigPage';
@@ -23,6 +27,18 @@ const roomsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/rooms',
   component: RoomsPage,
+});
+
+const checkInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/check-in',
+  component: CheckInPage,
+});
+
+const activeStayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/stays',
+  component: ActiveStayPage,
 });
 
 const uiRoute = createRoute({
@@ -61,15 +77,31 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+const serviceCatalogueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/services',
+  component: ServiceCataloguePage,
+});
+
+const serviceUsageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/service-usage',
+  component: ServiceUsagePage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   roomsRoute,
+  checkInRoute,
+  activeStayRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,
   auditLogRoute,
   adminOperationsRoute,
   reportsRoute,
+  serviceCatalogueRoute,
+  serviceUsageRoute,
 ]);
 
 export const router = createRouter({ routeTree });
