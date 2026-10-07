@@ -259,6 +259,18 @@ Refer to the project documentation:
 - **Requirements & Specifications** → Check `SkyNest_HRGSMS_SRS_v1.0.md`
 - **Agent Guidelines** → Check `AGENTS.md`
 
+## Member 2 staff booking-create UI core (M2-S17)
+
+Open `/bookings/new` for staff-assisted multi-room booking creation. A verified Front Desk session scopes room search to its assigned branch. Add/remove unconfirmed room lines with separate dates and occupants, supply an existing primary guest record ID and Front desk/Phone/Email channel, then request the M2-S10 server quote. Review per-line base rates, the selected policy and the provisional combined room/service-charge/tax total before acknowledging and confirming. Selection edits invalidate quotes; changed catalogue/policy values require a fresh quote and another review. Inventory conflicts retain and recheck lines and refresh results. A successful server response shows the booking reference, every agreed room line and one DRAFT invoice. Lost or unreadable confirmation responses block blind retries until staff verify booking records.
+
+Run `npm run test:m2-staff-booking-ui --workspace frontend`. For sample-only browser review, visit `/tests/staff-booking-preview.html` while Vite runs; it uses in-memory transports and is excluded from production. The production page currently shows its missing-session gate and makes no requests: Member 1 must supply verified session/branch/CSRF integration, and M2-S10's protected booking routes must be mounted, before live bookings can be created. M2-S17 remains unchecked for that dependency. Drafts live only on this page; neither room selection nor quoting reserves inventory. Guest creation/lookup, check-in, payment, cancellation and checkout use their respective owners' workflows.
+
+## Member 2 availability search (M2-S16)
+
+Open `/rooms` for the shared staff/direct-guest availability search. It uses public `GET /api/availability` and `GET /api/availability/options`; the latter exposes only active branch IDs/names/cities and active room-type IDs/names, so the UI does not depend on protected administration endpoints or hard-coded UUIDs. Choose a branch, per-room dates/guest count, optional type and immediate READY-only filter, then add multiple rooms. Each selected line retains its own criteria and exact catalogue rate; mixed branches and overlapping selections of the same room are refused, while adjacent intervals are allowed. Recheck selected rooms to show stale inventory or catalogue changes without silently dropping lines.
+
+Selections remain on the page and reserve no inventory. Booking confirmation, authenticated staff/guest identity and effective-policy quotes belong to the later booking tasks; this screen issues GET requests only. The configured database must contain active room types/rooms to show real results. The development-only `/tests/availability-preview.html` fixture supplies sample data and conflict/rate-change simulations without database access and is excluded from the production build. Run `npm run test:m2-availability-ui --workspace frontend` (15 tests) and `npm run test:m2-availability --workspace backend` (isolated database/API suite).
+
 ## 📄 License
 
 This is a university project (CS3043 - Hotel Room Group Staff Management System).

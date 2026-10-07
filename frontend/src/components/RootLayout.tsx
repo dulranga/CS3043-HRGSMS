@@ -29,6 +29,10 @@ export default function RootLayout() {
             Guest Check-In
           </Link>
 
+          <Button variant="ghost" className="justify-start" asChild>
+            <Link to="/bookings/new">Create staff booking</Link>
+          </Button>
+
           <Link
             to="/stays"
             activeProps={{ className: 'font-semibold bg-accent text-accent-foreground' }}

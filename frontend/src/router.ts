@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import RootLayout from './components/RootLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
+import StaffBookingCreatePage from './routes/StaffBookingCreatePage';
 import RoomAdministrationPage from './routes/RoomAdministrationPage';
 import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
@@ -40,6 +41,12 @@ const roomAdministrationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/rooms',
   component: RoomAdministrationPage,
+});
+
+const staffBookingCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/bookings/new',
+  component: StaffBookingCreatePage,
 });
 
 const checkInRoute = createRoute({
@@ -141,6 +148,7 @@ const serviceUsageRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   roomsRoute,
+  staffBookingCreateRoute,
   roomAdministrationRoute,
   checkInRoute,
   activeStayRoute,

@@ -15,6 +15,34 @@ export interface AvailabilitySearchInput {
   roomTypeId: string | null;
 }
 
+export interface AvailabilityOptionsDto {
+  branches: { branchId: string; name: string; city: string }[];
+  roomTypes: { roomTypeId: string; name: string }[];
+}
+
+// Public search choices contain hotel catalogue labels only, never identities,
+// administrative metadata or a second writable copy of inventory.
+export async function getAvailabilityOptions(): Promise<AvailabilityOptionsDto> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    if (availabilitySchema) await client.query(`SET LOCAL search_path TO "${availabilitySchema}", public`);
+    const branches = await client.query<{ branchId: string; name: string; city: string }>(
+      `SELECT branch_id AS "branchId", name, city FROM branch
+        WHERE active = true ORDER BY name, branch_id`,
+    );
+    const roomTypes = await client.query<{ roomTypeId: string; name: string }>(
+      `SELECT room_type_id AS "roomTypeId", name FROM room_type
+        WHERE active = true ORDER BY name, room_type_id`,
+    );
+    await client.query('COMMIT');
+    return { branches: branches.rows, roomTypes: roomTypes.rows };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}
+
 interface AmenityRow {
   amenity_id: string;
   name: string;

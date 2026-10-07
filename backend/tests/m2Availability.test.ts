@@ -313,6 +313,17 @@ test('M2-S09 derives available rooms from dates, capacity, condition, blocks and
     assert.ok(address && typeof address !== 'string');
     const baseUrl = `http://127.0.0.1:${address.port}`;
 
+    const choicesResponse = await fetch(`${baseUrl}/api/availability/options`);
+    assert.equal(choicesResponse.status, 200);
+    const choices = (await choicesResponse.json()).data;
+    assert.ok(choices.branches.some((branch: any) => branch.branchId === branchId));
+    assert.ok(!choices.branches.some((branch: any) => branch.branchId === inactiveBranchId));
+    assert.ok(choices.roomTypes.some((type: any) => type.roomTypeId === activeTypeId));
+    assert.ok(!choices.roomTypes.some((type: any) => type.roomTypeId === inactiveTypeId));
+    for (const branch of choices.branches) assert.deepEqual(Object.keys(branch).sort(), ['branchId', 'city', 'name']);
+    for (const type of choices.roomTypes) assert.deepEqual(Object.keys(type).sort(), ['name', 'roomTypeId']);
+    assert.equal((await fetch(`${baseUrl}/api/availability/options?branchId=${branchId}`)).status, 400);
+
     async function api(query: string): Promise<{ status: number; json: any }> {
       const response = await fetch(`${baseUrl}/api/availability?${query}`);
       return { status: response.status, json: await response.json() };
