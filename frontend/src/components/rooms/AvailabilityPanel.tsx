@@ -32,17 +32,19 @@ function SearchField({ label, value, type = 'text', error, disabled, onChange }:
 
 // Rendering is shared by staff and direct guests. Search contains only public
 // inventory; staff/guest identity is required by the later booking workflows.
-export function AvailabilityPanel({ state, actions }: { state: AvailabilityState; actions: Actions }) {
+export function AvailabilityPanel({ state, actions, locked = false, title = 'Find rooms at SkyNest',
+  description = 'Search for a direct guest reservation or a staff-assisted booking. Add rooms individually with their own dates and guest counts.'
+}: { state: AvailabilityState; actions: Actions; locked?: boolean; title?: string; description?: string }) {
   const { draft, options, results, selected, failure } = state;
-  const disabled = state.loadingOptions || !options || state.rechecking;
+  const disabled = locked || state.loadingOptions || !options || state.rechecking;
   const fields = failure?.fields ?? {};
   const set = <K extends keyof SearchDraft>(field: K, value: SearchDraft[K]) => actions.setDraft({ [field]: value });
   const branchName = (id: string) => options?.branches.find(branch => branch.branchId === id)?.name ?? 'Selected branch';
 
   return <div className="min-w-0 space-y-6 @container">
     <header className="space-y-2">
-      <h1 className="text-2xl font-bold tracking-tight">Find rooms at SkyNest</h1>
-      <p className="text-sm text-muted-foreground">Search for a direct guest reservation or a staff-assisted booking. Add rooms individually with their own dates and guest counts.</p>
+      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+      <p className="text-sm text-muted-foreground">{description}</p>
     </header>
 
     {failure && <Card className="border-destructive"><CardContent className="p-4">
@@ -109,8 +111,8 @@ export function AvailabilityPanel({ state, actions }: { state: AvailabilityState
           <p className="text-sm text-muted-foreground">Selections are not reservations. Displayed rates are current catalogue rates; final prices and availability are checked when you confirm a booking.</p>
           {!selected.length && <p className="text-sm">No rooms selected. Search and add each room you need.</p>}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={!selected.length || state.rechecking} onClick={() => void actions.recheck()}>{state.rechecking ? 'Rechecking…' : 'Recheck selected rooms'}</Button>
-            <Button variant="ghost" disabled={!selected.length || state.rechecking} onClick={() => actions.clear()}>Clear selection</Button>
+            <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={locked || !selected.length || state.rechecking} onClick={() => void actions.recheck()}>{state.rechecking ? 'Rechecking…' : 'Recheck selected rooms'}</Button>
+            <Button variant="ghost" disabled={locked || !selected.length || state.rechecking} onClick={() => actions.clear()}>Clear selection</Button>
           </div>
           <div className={GRID}>
             {selected.map(line => <Card key={line.selectionId} className="min-w-0 shadow-none">
@@ -122,7 +124,7 @@ export function AvailabilityPanel({ state, actions }: { state: AvailabilityState
                 <p className="text-sm">{formatLkr(line.room.roomType.baseDailyRate)} / night</p>
                 <Badge variant={line.check === 'available' ? 'secondary' : 'destructive'}>{line.check === 'available' ? 'Available when checked' : 'Needs attention'}</Badge>
                 {line.issue && <p role="alert" className="text-sm text-destructive">{line.issue}</p>}
-                <Button variant="outline" size="sm" disabled={state.rechecking}
+                <Button variant="outline" size="sm" disabled={locked || state.rechecking}
                   aria-label={`Remove room ${line.room.roomNumber} for ${line.search.checkIn}`}
                   onClick={() => actions.remove(line.selectionId)}>Remove selection</Button>
               </CardContent>
@@ -154,7 +156,7 @@ export function AvailabilityPanel({ state, actions }: { state: AvailabilityState
                 <Badge variant="secondary">{room.operationalStatus === 'READY' ? 'Physically READY' : 'Cleaning now'}</Badge>
                 {room.operationalStatus === 'CLEANING' && <p className="text-xs text-muted-foreground">Available for the requested stay; immediate check-in requires READY.</p>}
                 {issue && <p className="text-xs text-muted-foreground">{issue}</p>}
-                <Button disabled={!!issue || state.rechecking} aria-label={`Add room ${room.roomNumber}`}
+                <Button disabled={locked || !!issue || state.rechecking} aria-label={`Add room ${room.roomNumber}`}
                   onClick={() => actions.add(room.roomId)}>Add to selection</Button>
               </CardContent>
             </Card>;
