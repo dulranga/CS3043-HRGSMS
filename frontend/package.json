@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "test:m2-room-admin-ui": "node --import tsx --test tests/m2RoomAdministration.test.ts tests/m2RoomAdministrationPanel.test.tsx",
+    "test:m2-availability-ui": "node --import tsx --test tests/m2AvailabilityUi.test.ts tests/m2AvailabilityPanel.test.tsx",
+    "test:m2-staff-booking-ui": "node --import tsx --test tests/m2StaffBookingUi.test.ts tests/m2StaffBookingPanel.test.tsx",
     "test:m3-check-in-ui": "node --import tsx --test tests/m3CheckInUi.test.ts",
     "test:m3-active-stay-ui": "node --import tsx --test tests/m3ActiveStayUi.test.ts tests/m3ActiveStayPanel.test.tsx",
     "test:m3-service-catalogue-ui": "node --import tsx --test tests/m3ServiceCatalogueUi.test.ts tests/m3ServiceCataloguePanel.test.tsx",
