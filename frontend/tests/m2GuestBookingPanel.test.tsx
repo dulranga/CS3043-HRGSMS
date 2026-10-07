@@ -3,7 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GuestBookingPanel, GuestBookingScreen } from '../src/components/bookings/GuestBookingPanel.tsx';
-import { GuestReservationNavigation } from '../src/components/RootLayout.tsx';
+import { GuestReservationNavigation } from '../src/components/layout/GuestBookingLayout.tsx';
 import { GuestBookingError, initialGuestBookingState } from '../src/lib/guestBooking.ts';
 import { selected } from './staffBookingFixtures.ts';
 import { guestSession, guestQuoteFor, guestCreatedFor } from './guestBookingFixtures.ts';

@@ -1,4 +1,63 @@
-# Imandi/dev reconciliation — 5 October 2026
+# Imandi/dev conflict preparation — 7 October 2026
+
+This request changes working files only. There is no merge in progress, no
+staging, no branch/ref update and no commit or merge was performed.
+
+Verified source: Imandi `3e18abf1e552076e198d53b0838b1990c043da24`.
+Verified target: dev `15cdda58588420f09d6b8cd445258a41314f2dc6`.
+Common ancestor: `b2189c6d285d5ac7ee7b9a3ba079db59ef5ba80c`.
+Remote IDs were checked with read-only `git ls-remote` and match the local refs.
+
+## Current resolution
+
+- `frontend/src/components/RootLayout.tsx` matches dev's bare outlet. Guest
+  navigation/header now belong to `GuestBookingLayout`; guest create/list/detail
+  pages use that layout. Staff booking/inventory pages use the shared AppShell
+  through `StaffBookingLayout`, retaining room/booking navigation without a
+  duplicate root sidebar. Member 1's public/auth/account layout decisions and
+  Imandi's M2-S18–S21 routes are compatible.
+- dev deliberately removed `memory.md` in `c79a603`. The active file remains
+  removed; its full Imandi snapshot is retained in
+  `docs/archive/imandi-memory-2026-10-07.md` as historical context. AGENTS and
+  README explain the active work-log/SRS/handoff records and archive fallback.
+- No dev files were checked out wholesale over Imandi. Incoming auth/account
+  implementations, migrations and other cleanly combining dev edits remain for
+  the human's later integration. Existing session seams are unchanged.
+- GitHub still compares committed remote branches. These local edits alone
+  cannot clear that warning; the human must publish the resolution later.
+
+Suggested human handoff commit title (no commit created):
+`fix: reconcile booking layouts and archived records with dev`
+
+## Current verification
+
+- Line-ending-normalized three-way content checks against the verified dev tip
+  report **zero remaining conflicts** across its 60 changed paths. Candidate
+  content was checked in temporary files; no Git merge or index update occurred.
+- A separate ignored `.scratch/dev-conflict-resolution/integration/frontend`
+  snapshot combines current frontend files with clean incoming dev content.
+  `npx tsc --noEmit -p .scratch/dev-conflict-resolution/integration/frontend/tsconfig.json`
+  passes, including Member 1's auth/account routes and Imandi's booking routes.
+  This snapshot is verification data, not an applied merge or deployable handoff.
+- Current frontend production build passes (existing >500 kB bundle warning).
+  Guest create **20/20**, guest reads **18/18**, staff create **18/18**, staff
+  reads **16/16**, staff modification **18/18**, room administration **12/12**
+  tests pass: **102 tests total**. `git diff --check` passes and affected source
+  files contain no conflict markers.
+- HEAD remains `3e18abf1e552076e198d53b0838b1990c043da24`; dev/origin-dev remain
+  `15cdda58588420f09d6b8cd445258a41314f2dc6`; origin-Imandi remains unchanged.
+  The index is unchanged/empty of staged edits and no merge is in progress.
+- No backend/database test, migration, server startup or database write was run.
+
+Suggested PR title/description for the human (none created):
+**Resolve Imandi/dev booking layout and memory conflicts** — Preserve dev's
+page-owned shells and Imandi's guest/staff booking screens; archive the removed
+memory record, update record links and verify conflict-free candidate content,
+combined frontend types, build and affected UI tests.
+
+## Historical record — 5 October 2026
+
+The following describes an earlier request, not an action in this session.
 
 The local `Imandi` branch was merged with the verified remote `dev` tip
 `a8f2c88d61d2068da13e49d3ed464eb40a3de3af` using `--no-commit --no-ff`.

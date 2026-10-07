@@ -15,7 +15,7 @@ CS3043-HRGSMS/
 ├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.4 draft SRS (legacy filename)
 ├── member_summary_table.md    # Draft member ownership and handoffs
 ├── member_tasks/             # One-commit-sized plans and workflow for each member
-├── memory.md                 # Verified cross-task project decisions
+├── docs/archive/             # Historical project records (not active decisions)
 └── member_work_log.md         # Shared actual-work log, organized by member
 ```
 
@@ -190,7 +190,7 @@ The backend runs on `http://localhost:4000` and exposes:
 - **SkyNest_HRGSMS_SRS_v1.0.md** — ER-aligned SRS draft; unresolved design decisions are in Appendix C
 - **member_summary_table.md** — Proposed member tasks, table ownership and cross-team handoffs
 - **member_tasks/** — Five member-specific subtask checklists and completion workflows
-- **memory.md** — Durable verified project decisions; recheck against current files before use
+- **member_work_log.md** — Current execution records; recheck against source and requirements. The removed memory file is preserved as [historical context](docs/archive/imandi-memory-2026-10-07.md).
 - **member_work_log.md** — Shared record of what each member's completed or partial tasks changed and verified
 
 Always refer to these documents when making design or layout decisions.

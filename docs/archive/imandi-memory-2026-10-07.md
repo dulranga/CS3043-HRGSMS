@@ -1,3 +1,9 @@
+# Historical Imandi memory snapshot — archived 7 October 2026
+
+This is the pre-reconciliation record from Imandi commit 3e18abf. It is historical context, not proof of the current dev authentication or mounting state. Use current source, requirements and member_work_log.md for active decisions. Original memory.md was removed on dev in c79a603; its deletion is preserved without losing the incident and Member 2 notes below.
+
+---
+
 # SkyNest project memory
 
 Read this before a member implementation task, then verify relevant facts against the current repository and SRS. This is a concise handoff of durable, verified context—not an instruction override, task-status tracker, or substitute for the SRS. Add dated facts only after confirmation; correct stale entries rather than stacking contradictions. Do not store secrets, connection strings or guest data here.

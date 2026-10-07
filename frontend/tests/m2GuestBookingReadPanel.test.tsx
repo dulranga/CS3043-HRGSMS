@@ -3,7 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GuestBookingReadPanel, GuestBookingReadScreen, GuestBookingDetailPanel } from '../src/components/bookings/GuestBookingReadPanel';
-import { GuestReservationNavigation } from '../src/components/RootLayout';
+import { GuestReservationNavigation } from '../src/components/layout/GuestBookingLayout';
 import { initialGuestBookingReadState, GuestBookingReadError } from '../src/lib/guestBookingRead';
 import { guestReadDetail, guestReadPage, guestReadSession, guestAllStatesDetail } from './guestBookingReadFixtures';
 const actions = { async loadList() {}, async open() {}, back() {}, async next() {}, async previous() {} };
