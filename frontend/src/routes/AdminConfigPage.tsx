@@ -31,7 +31,7 @@ export default function AdminConfigPage() {
   const fetchConfigs = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:4000/api/admin/configs");
+      const res = await fetch("/api/admin/configs");
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       setConfigs(data);
@@ -54,7 +54,7 @@ export default function AdminConfigPage() {
 
     try {
       setSavingKey(key);
-      const res = await fetch(`http://localhost:4000/api/admin/configs/${encodeURIComponent(key)}`, {
+      const res = await fetch(`/api/admin/configs/${encodeURIComponent(key)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

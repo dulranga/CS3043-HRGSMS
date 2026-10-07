@@ -22,7 +22,9 @@ export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState<ReportType>("occupancy");
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedYear, setSelectedYear] = useState<string>(
+    new Date().getFullYear().toString(),
+  );
   const [bookingRef, setBookingRef] = useState<string>("");
   const [invoiceStatus, setInvoiceStatus] = useState<string>("");
   const [guestSearch, setGuestSearch] = useState<string>("");
@@ -31,7 +33,9 @@ export default function ReportsPage() {
   const [serviceSearch, setServiceSearch] = useState<string>("");
 
   // Preference trends filters
-  const [trendsSortBy, setTrendsSortBy] = useState<"revenue" | "quantity">("revenue");
+  const [trendsSortBy, setTrendsSortBy] = useState<"revenue" | "quantity">(
+    "revenue",
+  );
   const [trendsLimit, setTrendsLimit] = useState<string>("10");
 
   // Audit filters
@@ -67,7 +71,10 @@ export default function ReportsPage() {
       setError(null);
 
       // Determine the endpoint path
-      const endpoint = activeReport === "preference-trends" ? "preference/trends" : activeReport;
+      const endpoint =
+        activeReport === "preference-trends"
+          ? "preference/trends"
+          : activeReport;
       const url = new URL(`${API_BASE}/reports/${endpoint}`);
 
       // Query params
@@ -75,34 +82,43 @@ export default function ReportsPage() {
         url.searchParams.append("branch_id", selectedBranch);
       }
       if (activeReport === "billing") {
-        if (selectedBranch) url.searchParams.append("branch_id", selectedBranch);
-        if (bookingRef.trim()) url.searchParams.append("booking_ref", bookingRef.trim());
-        if (invoiceStatus) url.searchParams.append("invoice_status", invoiceStatus);
+        if (selectedBranch)
+          url.searchParams.append("branch_id", selectedBranch);
+        if (bookingRef.trim())
+          url.searchParams.append("booking_ref", bookingRef.trim());
+        if (invoiceStatus)
+          url.searchParams.append("invoice_status", invoiceStatus);
         url.searchParams.append("limit", "50");
         url.searchParams.append("offset", "0");
       }
       if (activeReport === "revenue") {
-        if (selectedBranch) url.searchParams.append("branch_id", selectedBranch);
+        if (selectedBranch)
+          url.searchParams.append("branch_id", selectedBranch);
         if (selectedYear) url.searchParams.append("year", selectedYear);
       }
       if (activeReport === "guest-history") {
-        if (guestSearch.trim()) url.searchParams.append("search", guestSearch.trim());
+        if (guestSearch.trim())
+          url.searchParams.append("search", guestSearch.trim());
         if (minStays) url.searchParams.append("min_stays", minStays);
         url.searchParams.append("limit", "50");
         url.searchParams.append("offset", "0");
       }
       if (activeReport === "service-usage") {
-        if (serviceCategory.trim()) url.searchParams.append("category", serviceCategory.trim());
-        if (serviceSearch.trim()) url.searchParams.append("search", serviceSearch.trim());
+        if (serviceCategory.trim())
+          url.searchParams.append("category", serviceCategory.trim());
+        if (serviceSearch.trim())
+          url.searchParams.append("search", serviceSearch.trim());
       }
       if (activeReport === "preference-trends") {
         url.searchParams.append("by", trendsSortBy);
         url.searchParams.append("limit", trendsLimit);
       }
       if (activeReport === "audit-logs") {
-        if (auditEntity.trim()) url.searchParams.append("entity_name", auditEntity.trim());
+        if (auditEntity.trim())
+          url.searchParams.append("entity_name", auditEntity.trim());
         if (auditAction) url.searchParams.append("action", auditAction);
-        if (auditStaffId.trim()) url.searchParams.append("staff_id", auditStaffId.trim());
+        if (auditStaffId.trim())
+          url.searchParams.append("staff_id", auditStaffId.trim());
         url.searchParams.append("limit", "25");
         url.searchParams.append("page", String(auditPage));
       }
@@ -112,9 +128,17 @@ export default function ReportsPage() {
       const reportResponse = await res.json();
 
       if (activeReport === "audit-logs") {
-        setData(reportResponse?.data && Array.isArray(reportResponse.data) ? reportResponse.data : []);
+        setData(
+          reportResponse?.data && Array.isArray(reportResponse.data)
+            ? reportResponse.data
+            : [],
+        );
       } else {
-        setData(Array.isArray(reportResponse) ? reportResponse : reportResponse?.rows || []);
+        setData(
+          Array.isArray(reportResponse)
+            ? reportResponse
+            : reportResponse?.rows || [],
+        );
       }
     } catch (err) {
       console.error("Report loading error:", err);
@@ -147,10 +171,16 @@ export default function ReportsPage() {
 
   // 3. CSV Export
   const handleExportCsv = () => {
-    const exportPath = activeReport === "preference-trends" ? "trends/export" : `${activeReport}/export`;
+    const exportPath =
+      activeReport === "preference-trends"
+        ? "trends/export"
+        : `${activeReport}/export`;
     const exportUrl = new URL(`${API_BASE}/reports/${exportPath}`);
 
-    if (selectedBranch && (activeReport === "occupancy" || activeReport === "revenue")) {
+    if (
+      selectedBranch &&
+      (activeReport === "occupancy" || activeReport === "revenue")
+    ) {
       exportUrl.searchParams.append("branch_id", selectedBranch);
     }
     if (activeReport === "revenue" && selectedYear) {
@@ -185,9 +215,16 @@ export default function ReportsPage() {
   };
 
   // Formatters
-  const formatColumnName = (col: string) => col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const formatColumnName = (col: string) =>
+    col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const formatValue = (v: any) =>
-    v === null || v === undefined ? "—" : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v);
+    v === null || v === undefined
+      ? "—"
+      : typeof v === "boolean"
+        ? v
+          ? "Yes"
+          : "No"
+        : String(v);
 
   const reportTabs: { id: ReportType; label: string }[] = [
     { id: "occupancy", label: "Occupancy Rate" },
@@ -207,12 +244,18 @@ export default function ReportsPage() {
             {/* Header */}
             <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">Management Reports</h1>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  Management Reports
+                </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  View performance metrics, billing, occupancy, revenue, guest history, service trends, and audit trails.
+                  View performance metrics, billing, occupancy, revenue, guest
+                  history, service trends, and audit trails.
                 </p>
               </div>
-              <Button onClick={handleExportCsv} className="self-start md:self-auto gap-2">
+              <Button
+                onClick={handleExportCsv}
+                className="self-start md:self-auto gap-2"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="16"
@@ -251,9 +294,13 @@ export default function ReportsPage() {
 
             {/* Filter Controls */}
             <div className="flex flex-wrap items-end gap-4 p-4 rounded-xl bg-card border border-border">
-              {(activeReport === "occupancy" || activeReport === "billing" || activeReport === "revenue") && (
+              {(activeReport === "occupancy" ||
+                activeReport === "billing" ||
+                activeReport === "revenue") && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Branch</label>
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Branch
+                  </label>
                   <select
                     value={selectedBranch}
                     onChange={(e) => setSelectedBranch(e.target.value)}
@@ -271,7 +318,9 @@ export default function ReportsPage() {
 
               {activeReport === "revenue" && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Year</label>
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Year
+                  </label>
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
@@ -289,7 +338,9 @@ export default function ReportsPage() {
               {activeReport === "billing" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Booking Reference</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Booking Reference
+                    </label>
                     <input
                       value={bookingRef}
                       onChange={(e) => setBookingRef(e.target.value)}
@@ -298,7 +349,9 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Invoice Status</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Invoice Status
+                    </label>
                     <select
                       value={invoiceStatus}
                       onChange={(e) => setInvoiceStatus(e.target.value)}
@@ -318,7 +371,9 @@ export default function ReportsPage() {
               {activeReport === "guest-history" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Search Guest</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Search Guest
+                    </label>
                     <input
                       value={guestSearch}
                       onChange={(e) => setGuestSearch(e.target.value)}
@@ -327,7 +382,9 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Minimum Stays</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Minimum Stays
+                    </label>
                     <input
                       type="number"
                       min="0"
@@ -343,7 +400,9 @@ export default function ReportsPage() {
               {activeReport === "service-usage" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Category</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Category
+                    </label>
                     <input
                       value={serviceCategory}
                       onChange={(e) => setServiceCategory(e.target.value)}
@@ -352,7 +411,9 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Service Name</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Service Name
+                    </label>
                     <input
                       value={serviceSearch}
                       onChange={(e) => setServiceSearch(e.target.value)}
@@ -366,18 +427,28 @@ export default function ReportsPage() {
               {activeReport === "preference-trends" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Rank By</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Rank By
+                    </label>
                     <select
                       value={trendsSortBy}
-                      onChange={(e) => setTrendsSortBy(e.target.value as "revenue" | "quantity")}
+                      onChange={(e) =>
+                        setTrendsSortBy(
+                          e.target.value as "revenue" | "quantity",
+                        )
+                      }
                       className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="revenue">Highest Revenue Generated</option>
-                      <option value="quantity">Highest Quantity Consumed</option>
+                      <option value="quantity">
+                        Highest Quantity Consumed
+                      </option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Show Top</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Show Top
+                    </label>
                     <select
                       value={trendsLimit}
                       onChange={(e) => setTrendsLimit(e.target.value)}
@@ -394,7 +465,9 @@ export default function ReportsPage() {
               {activeReport === "audit-logs" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Entity</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Entity
+                    </label>
                     <input
                       value={auditEntity}
                       onChange={(e) => setAuditEntity(e.target.value)}
@@ -403,7 +476,9 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Action</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Action
+                    </label>
                     <select
                       value={auditAction}
                       onChange={(e) => {
@@ -421,7 +496,9 @@ export default function ReportsPage() {
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Staff ID</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Staff ID
+                    </label>
                     <input
                       value={auditStaffId}
                       onChange={(e) => setAuditStaffId(e.target.value)}
@@ -438,39 +515,55 @@ export default function ReportsPage() {
             </div>
 
             {/* Preference Trends Card Deck View */}
-            {activeReport === "preference-trends" && !loading && data.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.slice(0, 3).map((item, index) => (
-                  <div
-                    key={item.service_id || index}
-                    className="rounded-xl border border-primary/30 bg-primary/5 p-5 shadow-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-primary text-primary-foreground">
-                        Rank #{index + 1}
-                      </span>
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        {item.category || "Service"}
-                      </span>
+            {activeReport === "preference-trends" &&
+              !loading &&
+              data.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {data.slice(0, 3).map((item, index) => (
+                    <div
+                      key={item.service_id || index}
+                      className="rounded-xl border border-primary/30 bg-primary/5 p-5 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-primary text-primary-foreground">
+                          Rank #{index + 1}
+                        </span>
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          {item.category || "Service"}
+                        </span>
+                      </div>
+                      <h3 className="mt-3 text-lg font-bold text-foreground">
+                        {item.service_name || item.name}
+                      </h3>
+                      <div className="mt-4 flex justify-between items-baseline border-t border-border pt-2 text-xs">
+                        <span className="text-muted-foreground">
+                          Orders:{" "}
+                          {item.total_orders || item.usage_orders_count || 0}
+                        </span>
+                        <span className="font-semibold text-sm">
+                          LKR{" "}
+                          {Number(
+                            item.total_revenue_generated ||
+                              item.total_revenue ||
+                              0,
+                          ).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                    <h3 className="mt-3 text-lg font-bold text-foreground">{item.service_name || item.name}</h3>
-                    <div className="mt-4 flex justify-between items-baseline border-t border-border pt-2 text-xs">
-                      <span className="text-muted-foreground">Orders: {item.total_orders || item.usage_orders_count || 0}</span>
-                      <span className="font-semibold text-sm">
-                        LKR {Number(item.total_revenue_generated || item.total_revenue || 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
             {/* Data Table */}
             <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
               {loading ? (
-                <p className="text-sm text-muted-foreground py-6 text-center">Loading report data...</p>
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  Loading report data...
+                </p>
               ) : error ? (
-                <p className="text-sm text-destructive py-4 text-center">{error}</p>
+                <p className="text-sm text-destructive py-4 text-center">
+                  {error}
+                </p>
               ) : data.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
                   No records available for the selected filters.
@@ -480,7 +573,10 @@ export default function ReportsPage() {
                   <thead>
                     <tr className="border-b-2 border-border text-muted-foreground text-left">
                       {Object.keys(data[0] || {}).map((col) => (
-                        <th key={col} className="py-3 px-3 font-semibold capitalize whitespace-nowrap">
+                        <th
+                          key={col}
+                          className="py-3 px-3 font-semibold capitalize whitespace-nowrap"
+                        >
                           {formatColumnName(col)}
                         </th>
                       ))}
@@ -493,7 +589,10 @@ export default function ReportsPage() {
                         className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors"
                       >
                         {Object.entries(row).map(([col, val], cIdx) => (
-                          <td key={`${col}-${cIdx}`} className="py-3 px-3 text-xs md:text-sm whitespace-nowrap">
+                          <td
+                            key={`${col}-${cIdx}`}
+                            className="py-3 px-3 text-xs md:text-sm whitespace-nowrap"
+                          >
                             {formatValue(val)}
                           </td>
                         ))}
@@ -507,7 +606,9 @@ export default function ReportsPage() {
             {/* Audit Pagination */}
             {activeReport === "audit-logs" && !loading && data.length > 0 && (
               <div className="flex items-center justify-between border-t border-border pt-4">
-                <p className="text-sm text-muted-foreground">Page {auditPage}</p>
+                <p className="text-sm text-muted-foreground">
+                  Page {auditPage}
+                </p>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

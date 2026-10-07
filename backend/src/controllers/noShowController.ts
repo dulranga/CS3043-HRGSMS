@@ -9,23 +9,17 @@ import {
 } from '../services/noShowService.js';
 import { pool } from '../db.js';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    userId?: string;
-    role?: string;
-    branchId?: string;
-  };
-}
-
+// req.user comes from Member 1's session middleware (Express augmentation in
+// src/auth.ts); the request-header fallback exists only for the isolated
+// no-show test adapters and is never trusted for production identity.
 function resolveActor(req: Request): ActorContext {
-  const authReq = req as AuthenticatedRequest;
   const headerUserId = req.headers['x-user-id'];
   const headerRole = req.headers['x-role'];
   const headerBranchId = req.headers['x-branch-id'];
 
-  const userId = authReq.user?.userId || (Array.isArray(headerUserId) ? headerUserId[0] : headerUserId);
-  const role = authReq.user?.role || (Array.isArray(headerRole) ? headerRole[0] : headerRole);
-  const branchId = authReq.user?.branchId || (Array.isArray(headerBranchId) ? headerBranchId[0] : headerBranchId);
+  const userId = req.user?.userId || (Array.isArray(headerUserId) ? headerUserId[0] : headerUserId);
+  const role = req.user?.role || (Array.isArray(headerRole) ? headerRole[0] : headerRole);
+  const branchId = req.user?.branchId || (Array.isArray(headerBranchId) ? headerBranchId[0] : headerBranchId);
 
   return {
     userId: typeof userId === 'string' ? userId.trim() : undefined,

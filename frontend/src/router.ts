@@ -21,6 +21,11 @@ import AdminConfigPage from './routes/AdminConfigPage';
 import AuditLogPage from './routes/AuditLogPage';
 import AdminOperationsPage from './routes/AdminOperationsPage';
 import ReportsPage from './routes/ReportsPage';
+import LoginPage from './routes/LoginPage';
+import RegisterPage from './routes/RegisterPage';
+import GuestProfilesPage from './routes/GuestProfilesPage';
+import AccountPage from './routes/AccountPage';
+import { safeRedirectPath } from './lib/auth';
 import InvoiceDetailPage from './routes/InvoiceDetailPage';
 import PaymentPage from './routes/PaymentPage';
 
@@ -150,6 +155,48 @@ const reportsRoute = createRoute({
   component: ReportsPage,
 });
 
+const guestsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/guests',
+  component: GuestProfilesPage,
+});
+
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  component: AccountPage,
+});
+
+interface LoginSearch {
+  redirect?: string;
+  reason?: 'expired';
+}
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    redirect: safeRedirectPath(search.redirect),
+    reason: search.reason === 'expired' ? 'expired' : undefined,
+  }),
+  component: LoginPage,
+});
+
+interface RegisterSearch {
+  redirect?: string;
+  mode?: 'NEW' | 'LINK';
+}
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  validateSearch: (search: Record<string, unknown>): RegisterSearch => ({
+    redirect: safeRedirectPath(search.redirect),
+    mode: search.mode === 'LINK' ? 'LINK' : search.mode === 'NEW' ? 'NEW' : undefined,
+  }),
+  component: RegisterPage,
+});
+
 const invoiceDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/billing/invoice',
@@ -176,6 +223,8 @@ const serviceUsageRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  loginRoute,
+  registerRoute,
   roomsRoute,
   staffBookingCreateRoute,
   staffBookingListRoute,
@@ -196,6 +245,8 @@ const routeTree = rootRoute.addChildren([
   auditLogRoute,
   adminOperationsRoute,
   reportsRoute,
+  guestsRoute,
+  accountRoute,
   serviceCatalogueRoute,
   serviceUsageRoute,
   invoiceDetailRoute,
