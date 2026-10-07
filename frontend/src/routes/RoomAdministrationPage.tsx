@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { StaffBookingLayout } from '@/components/layout/StaffBookingLayout';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { RoomAdministrationPanel } from '@/components/rooms/RoomAdministrationPanel';
 import { RoomAdminApi, RoomAdminSession } from '@/lib/roomAdministration';
@@ -11,5 +12,5 @@ function useVerifiedRoomAdminSession(): RoomAdminSession | null { return null; }
 export default function RoomAdministrationPage() {
   const session = useVerifiedRoomAdminSession();
   const api = useMemo(() => new RoomAdminApi(session), [session]);
-  return <PageContainer><BoundedContainer><RoomAdministrationPanel session={session} api={api} /></BoundedContainer></PageContainer>;
+  return <StaffBookingLayout><PageContainer><BoundedContainer><RoomAdministrationPanel session={session} api={api} /></BoundedContainer></PageContainer></StaffBookingLayout>;
 }

@@ -25,6 +25,7 @@ function SearchField({ label, value, type = 'text', error, disabled, onChange }:
       onChange={event => onChange(event.target.value)}
       min={type === 'number' ? 1 : undefined} max={type === 'number' ? 32767 : undefined}
       step={type === 'number' ? 1 : undefined}
+      onInput={type === 'date' ? event => onChange(event.currentTarget.value) : undefined}
       aria-invalid={!!error} aria-describedby={error ? `${id}-error` : undefined} />
     {error && <p id={`${id}-error`} className="text-sm text-destructive">{error}</p>}
   </div>;
@@ -32,9 +33,9 @@ function SearchField({ label, value, type = 'text', error, disabled, onChange }:
 
 // Rendering is shared by staff and direct guests. Search contains only public
 // inventory; staff/guest identity is required by the later booking workflows.
-export function AvailabilityPanel({ state, actions, locked = false, title = 'Find rooms at SkyNest',
+export function AvailabilityPanel({ state, actions, locked = false, allowImmediateCheckIn = true, title = 'Find rooms at SkyNest',
   description = 'Search for a direct guest reservation or a staff-assisted booking. Add rooms individually with their own dates and guest counts.'
-}: { state: AvailabilityState; actions: Actions; locked?: boolean; title?: string; description?: string }) {
+}: { state: AvailabilityState; actions: Actions; locked?: boolean; allowImmediateCheckIn?: boolean; title?: string; description?: string }) {
   const { draft, options, results, selected, failure } = state;
   const disabled = locked || state.loadingOptions || !options || state.rechecking;
   const fields = failure?.fields ?? {};
@@ -95,8 +96,8 @@ export function AvailabilityPanel({ state, actions, locked = false, title = 'Fin
             {fields.roomTypeId && <p className="text-sm text-destructive">{fields.roomTypeId}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" size="sm" className="h-auto min-h-9 whitespace-normal" disabled={disabled} variant={draft.immediateCheckIn ? 'default' : 'outline'}
-              aria-pressed={draft.immediateCheckIn} onClick={() => set('immediateCheckIn', !draft.immediateCheckIn)}>Require READY for immediate check-in</Button>
+            {allowImmediateCheckIn && <Button type="button" size="sm" className="h-auto min-h-9 whitespace-normal" disabled={disabled} variant={draft.immediateCheckIn ? 'default' : 'outline'}
+              aria-pressed={draft.immediateCheckIn} onClick={() => set('immediateCheckIn', !draft.immediateCheckIn)}>Require READY for immediate check-in</Button>}
             <Button type="submit" className="h-auto min-h-11 whitespace-normal" disabled={disabled || state.searching || !options?.branches.length}>{state.searching ? 'Searching…' : 'Search available rooms'}</Button>
           </div>
         </FormField>

@@ -15,7 +15,7 @@ CS3043-HRGSMS/
 ├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.4 draft SRS (legacy filename)
 ├── member_summary_table.md    # Draft member ownership and handoffs
 ├── member_tasks/             # One-commit-sized plans and workflow for each member
-├── memory.md                 # Verified cross-task project decisions
+├── docs/archive/             # Historical project records (not active decisions)
 └── member_work_log.md         # Shared actual-work log, organized by member
 ```
 
@@ -219,7 +219,7 @@ Protected `/api/*` routes require the session cookie; identity headers such as `
 - **SkyNest_HRGSMS_SRS_v1.0.md** — ER-aligned SRS draft; unresolved design decisions are in Appendix C
 - **member_summary_table.md** — Proposed member tasks, table ownership and cross-team handoffs
 - **member_tasks/** — Five member-specific subtask checklists and completion workflows
-- **memory.md** — Durable verified project decisions; recheck against current files before use
+- **member_work_log.md** — Current execution records; recheck against source and requirements. The removed memory file is preserved as [historical context](docs/archive/imandi-memory-2026-10-07.md).
 - **member_work_log.md** — Shared record of what each member's completed or partial tasks changed and verified
 
 Always refer to these documents when making design or layout decisions.
@@ -288,6 +288,36 @@ Refer to the project documentation:
 - **Design Questions** → Check `DESIGN.md`
 - **Requirements & Specifications** → Check `SkyNest_HRGSMS_SRS_v1.0.md`
 - **Agent Guidelines** → Check `AGENTS.md`
+
+## Member 2 guest My Bookings UI core (M2-S21)
+
+`/guest/my-bookings` lists the signed-in guest's reservations, and `/guest/my-bookings/:bookingId` displays every active/terminal room line under one reference. Own history includes staff-assisted bookings as well as DIRECT_ONLINE bookings. Each line shows its own dates, guest count, agreed rate and state, previous/current room assignments, actual occupancy times, state changes and date/guest/rate revisions. Room type labels are current catalogue metadata; previous assignments and agreed rates remain preserved. The guest screen excludes internal identity/contact/condition metadata and free-text staff notes. It displays no invented booking-level status or final bill.
+
+The GET-only client calls M2-S14's `/api/guest/bookings?limit=20&offset=…` and `/api/guest/bookings/:bookingId` with same-origin credentials. It supplies no guest/user/branch identity overrides or `x-user-id` header. Backend ownership checks authorize every request; the UI cannot establish ownership from an ID alone. Unknown and other-owner UUIDs show the same safe `Booking not found` state. Expired/denied reads clear list/detail data and require a new verified session; late responses cannot restore another booking's detail. Loading, empty, failure, reload, back and bounded pagination states are provided. Both list/detail use guest-only navigation.
+
+Run `npm run test:m2-guest-booking-read-ui --workspace frontend`. `/tests/guest-booking-records-preview.html` is a development-only in-memory sample for mixed/all-five states, pagination, empty lists, denial, failed reads and missing/other-owner IDs; it makes no database requests or writes. Production remains gated until Member 1 supplies verified guest identity and mounts M2-S14 after its dependencies. M2-S21 stays unchecked pending authenticated live ownership checks. The old Member 4 `GuestBookingsPage.tsx` cancellation simulator is preserved but no longer mounted as My Bookings; integrating Member 4's authenticated cancellation quote/confirmation controls remains its guest action handoff. The read screen directs guests to contact SkyNest for changes/cancellation and provides no cancellation/payment/staff mutation action.
+
+## Member 2 direct guest booking UI core (M2-S20)
+
+`/guest/bookings/new` provides the direct guest reservation screen with guest-only navigation. It reuses multi-room availability search: every line keeps its own dates, guests and room type within one selected branch. A fresh M2-S13 server quote shows each base rate/room charge, exact-decimal service charge and tax, combined provisional total, and published policy terms. Guests must explicitly review the quote before confirming. Selection edits and rejected stale rates/policies invalidate that review; a fresh quote needs a new acknowledgement. One unavailable room rejects the entire confirmation, retains the draft and rechecks every selected line. No write is automatically replayed; unknown confirmation outcomes block another submission and direct the guest to the hotel.
+
+The API client sends only branch/search criteria and server-quoted type/rate/policy values. Ownership and DIRECT_ONLINE channel are derived by the backend from the authenticated account, with no guest ID/actor/channel inputs. The receipt shows one reference, every agreed room line and the server's DRAFT total; guest/actor IDs, NIC/contact details and unrelated response metadata are excluded. No online payment is taken; payment is arranged through cash or verified bank transfer with the hotel.
+
+Run `npm run test:m2-guest-booking-ui --workspace frontend`. The development-only `/tests/guest-booking-preview.html` uses sample identity, rates and an in-memory transport; it makes no database requests or payments. The production session seam is null until Member 1 supplies the verified guest session and mutation/CSRF headers. Its `accountKind` is a frontend adapter discriminator, not a database enum or authentication provider. Member 1 must finish guest identity/linking and protected M2-S13 mounting before live ownership/confirmation checks can pass; M2-S20 remains unchecked. Guest booking history (M2-S21) is a later task.
+
+## Member 2 staff room-line modification UI core (M2-S19)
+
+`/bookings/:bookingId/edit` opens from the staff booking detail's **Manage room lines** action. It supports adding a separately dated/priced room line, changing a still-BOOKED line's dates/guests/current catalogue rate, and moving a BOOKED or CHECKED_IN line to an available own-branch room. All other lines and complete assignment/revision/status histories remain visible. CHECKED_IN dates/guests/agreed rate stay fixed and targets require READY; this Front Desk screen sends no price adjustment, because non-zero approved differences require Branch Manager authority. Cancellation opens Member 4's existing `/cancellation` workflow; no line is deleted or cancelled here.
+
+The client consumes M2-S12's exact POST/PATCH contracts with same-origin credentials and Member 1's verified mutation headers. It reads the assigned type from M2-S07 for BOOKED changes and rechecks M2-S09 availability for add/move reviews. Staff explicitly acknowledge each fresh review. Known rejection states explain rollback, preserve drafts and require new review; changed-state/concurrency errors require reload. Unknown mutation outcomes block another submission until refreshed booking records and explicit booking/invoice reconciliation. Success displays the authoritative DRAFT total/balance/credit and reloads full histories; failed history refresh retains committed-result proof. Credits use Member 4's manual refund workflow under the existing invoice policy.
+
+Run `npm run test:m2-booking-modification-ui --workspace frontend`. The development-only `/tests/staff-booking-modification-preview.html` simulates changes, conflicts, credits, denial and unknown outcomes entirely in memory. The production page currently makes no requests without a verified FRONT_DESK session/branch/CSRF adapter. Member 1 must complete that integration and mount the protected M2-S07/S11/S12 routes before authenticated live checks can pass; M2-S19 remains unchecked. Branch Manager-approved non-zero adjustment integration remains an owner handoff.
+
+## Member 2 staff booking records UI core (M2-S18)
+
+Open `/bookings` for the assigned-branch staff booking list and `/bookings/:bookingId` for a booking's complete room-line detail. The screen consumes M2-S11's GET-only contracts with bounded pagination, showing one booking card regardless of room count and derived mixed/partial progress. Detail includes all active/terminal lines, individual dates/occupants/agreed rates, current and closed room assignments, actual occupancy segments, status history and old/new date/guest/rate revisions. Historical assignment times and agreed rates are preserved; room type/capacity/condition labels describe current catalogue values. NIC/contact data and extra response fields are excluded from the screen's DTO. Denied reads clear records and not-found/failed reads offer reload/back recovery.
+
+Run `npm run test:m2-staff-booking-read-ui --workspace frontend`. The development-only `/tests/staff-booking-records-preview.html` offers sample history, pagination, empty/missing records and denial simulations without database requests. Production pages currently show their missing-session gate and make no requests; Member 1 must supply verified staff identity/branch middleware and mount M2-S11's protected router before authenticated live reads can pass. M2-S18 remains unchecked for that dependency.
 
 ## Member 2 staff booking-create UI core (M2-S17)
 
