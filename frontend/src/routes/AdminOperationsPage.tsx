@@ -43,7 +43,7 @@ export default function AdminOperationsPage() {
   const loadBranches = async () => {
     try {
       setBranchLoading(true);
-      const res = await fetch("http://localhost:4000/api/admin/branches");
+      const res = await fetch("/api/admin/branches");
       if (!res.ok) throw new Error("Failed to load branches");
       const data = await res.json();
       setBranches(data);
@@ -58,7 +58,7 @@ export default function AdminOperationsPage() {
   const loadUsers = async () => {
     try {
       setUserLoading(true);
-      const url = new URL("http://localhost:4000/api/admin/users");
+      const url = new URL("/api/admin/users", window.location.origin);
       if (userSearch) url.searchParams.append("search", userSearch);
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Failed to load users");
@@ -88,7 +88,7 @@ export default function AdminOperationsPage() {
     }
 
     try {
-      const res = await fetch("http://localhost:4000/api/admin/branches", {
+      const res = await fetch("/api/admin/branches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -113,7 +113,7 @@ export default function AdminOperationsPage() {
 
   const toggleBranchStatus = async (branch: Branch) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/admin/branches/${branch.branch_id}`, {
+      const res = await fetch(`/api/admin/branches/${branch.branch_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !branch.active }),
@@ -134,7 +134,7 @@ export default function AdminOperationsPage() {
   // User Handlers
   const toggleUserStatus = async (user: UserAccount) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/admin/users/${user.user_id}/status`, {
+      const res = await fetch(`/api/admin/users/${user.user_id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !user.active }),
