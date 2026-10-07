@@ -3,13 +3,16 @@ import RootLayout from './components/RootLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import StaffBookingCreatePage from './routes/StaffBookingCreatePage';
+import StaffBookingRecordsPage from './routes/StaffBookingRecordsPage';
+import StaffBookingModificationPage from './routes/StaffBookingModificationPage';
+import GuestBookingCreatePage from './routes/GuestBookingCreatePage';
 import RoomAdministrationPage from './routes/RoomAdministrationPage';
 import CheckInPage from './routes/CheckInPage';
 import ActiveStayPage from './routes/ActiveStayPage';
 import CheckoutPage from './routes/CheckoutPage';
 import CancellationPage from './routes/CancellationPage';
 import NoShowPage from './routes/NoShowPage';
-import GuestBookingsPage from './routes/GuestBookingsPage';
+import GuestBookingRecordsPage from './routes/GuestBookingRecordsPage';
 import ServiceCataloguePage from './routes/ServiceCataloguePage';
 import ServiceUsagePage from './routes/ServiceUsagePage';
 import UIRoutePage from './routes/UIRoutePage';
@@ -49,6 +52,22 @@ const staffBookingCreateRoute = createRoute({
   component: StaffBookingCreatePage,
 });
 
+const staffBookingListRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/bookings',
+  component: StaffBookingRecordsPage,
+});
+const staffBookingDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/bookings/$bookingId',
+  component: StaffBookingRecordsPage,
+});
+const staffBookingModificationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/bookings/$bookingId/edit',
+  component: StaffBookingModificationPage,
+});
+
 const checkInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/check-in',
@@ -82,7 +101,17 @@ const noShowRoute = createRoute({
 const guestBookingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/guest/my-bookings',
-  component: GuestBookingsPage,
+  component: GuestBookingRecordsPage,
+});
+const guestBookingDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/guest/my-bookings/$bookingId',
+  component: GuestBookingRecordsPage,
+});
+const guestBookingCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/guest/bookings/new',
+  component: GuestBookingCreatePage,
 });
 
 const uiRoute = createRoute({
@@ -149,6 +178,9 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   roomsRoute,
   staffBookingCreateRoute,
+  staffBookingListRoute,
+  staffBookingDetailRoute,
+  staffBookingModificationRoute,
   roomAdministrationRoute,
   checkInRoute,
   activeStayRoute,
@@ -156,6 +188,8 @@ const routeTree = rootRoute.addChildren([
   cancellationRoute,
   noShowRoute,
   guestBookingsRoute,
+  guestBookingDetailRoute,
+  guestBookingCreateRoute,
   uiRoute,
   dashboardRoute,
   adminConfigRoute,
