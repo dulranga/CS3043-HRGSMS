@@ -1,4 +1,50 @@
-# Imandi/dev conflict preparation — 7 October 2026
+# Imandi/dev conflict correction — 8 October 2026
+
+## Current blocker and fix
+
+The human committed and published the 7 October edits as Imandi
+`211399ebd27ccb2d33acbffdf9d38a68eda6a9ce`. Remote dev remains
+`15cdda58588420f09d6b8cd445258a41314f2dc6`; both remote IDs were verified
+read-only on 8 October. There was no local merge in progress.
+
+The earlier per-file content check missed **Git rename detection**. Git's full
+ORT preview recognizes the single archive as an 89% similar rename of
+`memory.md`, producing a rename/delete conflict against dev's deliberate
+deletion. The earlier statement that there were no remaining conflicts was
+therefore incomplete and is superseded by this correction.
+
+The archive is now an index linking six smaller topic records: foundations,
+Member 2 UI, Member 3, Member 4, verification/database incidents and original
+record context. All original nonblank note lines were checked against the new
+topic files and remain preserved. Existing links still resolve to the index.
+No active memory file was restored, and no application code was changed.
+
+## Current verification
+
+- Full ORT preview of the committed branch reproduces the archive rename/delete
+  conflict (exit 1).
+- Full ORT preview of the candidate working-file tree against the same dev and
+  common ancestor returns **exit 0, no conflicts**. Rename detection shows the
+  memory deletion and new archive files separately, with no memory rename.
+- Preview objects and the candidate index live only in ignored
+  `.scratch/dev-conflict-resolution-2026-10-08/`; the actual Git object storage,
+  index, HEAD and branch references were not written. No commit was created,
+  including for the preview, and no actual merge, staging, push or PR occurred.
+- Archive preservation and Markdown targets pass; `git diff --check` passes.
+  The changes are documentation-only, so application builds/tests were not
+  rerun; the 7 October results below are historical verification.
+- GitHub will continue comparing committed branch tips until the human
+  publishes these working-file corrections. This request performs no Git
+  publication action.
+
+Suggested human handoff title (no commit/PR created):
+`fix: prevent memory archive rename-delete conflict with dev`
+
+## Historical record — 7 October 2026
+
+The following records the earlier content-level check and layout edits. Its
+claim of zero overall merge conflicts is superseded by the rename-aware check
+above.
 
 This request changes working files only. There is no merge in progress, no
 staging, no branch/ref update and no commit or merge was performed.

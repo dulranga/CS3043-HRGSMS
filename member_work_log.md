@@ -61,6 +61,12 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 8 October 2026 — Imandi/dev rename-delete conflict correction
+
+- Rechecked clean Imandi HEAD/remote `211399ebd27ccb2d33acbffdf9d38a68eda6a9ce` and dev/remote `15cdda58588420f09d6b8cd445258a41314f2dc6`. Full Git ORT preview exposed the remaining conflict: Git identifies the prior single memory archive as an 89% rename of `memory.md`, while dev deleted the original. The previous line/content-level conflict claim missed rename detection and is corrected in `conflict_resolution_handoff.md`.
+- Replaced the single snapshot with an index at its existing link path and six smaller historical topic files for foundations, Member 2 UI, Member 3, Member 4, verification/database incidents and original context. Checked that every original nonblank note line remains represented in those files; no historical decision or incident was discarded. Active memory remains deleted, and application code/session contracts are unchanged.
+- Full ORT candidate-tree preview against the same dev/common ancestor passes with exit 0 and no conflicts, including rename detection. Preview objects and index are isolated under ignored `.scratch/dev-conflict-resolution-2026-10-08/`; no actual Git index/object-store/HEAD/branch writes, staging, commit (including preview commits), merge, push or PR took place. Archive links and `git diff --check` pass. Builds/tests were not rerun for documentation-only changes; no database commands or migrations ran. These fixes remain ordinary working files for the human to publish.
+
 ### 7 October 2026 — Imandi/dev conflict preparation (working files only)
 
 - Compared committed Imandi `3e18abf1e552076e198d53b0838b1990c043da24` with remote-verified dev `15cdda58588420f09d6b8cd445258a41314f2dc6`, using common ancestor `b2189c6d285d5ac7ee7b9a3ba079db59ef5ba80c`. The checkout was initially clean with no merge in progress. Read-only conflict inspection identified divergent `RootLayout.tsx` content and dev's `memory.md` deletion versus Imandi's additions. Other shared edits combine without markers.
