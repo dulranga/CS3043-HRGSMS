@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ClipboardList, Contact, FileBarChart, LayoutDashboard, Settings, Users, type LucideIcon } from "lucide-react";
+import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, LayoutDashboard, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
@@ -24,6 +24,22 @@ interface NavItem {
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "Overview", items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    label: "Front Desk",
+    items: [
+      { to: "/rooms", label: "Rooms", icon: BedDouble },
+      { to: "/check-in", label: "Guest Check-In", icon: CalendarCheck },
+      { to: "/stays", label: "Active Stays", icon: DoorOpen },
+    ],
+  },
+  {
+    label: "Services",
+    items: [
+      { to: "/service-usage", label: "Service Usage", icon: ConciergeBell },
+      { to: "/admin/services", label: "Service Catalogue", icon: Utensils },
+      { to: "/admin/rooms", label: "Room Administration", icon: Building2 },
+    ],
+  },
   {
     label: "Management",
     items: [

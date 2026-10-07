@@ -219,7 +219,7 @@ test('M2-S07 catalogue API supports validated reads/writes and reservation confl
     const booking = await admin.query(
       `INSERT INTO booking (booking_ref, booking_channel, guest_id, created_by)
        VALUES ($1, 'FRONT_DESK', $2, $3)
-       RETURNING booking_id`,
+       RETURNING booking_id, booking_ref`,
       [`CAT-${randomBytes(4).toString('hex')}`, guest.rows[0].guest_id, actor.rows[0].user_id],
     );
     const line = await admin.query(
@@ -266,6 +266,11 @@ test('M2-S07 catalogue API supports validated reads/writes and reservation confl
     });
     assert.equal(capacityConflict.response.status, 409);
     assert.equal(capacityConflict.json.error.code, 'CATALOGUE_CONFLICT');
+    assert.deepEqual(capacityConflict.json.error.affectedLines, [{
+      lineId: line.rows[0].line_id, bookingId: booking.rows[0].booking_id,
+      bookingRef: booking.rows[0].booking_ref,
+      status: 'BOOKED', stayStartDate: '2027-12-01', stayEndDate: '2027-12-04', guestCount: 3,
+    }]);
 
     const deactivationConflict = await api(`/api/room-types/${roomTypeId}`, {
       method: 'PATCH',
@@ -273,6 +278,15 @@ test('M2-S07 catalogue API supports validated reads/writes and reservation confl
       body: { active: false },
     });
     assert.equal(deactivationConflict.response.status, 409);
+    assert.deepEqual(deactivationConflict.json.error.affectedLines, capacityConflict.json.error.affectedLines);
+    const unchangedType = await api(`/api/room-types/${roomTypeId}`, { role: 'CHAIN_MANAGER' });
+    assert.equal(unchangedType.json.data.capacity, 3);
+    assert.equal(unchangedType.json.data.active, true);
+    const safeCapacity = await api(`/api/room-types/${roomTypeId}`, {
+      method: 'PATCH', role: 'CHAIN_MANAGER', body: { capacity: 4 },
+    });
+    assert.equal(safeCapacity.response.status, 200);
+    assert.equal(safeCapacity.json.data.capacity, 4);
 
     await admin.query('BEGIN');
     await admin.query(`SET LOCAL search_path TO "${schema}", public`);

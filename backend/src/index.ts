@@ -33,7 +33,10 @@ import { createPaymentRouter } from './routes/paymentRoutes';
 import { createCheckoutRouter } from './routes/checkoutRoutes';
 import { createCatalogueRouter } from './routes/catalogueRoutes';
 import { createRoomInventoryRouter } from './routes/roomInventoryRoutes';
+import { createCancellationRouter } from './routes/cancellationRoutes';
+import { createNoShowRouter } from './routes/noShowRoutes';
 import availabilityRoutes from './routes/availabilityRoutes';
+import serviceUsageRoutes from './routes/serviceUsageRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -95,9 +98,17 @@ app.use('/api', createRoomInventoryRouter(
   },
   { branchId: sessionBranchId, actorId: sessionUserId },
 ));
+// Member 4's cancellation and no-show engines and Member 3's service-usage
+// router enforce their own role, branch and ownership rules from the verified
+// session principal (req.user), so here they only require an authenticated
+// actor; no header or client-supplied identity reaches them in production.
+app.use('/api', authorization.authenticated, createCancellationRouter());
+app.use('/api', authorization.authenticated, createNoShowRouter());
 app.use('/api', availabilityRoutes);
-// M2/M3 protected route factories await Member 1's production session middleware.
-// Mount service, check-in and active-stay routers only with authenticated actors.
+app.use('/api', authorization.authenticated, serviceUsageRoutes);
+// M2/M3 protected route factories that still await their owners' session
+// wiring (check-in, active-stay, service-catalogue, room-condition) remain
+// unmounted; mounting them requires an authenticated actor as above.
 
 // Initialize database and start server
 async function startServer(): Promise<void> {
