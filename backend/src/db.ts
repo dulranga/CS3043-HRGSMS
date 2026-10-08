@@ -13,7 +13,10 @@ export const pool = new Pool({
   connectionString: PG_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  // Allow hosted PostgreSQL to wake up and complete TLS/authentication after
+  // an idle period. The former 2-second limit caused startup timeouts;
+  // registration also connects through this pool.
+  connectionTimeoutMillis: 15000,
 });
 
 // Event handlers for pool

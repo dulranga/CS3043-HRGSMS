@@ -14,6 +14,7 @@
         "test:m1-auth": "node --import tsx --test tests/m1Auth.test.ts",
         "test:m1-authorization": "node --import tsx --test tests/m1Authorization.test.ts",
         "test:m1-guest-registration": "node --import tsx --test tests/m1GuestRegistration.test.ts",
+        "test:db-connection": "node --import tsx --test tests/dbConnection.test.ts",
         "test:m1-guest-profiles": "node --import tsx --test tests/m1GuestProfiles.test.ts",
         "test:m1-guest-account": "node --import tsx --test tests/m1GuestAccount.test.ts",
         "test:m1-staff-accounts": "node --import tsx --test tests/m1StaffAccounts.test.ts",
@@ -61,12 +62,13 @@
         "test:m4-checkout-api": "node --import tsx --test tests/m4CheckoutApi.test.cjs",
         "test:m4-cancellation": "node --test tests/m4Cancellation.test.cjs",
         "test:m4-no-show": "node --test tests/m4NoShow.test.cjs",
-        "test:reports": "node --test tests/m5_reports.test.cjs",
-        "test:admin": "node --test tests/m5_admin.test.cjs",
-        "test:all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs",
-        "test:m5-admin": "node --test tests/m5_admin.test.cjs",
-        "test:m5-all": "node --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs",
-        "test:m5-reports-reconciliation": "node --test tests/m5_reports_reconciliation.test.cjs"
+        "test:reports": "node --import tsx --test tests/m5_reports.test.cjs",
+        "test:admin": "node --import tsx --test tests/m5_admin.test.cjs",
+        "test:all": "node ../scripts/test-all.cjs backend",
+        "test:m5-admin": "node --import tsx --test tests/m5_admin.test.cjs",
+        "test:m5-all": "node --import tsx --test tests/m5_reports.test.cjs tests/m5_admin.test.cjs",
+        "test:m5-reports-reconciliation": "node --import tsx --test tests/m5_reports_reconciliation.test.cjs",
+        "test": "node ../scripts/test-all.cjs backend"
     },
     "dependencies": {
         "bcryptjs": "^3.0.3",

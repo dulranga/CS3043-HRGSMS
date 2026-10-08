@@ -19,7 +19,7 @@ import {
   reversePaymentRequest,
 } from '@/lib/paymentViewModel';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 
 /**
  * M4-S14: Payment entry and history page.
@@ -33,7 +33,7 @@ const API_BASE = 'http://localhost:4000/api';
  *
  * Authorization (staff-only) is enforced by the backend (M4-S08);
  * online guests receive 403 from every payment-write endpoint.
- * Auth header plumbing awaits M1-S08.
+ * The same-origin HTTP-only session cookie supplies staff identity.
  */
 export default function PaymentPage() {
   const [bookingId, setBookingId] = useState('');

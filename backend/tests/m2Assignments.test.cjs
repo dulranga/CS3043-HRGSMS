@@ -112,7 +112,7 @@ test('M2-S05 creates line-based room assignment history', async () => {
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(client);
 
     const columns = await client.query(
@@ -337,7 +337,7 @@ test('M2-S05 rejects simultaneous open assignments for one line', async () => {
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(admin);
     const fixture = await seedBookingLinesAndRooms(admin, randomBytes(4).toString('hex'));
     await admin.query('COMMIT');
@@ -346,8 +346,8 @@ test('M2-S05 rejects simultaneous open assignments for one line', async () => {
     await Promise.all([first.connect(), second.connect()]);
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
     const secondPid = (await second.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
 
     await first.query(

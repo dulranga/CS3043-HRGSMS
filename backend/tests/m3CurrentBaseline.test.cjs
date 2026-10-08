@@ -50,21 +50,20 @@ function isolateClient(client, schema) {
 async function applyChain(client, directory) {
   await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY)');
   const completed = new Set((await client.query('SELECT version FROM schema_migrations')).rows.map((row) => row.version));
-  const applied = [];
-  for (const migration of loadMigrations(directory)) {
-    if (completed.has(migration.key)) continue;
+  const pending = loadMigrations(directory).filter(migration => !completed.has(migration.key));
+  if (pending.length) {
     await client.query('BEGIN');
     try {
-      await client.query(migration.sql);
-      await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [migration.key]);
+      // Preserve ordered SQL while avoiding hundreds of hosted round trips.
+      await client.query(pending.map(migration => migration.sql).join('\n'));
+      await client.query('INSERT INTO schema_migrations (version) SELECT unnest($1::text[])', [pending.map(migration => migration.key)]);
       await client.query('COMMIT');
-      applied.push(migration.filename);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     }
   }
-  return { applied };
+  return { applied: pending.map(migration => migration.filename) };
 }
 
 async function withChain(warm, run) {

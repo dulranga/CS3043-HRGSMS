@@ -7,7 +7,7 @@ const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const auditMigration = readFileSync(
-  path.join(__dirname, '..', 'migrations', '0000_create_audit_and_config.sql'),
+  path.join(__dirname, '..', 'migrations', 'm1_004_create_audit_log.sql'),
   'utf8',
 );
 const branchRoleMigration = readFileSync(
@@ -59,13 +59,13 @@ test('M4-S03 payment schema, constraints, immutability, and audit in a clean iso
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
 
     // Apply prerequisites and target migration
-    await client.query(auditMigration);
     await client.query(branchRoleMigration);
     await client.query(accountOfficerMigration);
     await client.query(guestMigration);
+    await client.query(auditMigration);
     await client.query(bookingMigration);
     await client.query(paymentMigration);
 

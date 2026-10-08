@@ -19,7 +19,7 @@ import {
   parseCheckInFailure,
 } from "@/lib/checkInViewModel";
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "/api";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface BookingDetailLine extends CheckInLine {}

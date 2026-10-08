@@ -248,10 +248,14 @@ export const REPORT_ROUTE_POLICY: readonly RoutePolicyRule[] = [
   { method: 'GET', path: /^\/occupancy\/?$/, permissions: BRANCH_OR_CHAIN_REPORT, scopeQueryBranch: 'branch_id' },
   { method: 'GET', path: /^\/revenue\/?$/, permissions: BRANCH_OR_CHAIN_REPORT, scopeQueryBranch: 'branch_id' },
   { method: 'GET', path: /^\/revenue\/export\/?$/, permissions: BRANCH_OR_CHAIN_REPORT, scopeQueryBranch: 'branch_id' },
-  { method: 'GET', path: /^\/occupancy\/export\/?$/, permissions: 'report.read.chain' },
+  { method: 'GET', path: /^\/occupancy\/export\/?$/, permissions: BRANCH_OR_CHAIN_REPORT, scopeQueryBranch: 'branch_id' },
+  { method: 'GET', path: /^\/billing(\/export)?\/?$/, permissions: BRANCH_OR_CHAIN_REPORT, scopeQueryBranch: 'branch_id' },
   { method: 'GET', path: /^\/guest-history(\/export)?\/?$/, permissions: 'report.read.chain' },
   { method: 'GET', path: /^\/service-usage(\/top)?\/?$/, permissions: 'report.read.chain' },
-  { method: 'GET', path: /^\/audit-logs\/?$/, permissions: 'audit.read' },
+  { method: 'GET', path: /^\/service-usage\/export\/?$/, permissions: 'report.read.chain' },
+  { method: 'GET', path: /^\/preference\/trends\/?$/, permissions: 'report.read.chain' },
+  { method: 'GET', path: /^\/trends\/export\/?$/, permissions: 'report.read.chain' },
+  { method: 'GET', path: /^\/audit-logs(\/export)?\/?$/, permissions: 'audit.read' },
 ];
 
 // Bundles the middleware every protected router uses, all behind

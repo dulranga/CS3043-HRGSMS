@@ -34,7 +34,7 @@ test('M3-S03 room status history is append-only and validates condition changes'
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await client.query(`
       CREATE TYPE room_condition_enum AS ENUM ('READY', 'CLEANING', 'OUT_OF_SERVICE');
       CREATE TABLE user_account (

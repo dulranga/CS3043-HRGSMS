@@ -24,7 +24,7 @@ import {
   fetchInvoiceDetail,
 } from '@/lib/invoiceViewModel';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 
 /**
  * M4-S15: Staff per-line checkout UI.

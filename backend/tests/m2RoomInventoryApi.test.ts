@@ -53,7 +53,7 @@ test('M2-S08 room and block API core enforces branch scope and reservation confl
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     for (const migration of migrations) await admin.query(migration);
 
     const branches = await admin.query(
@@ -301,7 +301,7 @@ test('M2-S08 room and block API core enforces branch scope and reservation confl
     assert.equal(removedBlock.response.status, 204);
 
     await admin.query('BEGIN');
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     const guest = await admin.query(
       `INSERT INTO guest (full_name) VALUES ('Room API Guest') RETURNING guest_id`,
     );
@@ -374,7 +374,7 @@ test('M2-S08 room and block API core enforces branch scope and reservation confl
     const adjacentBlockId = adjacentBlock.json.data.blockId as string;
 
     await admin.query('BEGIN');
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     await admin.query(
       `UPDATE booking_room_assignment
           SET unassigned_at = assigned_at + interval '1 second'

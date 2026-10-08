@@ -10,7 +10,6 @@ import dotenv from 'dotenv';
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const migrationFiles = [
-  '0000_create_audit_and_config.sql',
   'm1_001_create_branch_and_role.sql',
   'm1_002_create_user_account_and_officer.sql',
   'm1_003_create_guest_and_guest_account.sql',
@@ -61,7 +60,7 @@ test('M2-S11 lists each branch booking once and returns complete line and assign
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     for (const migration of migrations) await admin.query(migration);
 
     const branches = await admin.query('SELECT branch_id FROM branch ORDER BY name, branch_id LIMIT 2');
@@ -131,7 +130,7 @@ test('M2-S11 lists each branch booking once and returns complete line and assign
     );
     const policyId = policy.rows[0].billing_policy_id as string;
     await admin.query('COMMIT');
-    await admin.query(`SET search_path TO "${schema}", public`);
+    await admin.query(`SET search_path TO "${schema}"`);
 
     async function createBooking(
       actorId: string,

@@ -1,16 +1,14 @@
+import { useFeatureSessions } from '@/components/auth/useFeatureSessions';
 import { useMemo } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { StaffBookingLayout } from '@/components/layout/StaffBookingLayout';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { RoomAdministrationPanel } from '@/components/rooms/RoomAdministrationPanel';
-import { RoomAdminApi, RoomAdminSession } from '@/lib/roomAdministration';
+import { RoomAdminApi } from '@/lib/roomAdministration';
 
-// Integration seam for M1-S08/S09: replace this with verified session context.
-// A user-selected role or branch cannot authorize this screen or its requests.
-function useVerifiedRoomAdminSession(): RoomAdminSession | null { return null; }
 
 export default function RoomAdministrationPage() {
-  const session = useVerifiedRoomAdminSession();
+  const session = useFeatureSessions().roomAdmin;
   const api = useMemo(() => new RoomAdminApi(session), [session]);
   return <StaffBookingLayout><PageContainer><BoundedContainer><RoomAdministrationPanel session={session} api={api} /></BoundedContainer></PageContainer></StaffBookingLayout>;
 }

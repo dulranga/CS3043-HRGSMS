@@ -17,11 +17,10 @@ test('M4-S12: Per-line no-show transition with cutoff, history, and invoice-link
 
   try {
     await client.query(`CREATE SCHEMA ${scratchSchema}`);
-    await client.query(`SET search_path TO ${scratchSchema}, public`);
+    await client.query(`SET search_path TO ${scratchSchema}`);
 
     // Apply all 22 migrations in order
     const migrationFiles = [
-      '0000_create_audit_and_config.sql',
       'm1_001_create_branch_and_role.sql',
       'm1_002_create_user_account_and_officer.sql',
       'm1_003_create_guest_and_guest_account.sql',
@@ -204,7 +203,7 @@ test('M4-S12: Per-line no-show transition with cutoff, history, and invoice-link
 
     const dbClientWrapper = {
       async query(sql, params) {
-        await client.query(`SET search_path TO ${scratchSchema}, public`);
+        await client.query(`SET search_path TO ${scratchSchema}`);
         return client.query(sql, params);
       },
     };

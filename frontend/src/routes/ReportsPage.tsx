@@ -1,17 +1,13 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
-
-type ReportType =
-  | "occupancy"
-  | "billing"
-  | "revenue"
-  | "guest-history"
-  | "service-usage"
-  | "preference-trends"
-  | "audit-logs";
+import { reportUrl, hasReportAccess, type ReportType } from "@/lib/reportUrl";
+import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 interface BranchOption {
   branch_id: string;
@@ -19,6 +15,9 @@ interface BranchOption {
 }
 
 export default function ReportsPage() {
+  const { role, staff } = useFeatureSessions();
+  const latestRequest = useRef(0);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [activeReport, setActiveReport] = useState<ReportType>("occupancy");
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
@@ -48,10 +47,15 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = "http://localhost:4000/api";
+  const API_BASE = "/api";
+  useEffect(() => {
+    if (role === 'BRANCH_MANAGER' && staff?.branchId) setSelectedBranch(staff.branchId);
+    if (role === 'SYSTEM_ADMINISTRATOR') setActiveReport('audit-logs');
+  }, [role, staff?.branchId]);
 
   // 1. Fetch branches
   useEffect(() => {
+    if (!role) return;
     fetch(`${API_BASE}/admin/branches`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch branches");
@@ -62,70 +66,27 @@ export default function ReportsPage() {
         else if (Array.isArray(d?.branches)) setBranches(d.branches);
       })
       .catch((err) => console.error("Error fetching branches:", err));
-  }, []);
+  }, [role]);
 
   // 2. Fetch report data
   const loadReportData = useCallback(async () => {
+    const request = ++latestRequest.current;
+    if (!hasReportAccess(role, activeReport)) {
+      setLoading(false);
+      setError('Sign in with permission to view this report.');
+      setData([]);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
 
-      // Determine the endpoint path
-      const endpoint =
-        activeReport === "preference-trends"
-          ? "preference/trends"
-          : activeReport;
-      const url = new URL(`${API_BASE}/reports/${endpoint}`);
-
-      // Query params
-      if (activeReport === "occupancy" && selectedBranch) {
-        url.searchParams.append("branch_id", selectedBranch);
-      }
-      if (activeReport === "billing") {
-        if (selectedBranch)
-          url.searchParams.append("branch_id", selectedBranch);
-        if (bookingRef.trim())
-          url.searchParams.append("booking_ref", bookingRef.trim());
-        if (invoiceStatus)
-          url.searchParams.append("invoice_status", invoiceStatus);
-        url.searchParams.append("limit", "50");
-        url.searchParams.append("offset", "0");
-      }
-      if (activeReport === "revenue") {
-        if (selectedBranch)
-          url.searchParams.append("branch_id", selectedBranch);
-        if (selectedYear) url.searchParams.append("year", selectedYear);
-      }
-      if (activeReport === "guest-history") {
-        if (guestSearch.trim())
-          url.searchParams.append("search", guestSearch.trim());
-        if (minStays) url.searchParams.append("min_stays", minStays);
-        url.searchParams.append("limit", "50");
-        url.searchParams.append("offset", "0");
-      }
-      if (activeReport === "service-usage") {
-        if (serviceCategory.trim())
-          url.searchParams.append("category", serviceCategory.trim());
-        if (serviceSearch.trim())
-          url.searchParams.append("search", serviceSearch.trim());
-      }
-      if (activeReport === "preference-trends") {
-        url.searchParams.append("by", trendsSortBy);
-        url.searchParams.append("limit", trendsLimit);
-      }
-      if (activeReport === "audit-logs") {
-        if (auditEntity.trim())
-          url.searchParams.append("entity_name", auditEntity.trim());
-        if (auditAction) url.searchParams.append("action", auditAction);
-        if (auditStaffId.trim())
-          url.searchParams.append("staff_id", auditStaffId.trim());
-        url.searchParams.append("limit", "25");
-        url.searchParams.append("page", String(auditPage));
-      }
-
+      const url = reportUrl(window.location.origin, activeReport, currentFilters());
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
       const reportResponse = await res.json();
+      if (request !== latestRequest.current) return;
+      setGeneratedAt(new Date().toISOString());
 
       if (activeReport === "audit-logs") {
         setData(
@@ -141,13 +102,15 @@ export default function ReportsPage() {
         );
       }
     } catch (err) {
+      if (request !== latestRequest.current) return;
       console.error("Report loading error:", err);
       setError("Failed to fetch report data. Check server connectivity.");
       setData([]);
     } finally {
-      setLoading(false);
+      if (request === latestRequest.current) setLoading(false);
     }
   }, [
+    role,
     activeReport,
     selectedBranch,
     selectedYear,
@@ -166,27 +129,22 @@ export default function ReportsPage() {
   ]);
 
   useEffect(() => {
-    loadReportData();
+    void loadReportData();
+    return () => { latestRequest.current++; };
   }, [loadReportData]);
 
-  // 3. CSV Export
+  // Both representations use the same current filters and pagination.
+  function currentFilters(): Record<string, string> {
+    return {
+      branch_id: selectedBranch, year: selectedYear, booking_ref: bookingRef, invoice_status: invoiceStatus,
+      search: activeReport === 'guest-history' ? guestSearch : serviceSearch,
+      min_stays: minStays, category: serviceCategory, by: trendsSortBy,
+      limit: activeReport === 'audit-logs' ? '25' : activeReport === 'preference-trends' ? trendsLimit : '50',
+      offset: '0', entity_name: auditEntity, action: auditAction, staff_id: auditStaffId, page: String(auditPage),
+    };
+  }
   const handleExportCsv = () => {
-    const exportPath =
-      activeReport === "preference-trends"
-        ? "trends/export"
-        : `${activeReport}/export`;
-    const exportUrl = new URL(`${API_BASE}/reports/${exportPath}`);
-
-    if (
-      selectedBranch &&
-      (activeReport === "occupancy" || activeReport === "revenue")
-    ) {
-      exportUrl.searchParams.append("branch_id", selectedBranch);
-    }
-    if (activeReport === "revenue" && selectedYear) {
-      exportUrl.searchParams.append("year", selectedYear);
-    }
-    window.location.href = exportUrl.toString();
+    window.location.href = reportUrl(window.location.origin, activeReport, currentFilters(), true).toString();
   };
 
   // 4. Change report
@@ -199,7 +157,7 @@ export default function ReportsPage() {
 
   // 5. Clear filters
   const clearFilters = () => {
-    setSelectedBranch("");
+    setSelectedBranch(role === 'BRANCH_MANAGER' ? staff?.branchId ?? '' : '');
     setBookingRef("");
     setInvoiceStatus("");
     setGuestSearch("");
@@ -254,6 +212,7 @@ export default function ReportsPage() {
               </div>
               <Button
                 onClick={handleExportCsv}
+                disabled={loading || !!error}
                 className="self-start md:self-auto gap-2"
               >
                 <svg
@@ -277,8 +236,8 @@ export default function ReportsPage() {
 
             {/* Report Tabs */}
             <div className="flex flex-wrap gap-2 border-b border-border pb-2">
-              {reportTabs.map((tab) => (
-                <button
+              {reportTabs.filter(tab => hasReportAccess(role, tab.id)).map((tab) => (
+                <Button
                   key={tab.id}
                   onClick={() => changeReport(tab.id)}
                   className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
@@ -288,7 +247,7 @@ export default function ReportsPage() {
                   }`}
                 >
                   {tab.label}
-                </button>
+                </Button>
               ))}
             </div>
 
@@ -298,11 +257,12 @@ export default function ReportsPage() {
                 activeReport === "billing" ||
                 activeReport === "revenue") && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-muted-foreground">
+                  <Label className="text-xs font-semibold text-muted-foreground">
                     Branch
-                  </label>
+                  </Label>
                   <select
                     value={selectedBranch}
+                    disabled={role === 'BRANCH_MANAGER'}
                     onChange={(e) => setSelectedBranch(e.target.value)}
                     className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   >
@@ -318,9 +278,9 @@ export default function ReportsPage() {
 
               {activeReport === "revenue" && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-muted-foreground">
+                  <Label className="text-xs font-semibold text-muted-foreground">
                     Year
-                  </label>
+                  </Label>
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
@@ -338,10 +298,10 @@ export default function ReportsPage() {
               {activeReport === "billing" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Booking Reference
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       value={bookingRef}
                       onChange={(e) => setBookingRef(e.target.value)}
                       placeholder="Search booking..."
@@ -349,16 +309,16 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Invoice Status
-                    </label>
+                    </Label>
                     <select
                       value={invoiceStatus}
                       onChange={(e) => setInvoiceStatus(e.target.value)}
                       className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">All Statuses</option>
-                      {["ISSUED", "PAID", "VOID", "OVERDUE"].map((st) => (
+                      {["DRAFT", "FINAL"].map((st) => (
                         <option key={st} value={st}>
                           {st}
                         </option>
@@ -371,10 +331,10 @@ export default function ReportsPage() {
               {activeReport === "guest-history" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Search Guest
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       value={guestSearch}
                       onChange={(e) => setGuestSearch(e.target.value)}
                       placeholder="Name, email or phone..."
@@ -382,10 +342,10 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Minimum Stays
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="number"
                       min="0"
                       value={minStays}
@@ -400,10 +360,10 @@ export default function ReportsPage() {
               {activeReport === "service-usage" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Category
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       value={serviceCategory}
                       onChange={(e) => setServiceCategory(e.target.value)}
                       placeholder="e.g. Food"
@@ -411,10 +371,10 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Service Name
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       value={serviceSearch}
                       onChange={(e) => setServiceSearch(e.target.value)}
                       placeholder="Search service..."
@@ -427,9 +387,9 @@ export default function ReportsPage() {
               {activeReport === "preference-trends" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Rank By
-                    </label>
+                    </Label>
                     <select
                       value={trendsSortBy}
                       onChange={(e) =>
@@ -446,9 +406,9 @@ export default function ReportsPage() {
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Show Top
-                    </label>
+                    </Label>
                     <select
                       value={trendsLimit}
                       onChange={(e) => setTrendsLimit(e.target.value)}
@@ -465,10 +425,10 @@ export default function ReportsPage() {
               {activeReport === "audit-logs" && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Entity
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       value={auditEntity}
                       onChange={(e) => setAuditEntity(e.target.value)}
                       placeholder="e.g. booking"
@@ -476,9 +436,9 @@ export default function ReportsPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Action
-                    </label>
+                    </Label>
                     <select
                       value={auditAction}
                       onChange={(e) => {
@@ -488,7 +448,7 @@ export default function ReportsPage() {
                       className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">All Actions</option>
-                      {["INSERT", "UPDATE", "DELETE"].map((a) => (
+                      {["CREATE", "UPDATE", "DELETE", "STATUS_CHANGE", "DEACTIVATE", "REACTIVATE", "VOID"].map((a) => (
                         <option key={a} value={a}>
                           {a}
                         </option>
@@ -496,10 +456,10 @@ export default function ReportsPage() {
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-muted-foreground">
+                    <Label className="text-xs font-semibold text-muted-foreground">
                       Staff ID
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       value={auditStaffId}
                       onChange={(e) => setAuditStaffId(e.target.value)}
                       placeholder="Staff ID"
@@ -555,6 +515,7 @@ export default function ReportsPage() {
               )}
 
             {/* Data Table */}
+            {generatedAt && <p className="text-xs text-muted-foreground">Scope: {selectedBranch ? branches.find(branch => branch.branch_id === selectedBranch)?.name ?? 'Assigned branch' : 'All branches'}. {activeReport === 'revenue' ? `Year: ${selectedYear}. ` : activeReport === 'occupancy' ? 'Current occupancy. ' : 'All recorded dates. '}Generated: {new Date(generatedAt).toLocaleString()}.</p>}
             <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
               {loading ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
@@ -569,37 +530,37 @@ export default function ReportsPage() {
                   No records available for the selected filters.
                 </p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b-2 border-border text-muted-foreground text-left">
+                <Table className="w-full text-sm">
+                  <TableHeader>
+                    <TableRow className="border-b-2 border-border text-muted-foreground text-left">
                       {Object.keys(data[0] || {}).map((col) => (
-                        <th
+                        <TableHead
                           key={col}
                           className="py-3 px-3 font-semibold capitalize whitespace-nowrap"
                         >
                           {formatColumnName(col)}
-                        </th>
+                        </TableHead>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {data.map((row, rIdx) => (
-                      <tr
+                      <TableRow
                         key={rIdx}
                         className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors"
                       >
                         {Object.entries(row).map(([col, val], cIdx) => (
-                          <td
+                          <TableCell
                             key={`${col}-${cIdx}`}
                             className="py-3 px-3 text-xs md:text-sm whitespace-nowrap"
                           >
                             {formatValue(val)}
-                          </td>
+                          </TableCell>
                         ))}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </section>
 

@@ -209,6 +209,8 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
         ['get', '/occupancy'], ['get', '/revenue'], ['get', '/guest-history'], ['get', '/service-usage'],
         ['get', '/service-usage/top'], ['get', '/audit-logs'], ['get', '/occupancy/export'],
         ['get', '/revenue/export'], ['get', '/guest-history/export'],
+        ['get', '/billing'], ['get', '/billing/export'], ['get', '/preference/trends'],
+        ['get', '/trends/export'], ['get', '/service-usage/export'], ['get', '/audit-logs/export'],
       ]),
     );
     const ok = (_req: Request, res: Response) => { res.json({ ok: true }); };
@@ -412,6 +414,12 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
     }
 
     // Reports: chain readers see any branch; BRANCH_MANAGER is pinned to its own branch.
+    for (const route of ['occupancy/export', 'billing', 'billing/export']) {
+      const scoped = await api('branch_manager', '/api/reports/' + route);
+      assert.equal(scoped.status, 200);
+      assert.equal(scoped.json.query.branch_id, branchA);
+      assert.equal((await api('branch_manager', '/api/reports/' + route + '?branch_id=' + branchB)).status, 403);
+    }
     const own = await api('branch_manager', '/api/reports/occupancy');
     assert.equal(own.status, 200);
     assert.equal(own.json.query.branch_id, branchA, 'omitted filter is forced to own branch');
@@ -426,7 +434,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
     assert.equal(chainRead.json.query.branch_id, branchB);
     const chainAll = await api('auditor', '/api/reports/occupancy');
     assert.equal(chainAll.json.query.branch_id, undefined, 'chain readers are not narrowed');
-    for (const pathname of ['/api/reports/guest-history', '/api/reports/service-usage', '/api/reports/service-usage/top', '/api/reports/occupancy/export', '/api/reports/guest-history/export']) {
+    for (const pathname of ['/api/reports/guest-history', '/api/reports/service-usage', '/api/reports/service-usage/top', '/api/reports/guest-history/export']) {
       assert.equal((await api('branch_manager', pathname)).status, 403, `BM ${pathname}`);
       assert.equal((await api('chain_manager', pathname)).status, 200, `CM ${pathname}`);
       assert.equal((await api('auditor', pathname)).status, 200, `AUDITOR ${pathname}`);

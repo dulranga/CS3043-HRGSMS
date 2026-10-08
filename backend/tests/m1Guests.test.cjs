@@ -35,7 +35,7 @@ test('M1-S05 guest and guest_account in a clean isolated schema', async () => {
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     for (const migration of migrations) {
       await client.query(migration);
     }

@@ -15,7 +15,7 @@ import {
   fetchInvoiceDetail,
 } from "@/lib/invoiceViewModel";
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "/api";
 
 /**
  * M4-S13: Invoice detail page.
@@ -23,7 +23,7 @@ const API_BASE = "http://localhost:4000/api";
  * Staff look up a booking by UUID and view the DRAFT or FINAL invoice,
  * with per-room line breakdown, booking-wide charges and consolidated totals.
  * Role-scope enforcement is performed by the backend (M4-S06); this page
- * forwards the staff identity headers so the API can apply branch guards.
+ * sends the same-origin session cookie so the API can apply branch guards.
  */
 export default function InvoiceDetailPage() {
   const [bookingId, setBookingId] = useState<string>("");
@@ -43,15 +43,7 @@ export default function InvoiceDetailPage() {
     setError(null);
     setInvoice(null);
 
-    /**
-     * In the real integration, the staff identity is provided via
-     * authentication middleware (e.g. JWT) and forwarded automatically.
-     * For the current demo setup, headers can be added here when a session
-     * context is available. See M1-S08 for the auth implementation.
-     *
-     * For role-scope testing, pass x-user-id / x-role / x-branch-id headers
-     * as the backend verifyBookingAccess enforces branch tenancy (M4-S06).
-     */
+    // The verified HTTP-only session supplies identity and branch scope.
     const result = await fetchInvoiceDetail({ bookingId: trimmed, apiBase: API_BASE });
 
     setLoading(false);

@@ -1,8 +1,15 @@
 # SkyNest shared member work log
 
-Record actual project-task work here for all five members, including partial or blocked outcomes. Under the relevant member section, include the date and task ID, changes made, tests/build commands and results, decisions/handoffs, and remaining work. Do not claim a checklist item complete without acceptance evidence. Do not record secrets or real guest data. Keep durable project decisions in `memory.md` as well.
+Record actual project-task work here for all five members, including partial or blocked outcomes. Under the relevant member section, include the date and task ID, changes made, tests/build commands and results, decisions/handoffs, and remaining work. Do not claim a checklist item complete without acceptance evidence. Do not record secrets or real guest data. Keep durable confirmations in the current SRS/handoffs and this log; `memory.md` was removed and its archived snapshot is historical context only.
 
 ## Member 1 — Dulranga
+
+### 8 October 2026 — verified session and administration integration audit
+
+- Mounted existing APIs with verified staff/guest cookies and session-derived actor/branch context in the production application factory. Removed null frontend identity adapters and development role selectors; relative API requests carry the cookie. Staff pages give sign-in guidance; guest account invoice/payment reads remain separate.
+- Member 5 branch/account compatibility actions now call Member 1's audited transactions, synchronize officer/account flags, reject self-disable and exclude guest/non-login accounts. Registered unset operational settings are visible for first initialization; actor and immediate activation are server-controlled, with financial/unknown keys rejected.
+- Verification: full suite 437/437 passed; real production cookie/role/branch/admin integration and configuration initialization follow-up passed; both builds passed. Retained the earlier delayed-connection registration fix and verified the previously requested active Colombo administrator. The current development server uses a process-local session secret; durable deployment configuration remains required.
+- No additional owner checklist rows were checked. Details and proposed human Git handoff: [QA audit](docs/qa/2026-10-08-bug-fix-audit.md).
 
 ### 25 September 2026 — M1-S03 / M1-S04 (branch, role, user_account, officer)
 
@@ -307,7 +314,23 @@ Record actual project-task work here for all five members, including partial or 
   3. Member 2 owns the dedicated My Bookings screen (M2-S21); this summary deliberately stays read-only and embedded in `/account`.
 - Lecture concepts applied: none beyond the prior entry — this task is an application/frontend integration over already-validated tables and a read replica of existing reads; no new schema, query, index or transaction design was introduced.
 
+### 8 October 2026 — M1-S10 / M1-S15 registration connection failure follow-up
+
+- Investigated the reported generic registration failure. The running API's empty-input validation returned HTTP 400; registration's existing integration tests passed 3/3. Read-only schema inspection confirmed the current guest/account/audit columns. Successful new registration and invalid-link rejection were reproduced against the application schema with synthetic inputs inside transactions whose COMMIT was replaced with ROLLBACK; no accounts, profiles or audit evidence from these checks persisted.
+- Confirmed repeated startup connection timeouts with `backend/src/db.ts`'s two-second PostgreSQL connection limit. Increased it to 15 seconds to allow hosted-database connection negotiation after idle periods. This addresses the observed connection failure; the screenshot alone cannot establish which internal error produced that particular response. Registration validation, identity ownership and transaction rules are unchanged.
+- Added `backend/tests/dbConnection.test.ts` and `test:db-connection`: a local TCP proxy delays a real PostgreSQL connection by 2.5 seconds while retaining the original TLS hostname/verification. The former two-second pool rejects the read-only query; the current application pool succeeds. Documented the connection window and verification command in README.
+- Verification: `npm run test:db-connection --workspace backend` 1/1; `npm run test:m1-guest-registration --workspace backend` 3/3; `npm run build:backend` and `npm run build:frontend` pass (frontend retains its existing bundle-size warning). The updated production pool's registration handler returned HTTP 201 in the rollback-only check. The development backend reloaded, connected successfully, and returned HTTP 200; the Vite registration proxy returned the expected HTTP 400 validation envelope. `git diff --check` passes.
+- Remaining: the user's own successful form submission has not been observed; they can retry without recreating their details. The application migration history lacks `m1_007`; that session-config migration was not needed for these registration checks and was not applied. No SRS/enum/schema contract changed, and existing task checkboxes remain unchanged.
+- Lecture concepts used: parameterized queries, transaction atomicity and rollback to keep diagnostic writes from persisting. No automatic write retry was introduced, preserving the existing registration/audit transaction boundary.
+
 ## Member 2 — Imandi
+
+### 8 October 2026 — verified reservation integration and complete migration testing
+
+- Room administration and staff/guest reservation create/read/change pages now consume verified AuthProvider sessions. Mounted existing factories with approved Front Desk, own-branch room and guest-ownership middleware; availability remains public. Role-filtered navigation exposes applicable reservation tools.
+- Removed deleted-migration references and public-schema fallback from isolated fixtures; retained normalized header/line/assignment and transaction/concurrency contracts. Applied pending operational migrations to the development database after clean-chain verification.
+- Verification: all current suites passed within 437/437 tests; complete 37-file production migration chain and idempotent rerun passed; both builds passed. Live Colombo browser availability returned a valid empty result because no active room types/physical rooms are configured. No fictional inventory or prices were created.
+- Full owner acceptance and the approved Branch Manager adjustment flow remain handoffs; no additional checklist rows were checked. Lecture concepts: normalized relationships, derived state, parameterized queries and isolated transactions. Details: [QA audit](docs/qa/2026-10-08-bug-fix-audit.md).
 
 ### 8 October 2026 — Imandi/dev rename-delete conflict correction
 
@@ -522,6 +545,13 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 3 — Kulunu
 
+### 8 October 2026 — production mounting and migration-suite repairs
+
+- Mounted existing check-in, active-stay, service catalogue and room-condition APIs with verified role/branch context. Catalogue/usage UI now uses the authenticated role and same-origin cookie. Unexpected catalogue errors return a generic message.
+- Removed stale migration exclusions and expected failures from baseline/check-in/lifecycle fixtures. Complete ordered migrations run in isolated schemas; no published mock migration keys or operational contracts were replaced.
+- Verification: current operational/negative/concurrency suites passed within 437/437 tests; production mounting/authorization checks and both builds passed. Earlier blockers are superseded only where the audit provides evidence; full owner acceptance remains unchanged.
+- Lecture concepts: transactional line/occupancy/history consistency and schema isolation. Details and proposed human Git handoff: [QA audit](docs/qa/2026-10-08-bug-fix-audit.md).
+
 ### 5 October 2026 — M3-S18 physical room-condition change operation (row checked)
 
 - Added `backend/src/services/roomConditionService.ts`, `backend/src/controllers/roomConditionController.ts` (`patchRoomCondition`) and `backend/src/routes/roomConditionRoutes.ts` (`createRoomConditionRouter`, `PATCH /rooms/:roomId/condition`), plus `backend/tests/m3RoomCondition.test.cjs` (5 scenarios), `backend/tests/m3RoomConditionApi.test.cjs` (2 scenarios) and the `test:m3-room-condition` / `test:m3-room-condition-api` scripts. No migration was added, Member 2's `roomInventoryRoutes.ts` was not touched (its comment already reserves this route for Member 3), Member 4's `fn_checkout_room_line` was not modified, and nothing new is mounted in `backend/src/index.ts`.
@@ -705,6 +735,13 @@ Record actual project-task work here for all five members, including partial or 
 - Lecture concepts applied: least-privilege role/branch authorization, parameterized SQL joins, normalized optional room-line attribution, and transaction atomicity across usage and draft-bill refresh.
 
 ## Member 4 — Chamikara
+
+### 8 October 2026 — billing client and isolated-suite fixes
+
+- Billing, payment, checkout, cancellation and no-show clients use relative same-origin API URLs. Removed obsolete demo identity-header guidance; verified cookies supply production identity. Unexpected invoice failures no longer return database details.
+- Repaired dependency ordering/deleted migration references, cancellation router database injection and environment precedence so explicit test URLs are honored. Removed public fallback; retained existing payment/refund, immutable invoice, cancellation and checkout contracts.
+- Verification: current transaction/API/UI tests passed within 437/437 tests; both builds passed. Independent two-room report reconciliation proves invoice/payment/refund/FINAL revenue facts count once. Guest invoice/payment reads remain available through the account summary.
+- Authenticated guest cancellation UI and full owner acceptance remain handoffs. Lecture concepts: independent financial aggregates, transaction/lock consistency and schema isolation. Details: [QA audit](docs/qa/2026-10-08-bug-fix-audit.md).
 
 ### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
 - Created PostgreSQL migrations for `invoice` and `invoice_line` tables in `backend/migrations/m4_001_invoice_and_lines.sql`.
@@ -1351,4 +1388,10 @@ Related: M4-S11
 
 ## Member 5 — Thusath
 
-No entries yet.
+### 8 October 2026 — administration/reporting bug-fix audit
+
+- Repaired distinct current occupancy, normalized booking-branch lookup, signed FINAL billed revenue in Asia/Colombo issue months, independent guest payment aggregation and branch-filtered non-void service totals. Shared parameterized queries drive screens/CSV with matching filters, stable order and pagination. Invalid dates/status/IDs/ranges are rejected; export aliases preserve approved role/branch scope. CSV escapes formula text while retaining signed numeric cells.
+- Archived competing audit/config DDL, replaced obsolete booking-header indexes, removed generic financial seeds and added compatible forward repair `m5_004`. Existing view column order/types are preserved. Administration delegates to audited owner operations; configuration initializes registered operational keys. Modified UI uses shadcn primitives/design tokens. Replaced fabricated dashboard room/guest rows with authorized tool links.
+- Replaced public-schema M5 tests with isolated full-chain fixtures and actual-cookie production app checks. Verification: full 437/437 tests passed, both builds passed, all 37 migrations apply/rerun cleanly. Two-room/partial-state/price-change/void/payment/refund/DRAFT/FINAL reconciliation and final configuration initialization check passed. Development migrations applied; report views readable.
+- Historical room-night occupancy (FR-066/067), detailed historical service attribution (FR-069), full AT-22 boundary fixture, report execution auditing, staff create/role UI and typed policy publication remain owner work. No additional checklist rows were checked solely from this audit.
+- Lecture concepts: aggregate independent facts before joining, normalized/historical relationships, parameterized filters, schema-matching indexes and audited transactions. Details, browser evidence and proposed human Git handoff: [QA audit](docs/qa/2026-10-08-bug-fix-audit.md).

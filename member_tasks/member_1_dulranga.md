@@ -42,6 +42,8 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md) for 
 
 ## Completion notes
 
+- **M1-S10 / M1-S15 follow-up (8 October 2026):** Increased the shared database pool's connection window from two to 15 seconds after observing repeated connection timeouts while investigating a registration failure. The delayed-connection regression passes 1/1, registration tests pass 3/3, both builds pass, and synthetic registration succeeds against the current application schema with all writes rolled back. The running backend reloaded successfully. The user's own submission still needs a retry; no registration/schema contract or task checkbox changed. Details in `member_work_log.md`.
+
 When checking a row, add a brief evidence note here and the detailed entry under Member 1 in `member_work_log.md`. M1-S02 through M1-S20 are implemented and verified; only M1-S01 (owner approval of the §6.1.4 contract) remains open.
 
 - **M1-S02 (20 September 2026):** Added `backend/src/migrations/{migrate,cli}.ts` and `backend/tests/migrationRunner.test.ts`; the ordered runner parses `<memberid>_<version>_<name>.sql`, applies each in a transaction under an advisory lock, records `schema_migrations`, and supports `PG_SCHEMA`. `npm run test:migrations` reports 3 pass / 0 fail (apply + smoke assertion, idempotent re-run, failing-migration rollback) on a clean temporary schema. Also added the missing `@types/pg` devDependency because the backend build was already broken. Migrations were later reorganized to `m1_*`/`m2_*` filenames under `backend/migrations/`. Details in `member_work_log.md`.
