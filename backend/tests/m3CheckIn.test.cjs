@@ -87,7 +87,7 @@ async function seed(client) {
 
 async function inSchema(client, schema, work) {
   await client.query('BEGIN');
-  await client.query(`SET LOCAL search_path TO "${schema}", public`);
+  await client.query(`SET LOCAL search_path TO "${schema}"`);
   try {
     const result = await work();
     await client.query('COMMIT');

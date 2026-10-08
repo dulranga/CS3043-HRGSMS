@@ -189,7 +189,7 @@ test('M2-S28 enforces capacity and room-type edit guards while preserving histor
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(client);
     const fixture = await createFixture(client, randomBytes(3).toString('hex'));
 
@@ -384,7 +384,7 @@ test('M2-S28 serializes booking, capacity and room-type edit races', async () =>
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(admin);
     const fixture = await createFixture(admin, randomBytes(3).toString('hex'));
     await admin.query('COMMIT');
@@ -394,8 +394,8 @@ test('M2-S28 serializes booking, capacity and room-type edit races', async () =>
 
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
     const secondPid = (await second.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
 
     const firstBooking = await createBooking(
@@ -427,8 +427,8 @@ test('M2-S28 serializes booking, capacity and room-type edit races', async () =>
 
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
 
     const secondBooking = await createBooking(
       first,
@@ -459,8 +459,8 @@ test('M2-S28 serializes booking, capacity and room-type edit races', async () =>
 
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
     const firstPid = (await first.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
 
     await second.query(

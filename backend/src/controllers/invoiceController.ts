@@ -62,7 +62,7 @@ export function createInvoiceControllers(db: DbClient = pool) {
       res.status(500).json({
         error: {
           code: 'INTERNAL_SERVER_ERROR',
-          message: err.message,
+          message: 'Unable to load invoice details.',
         },
       });
     }
@@ -90,7 +90,7 @@ export function createInvoiceControllers(db: DbClient = pool) {
       res.status(500).json({
         error: {
           code: 'INTERNAL_SERVER_ERROR',
-          message: err.message,
+          message: 'Unable to load payment history.',
         },
       });
     }
@@ -135,7 +135,7 @@ export function createInvoiceControllers(db: DbClient = pool) {
       res.status(500).json({
         error: {
           code: 'INTERNAL_SERVER_ERROR',
-          message: err.message,
+          message: 'Unable to load booking balance.',
         },
       });
     }

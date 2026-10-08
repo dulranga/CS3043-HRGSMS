@@ -106,7 +106,8 @@ export async function migrate(options: MigrateOptions): Promise<MigrateResult> {
 
     if (options.schema) {
       await client.query(`CREATE SCHEMA IF NOT EXISTS "${options.schema}"`);
-      await client.query(`SET search_path TO "${options.schema}", public`);
+      // Never fall back to application tables during isolated migrations.
+      await client.query(`SET search_path TO "${options.schema}"`);
     }
 
     await client.query(`

@@ -6,10 +6,6 @@ const test = require('node:test');
 const { Client } = require('pg');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const auditMigration = readFileSync(
-  path.join(__dirname, '..', 'migrations', '0000_create_audit_and_config.sql'),
-  'utf8',
-);
 const branchRoleMigration = readFileSync(
   path.join(__dirname, '..', 'migrations', 'm1_001_create_branch_and_role.sql'),
   'utf8',
@@ -68,10 +64,9 @@ test('M4-S04 deterministic billing calculations, policy rules, and rounding reco
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
 
     // Apply migrations
-    await client.query(auditMigration);
     await client.query(branchRoleMigration);
     await client.query(accountOfficerMigration);
     await client.query(guestMigration);

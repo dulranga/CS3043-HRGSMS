@@ -34,7 +34,7 @@ test('M2-S03 creates the direct multi-room booking schema', async () => {
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await client.query(`
       CREATE TABLE user_account (
         user_id uuid PRIMARY KEY DEFAULT uuidv7(),

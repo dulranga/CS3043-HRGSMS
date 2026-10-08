@@ -39,7 +39,7 @@ test('M2-S09 derives available rooms from dates, capacity, condition, blocks and
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     for (const migration of migrations) await admin.query(migration);
 
     const branches = await admin.query(

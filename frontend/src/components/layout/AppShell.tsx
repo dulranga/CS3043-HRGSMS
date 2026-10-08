@@ -2,6 +2,11 @@ import { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, LayoutDashboard, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
+import { canViewStaffPage } from "@/lib/staffNavigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
   Sidebar,
@@ -28,6 +33,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Front Desk",
     items: [
       { to: "/rooms", label: "Rooms", icon: BedDouble },
+      { to: "/bookings", label: "Reservations", icon: ClipboardList },
+      { to: "/bookings/new", label: "New Reservation", icon: CalendarCheck },
       { to: "/check-in", label: "Guest Check-In", icon: CalendarCheck },
       { to: "/stays", label: "Active Stays", icon: DoorOpen },
     ],
@@ -53,10 +60,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 ];
 
 function StaffNavigation() {
+  const { role } = useFeatureSessions();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const groups = NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(item => canViewStaffPage(role, item.to)) })).filter(group => group.items.length > 0);
   return (
     <nav aria-label="Staff navigation" className="space-y-4">
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <SidebarGroup key={group.label}>
           <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
           <SidebarMenu>
@@ -86,6 +95,8 @@ interface AppShellProps {
 }
 
 export function AppShell({ sidebar, children }: AppShellProps) {
+  const { status, user } = useAuth();
+  const pathname = useRouterState({ select: state => state.location.pathname });
   return (
     <SidebarProvider>
       <div className="min-h-[100dvh] flex bg-background text-foreground font-sans antialiased">
@@ -112,7 +123,7 @@ export function AppShell({ sidebar, children }: AppShellProps) {
             <div className="text-xs text-muted-foreground">Dashboard / Overview</div>
           </header>
           <div className="overflow-y-auto h-[calc(100dvh-3.5rem)]">
-            {children}
+            {status === 'loading' ? <p role="status" className="p-6 text-muted-foreground">Checking your session…</p> : user?.kind === 'STAFF' ? children : <div className="p-6"><Alert><AlertTitle>Staff sign-in required</AlertTitle><AlertDescription>Sign in with your staff account to use these tools.</AlertDescription><Button variant="outline" asChild className="mt-4"><a href={`/login?redirect=${encodeURIComponent(pathname)}`}>Sign in</a></Button></Alert></div>}
           </div>
         </main>
       </div>

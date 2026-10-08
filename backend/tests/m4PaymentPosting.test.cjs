@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 
 function loadDatabaseUrl() {
+  if (process.env.PG_TEST_URL || process.env.PG_URL) return process.env.PG_TEST_URL || process.env.PG_URL;
   const envPath = path.resolve(__dirname, '../.env');
   if (fs.existsSync(envPath)) {
     const lines = fs.readFileSync(envPath, 'utf8').split('\n');
@@ -33,7 +34,6 @@ test('M4-S07: Locked payment and refund posting with balance reconciliation', as
 
     // Apply migrations in order
     const migrationFiles = [
-      '0000_create_audit_and_config.sql',
       'm1_001_create_branch_and_role.sql',
       'm1_002_create_user_account_and_officer.sql',
       'm1_003_create_guest_and_guest_account.sql',

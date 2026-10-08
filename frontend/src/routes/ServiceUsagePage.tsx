@@ -1,3 +1,4 @@
+import { useFeatureSessions } from '@/components/auth/useFeatureSessions';
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -19,7 +20,6 @@ import {
   UsageDraft,
   UsageFailure,
   UsageLineOption,
-  UsageRole,
   VoidDraft,
   applyRecordedUsage,
   applyVoidedUsage,
@@ -43,22 +43,12 @@ import {
   voidRequestPath,
 } from "@/lib/serviceUsageViewModel";
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "/api";
 const ACTIVE_STAY_PATH = (bookingRef: string) => `/stays/${encodeURIComponent(bookingRef.trim())}`;
 
-/**
- * M1-S08/M1-S09 session middleware is not mounted, so no authenticated
- * "who am I" endpoint exists and the screen must not guess one. Until Member 1
- * ships it, the actor resolves as unknown and usage stays read-only; a
- * development-only preview exercises the recording roles locally and compiles
- * out of production builds.
- */
-function resolveSessionRole(): UsageRole | null {
-  return null;
-}
 
 export default function ServiceUsagePage() {
-  const [role, setRole] = useState<UsageRole | null>(resolveSessionRole());
+  const role = useFeatureSessions().role;
   const [bookingRef, setBookingRef] = useState<string>('');
   const [loadedRef, setLoadedRef] = useState<string>('');
   const [records, setRecords] = useState<ServiceUsageRecord[]>([]);
@@ -336,45 +326,6 @@ export default function ServiceUsagePage() {
                 at the moment it was recorded, and booking-wide charges stay unallocated.
               </p>
             </header>
-
-            {import.meta.env.DEV ? (
-              <Card className="border-dashed shadow-none">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-sm tracking-tight">
-                    Development preview — recording-role states
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant={role === null ? 'default' : 'outline'}
-                      aria-pressed={role === null}
-                      onClick={() => setRole(null)}
-                    >
-                      Unknown actor (read-only)
-                    </Button>
-                    {(['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'] as UsageRole[]).map(
-                      (seeded) => (
-                        <Button
-                          key={seeded}
-                          size="sm"
-                          variant={role === seeded ? 'default' : 'outline'}
-                          aria-pressed={role === seeded}
-                          onClick={() => setRole(seeded)}
-                        >
-                          {seeded}
-                        </Button>
-                      ),
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground tracking-tight">
-                    Removed from production builds. Replace with the M1-S08/M1-S09 session role once
-                    authentication middleware is mounted.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : null}
 
             <Card className="shadow-md">
               <CardHeader className="p-4 md:p-5">

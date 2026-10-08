@@ -25,7 +25,7 @@ async function withScratchSchema(testFn) {
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await client.query(roleSql);
     await client.query(userSql);
     await client.query(serviceSql);

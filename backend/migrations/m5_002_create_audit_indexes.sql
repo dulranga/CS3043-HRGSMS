@@ -14,8 +14,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_entity_id_changed
   ON audit_log (entity_name, entity_id, changed_at DESC);
 
 -- Supporting report performance indexes
-CREATE INDEX IF NOT EXISTS idx_booking_branch_dates_status 
-  ON booking (branch_id, check_in_date, status);
+CREATE INDEX IF NOT EXISTS idx_room_report_branch
+  ON room (branch_id, room_id);
+
+CREATE INDEX IF NOT EXISTS idx_booking_line_report_dates_status
+  ON booking_room_line (stay_start_date, status, booking_id);
 
 CREATE INDEX IF NOT EXISTS idx_service_usage_used_booking 
   ON service_usage (used_at, booking_id);

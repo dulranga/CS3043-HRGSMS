@@ -42,7 +42,7 @@ test('M2-S04 creates target physical rooms without a booking pointer', async () 
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await client.query(`
       CREATE TABLE branch (
         branch_id uuid PRIMARY KEY DEFAULT uuidv7(),

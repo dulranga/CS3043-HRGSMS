@@ -74,7 +74,7 @@ test('M2-S07 catalogue API supports validated reads/writes and reservation confl
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     for (const migration of migrations) {
       await admin.query(migration);
     }
@@ -199,7 +199,7 @@ test('M2-S07 catalogue API supports validated reads/writes and reservation confl
     assert.equal(updatedAmenity.json.data.description, 'Panoramic sea-facing room');
 
     await admin.query('BEGIN');
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     const branch = await admin.query('SELECT branch_id FROM branch ORDER BY name LIMIT 1');
     const actor = await admin.query(
       "SELECT user_id FROM user_account WHERE username = 'system'",
@@ -289,7 +289,7 @@ test('M2-S07 catalogue API supports validated reads/writes and reservation confl
     assert.equal(safeCapacity.json.data.capacity, 4);
 
     await admin.query('BEGIN');
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     await admin.query(
       `UPDATE booking_room_assignment
           SET unassigned_at = assigned_at + interval '1 second'

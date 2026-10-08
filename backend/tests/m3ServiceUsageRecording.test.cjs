@@ -21,7 +21,7 @@ async function withScratchSchema(run) {
 
   try {
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET search_path TO "${schema}", public`);
+    await client.query(`SET search_path TO "${schema}"`);
     await client.query(`
       CREATE TABLE booking (booking_id uuid PRIMARY KEY);
       CREATE TABLE service (

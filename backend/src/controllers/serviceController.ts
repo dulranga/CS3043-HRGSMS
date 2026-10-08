@@ -125,7 +125,7 @@ export const listServices = async (req: Request, res: Response): Promise<void> =
     const result = await db.query(sql, params);
     res.status(200).json(result.rows);
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Unable to load catalogue.' });
+    res.status(500).json({ error: 'Unable to load catalogue.' });
   }
 };
 

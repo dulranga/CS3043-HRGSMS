@@ -54,32 +54,23 @@ function isolateClient(client, schema) {
 async function applyChain(client, directory) {
   await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY)');
   const completed = new Set((await client.query('SELECT version FROM schema_migrations')).rows.map((row) => row.version));
-  const applied = [];
-  for (const migration of loadMigrations(directory)) {
-    if (completed.has(migration.key)) continue;
+  const pending = loadMigrations(directory).filter(migration => !completed.has(migration.key));
+  if (pending.length) {
     await client.query('BEGIN');
     try {
-      await client.query(migration.sql);
-      await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [migration.key]);
+      // Preserve ordered SQL while avoiding hundreds of hosted round trips.
+      await client.query(pending.map(migration => migration.sql).join('\n'));
+      await client.query('INSERT INTO schema_migrations (version) SELECT unnest($1::text[])', [pending.map(migration => migration.key)]);
       await client.query('COMMIT');
-      applied.push(migration.filename);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     }
   }
-  return { applied };
+  return { applied: pending.map(migration => migration.filename) };
 }
 
-// Two Member 5 reporting migrations cannot be applied to the current chain:
-// m5_002 indexes booking (branch_id, check_in_date, status), but Member 2's
-// normalized booking header carries neither column (M2-S03 keeps branch on the
-// room and the dates on the line), and m5_003's seed insert is refused by
-// Member 1's system_config guard because no active SYSTEM_ADMINISTRATOR officer
-// exists yet. Excluding them keeps this suite honest about the m1-m4 chain it
-// actually verifies; the last test in this file asserts the reason still holds
-// so the exclusion can never quietly outlive the defect.
-const chainExclusions = ['m5_002_create_audit_indexes.sql', 'm5_003_seed_config_values.sql'];
+// All numbered member migrations must apply to the normalized current chain.
 // The published m3_001/m3_002 mock tables are upgraded in place by these
 // three files, so the upgrade path is applied as a second step below.
 const m3Upgrades = ['m3_003_service_usage.sql', 'm3_004_service_catalogue.sql', 'm3_005_room_status_history.sql'];
@@ -90,7 +81,7 @@ async function withChain(run, { deferM3Upgrades = false } = {}) {
   // audit_and_config.sql is a pre-existing, unnumbered Member 5 SQL reference;
   // apply the numbered chain only, exactly as production does.
   const numbered = fs.readdirSync(sourceDir)
-    .filter((name) => /^(?:m\d+_)?\d+_.+\.sql$/.test(name) && !chainExclusions.includes(name))
+    .filter((name) => /^(?:m\d+_)?\d+_.+\.sql$/.test(name))
     .filter((name) => !deferM3Upgrades || !m3Upgrades.includes(name));
   const client = new Client({ connectionString });
   for (const name of numbered) fs.copyFileSync(path.join(sourceDir, name), path.join(directory, name));
@@ -644,30 +635,13 @@ test('M3-S17 the published m1-m3 mock chain upgrades in place without losing ids
   }, { deferM3Upgrades: true });
 });
 
-// This suite verifies the m1-m4 chain because the two Member 5 reporting
-// migrations below cannot apply to it. The assertions state the reason rather
-// than trusting a comment: when their owners fix them, this test fails and the
-// exclusion list is expected to be removed so a full clean apply is verified.
-test('M3-S17 documents the two Member 5 migrations that still block a full clean chain apply', async () => {
-  await withChain(async ({ client }) => {
-    const staleColumns = (await client.query(`SELECT column_name FROM information_schema.columns
-      WHERE table_schema = current_schema() AND table_name = 'booking'
-        AND column_name IN ('branch_id', 'check_in_date')`)).rows;
-    assert.deepEqual(staleColumns, [], 'Member 2 keeps branch on the room and the dates on the line');
-
-    await assert.rejects(
-      client.query('CREATE INDEX idx_booking_branch_dates_status ON booking (branch_id, check_in_date, status)'),
-      { code: '42703' },
-      'm5_002 still indexes columns the normalized booking header does not have',
-    );
-    await assert.rejects(
-      client.query(`INSERT INTO system_config (config_key, config_value, effective_from)
-        VALUES ('tax_rate', '0.08', CURRENT_DATE)`),
-      { code: '42501' },
-      'm5_003 still writes system_config with no active SYSTEM_ADMINISTRATOR officer in the chain',
-    );
-    const administrators = (await client.query(`SELECT count(*)::int AS count FROM officer officer
-      JOIN role role ON role.role_id = officer.role_id WHERE role.role_name = 'SYSTEM_ADMINISTRATOR'`)).rows[0].count;
-    assert.equal(administrators, 0);
+// A clean apply must include every member and keep financial settings out of config.
+test('the complete numbered chain applies without financial system_config seeds', async () => {
+  await withChain(async ({ client, numbered }) => {
+    const versions = (await client.query('SELECT version FROM schema_migrations')).rows;
+    assert.equal(versions.length, numbered.length);
+    assert.ok((await client.query("SELECT to_regclass('idx_room_report_branch') AS idx")).rows[0].idx);
+    const financial = await client.query("SELECT config_key FROM system_config WHERE config_key ~ '(tax|fee|rate|discount|amount)'");
+    assert.deepEqual(financial.rows, []);
   });
 });

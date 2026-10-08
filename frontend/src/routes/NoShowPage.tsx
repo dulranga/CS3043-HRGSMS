@@ -22,7 +22,7 @@ import {
   postMarkLineNoShow,
 } from '@/lib/noShowViewModel';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = '/api';
 
 /**
  * M4-S17: Staff per-line no-show UI.

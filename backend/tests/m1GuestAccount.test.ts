@@ -122,7 +122,7 @@ test('M1-S12 online guest own-profile with access control and duplicates', async
     const app = express();
     app.use(express.json());
     app.use('/api/auth', createAuthRouter(auth));
-    app.use('/api', createGuestRegistrationRouter(createGuestRegistrationFromEnv(appPool), {
+    app.use('/api', createGuestRegistrationRouter(createGuestRegistrationFromEnv(appPool, { SESSION_SECRET: SECRET }), {
       requireLinkIssuer: authorization.staff('guest.link.issue'),
     }));
     app.use('/api/guest/profile', createGuestAccountRouter(createGuestAccount({ db: appPool }), {

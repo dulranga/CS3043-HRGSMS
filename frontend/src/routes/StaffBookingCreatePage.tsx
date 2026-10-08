@@ -1,13 +1,10 @@
+import { useFeatureSessions } from '@/components/auth/useFeatureSessions';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { StaffBookingLayout } from '@/components/layout/StaffBookingLayout';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { StaffBookingScreen } from '@/components/bookings/StaffBookingPanel';
-import { StaffBookingSession } from '@/lib/staffBooking';
 
-// M1-S08/S09 must supply verified role/branch and its mutation/CSRF adapter.
-// Browser-selected identities and request actor headers are not authorization.
-function useVerifiedStaffBookingSession(): StaffBookingSession | null { return null; }
 export default function StaffBookingCreatePage() {
-  const session = useVerifiedStaffBookingSession();
+  const session = useFeatureSessions().staff;
   return <StaffBookingLayout><PageContainer><BoundedContainer><StaffBookingScreen session={session} /></BoundedContainer></PageContainer></StaffBookingLayout>;
 }

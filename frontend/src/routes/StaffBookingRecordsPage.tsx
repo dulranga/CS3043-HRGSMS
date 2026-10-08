@@ -1,14 +1,12 @@
+import { useFeatureSessions } from '@/components/auth/useFeatureSessions';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { StaffBookingLayout } from '@/components/layout/StaffBookingLayout';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { StaffBookingReadScreen } from '@/components/bookings/StaffBookingReadPanel';
-import { StaffBookingReadSession } from '@/lib/staffBookingRead';
 
-// Member 1 supplies real session role/branch context after M1-S08/S09.
-function useVerifiedStaffBookingReadSession(): StaffBookingReadSession | null { return null; }
 export default function StaffBookingRecordsPage() {
-  const session = useVerifiedStaffBookingReadSession();
+  const session = useFeatureSessions().staff;
   const params = useParams({ strict: false });
   const navigate = useNavigate();
   return <StaffBookingLayout><PageContainer><BoundedContainer><StaffBookingReadScreen session={session} bookingId={params.bookingId}
