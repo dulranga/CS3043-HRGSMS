@@ -76,7 +76,8 @@ export function conflictAdvice(error: RoomAdminError): string | null {
 }
 export type AdminFetch = typeof fetch;
 export class RoomAdminApi {
-  constructor(readonly session: RoomAdminSession | null, private readonly transport: AdminFetch = fetch, private readonly base = '/api') {}
+  // Native browser fetch cannot be invoked with the API instance as its receiver.
+  constructor(readonly session: RoomAdminSession | null, private readonly transport: AdminFetch = (...args) => fetch(...args), private readonly base = '/api') {}
   private async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     if (!this.session) throw new RoomAdminError('Sign in to manage room inventory.', 401, 'AUTHENTICATION_REQUIRED');
     let response: Response;

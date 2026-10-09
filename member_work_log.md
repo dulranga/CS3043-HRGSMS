@@ -325,6 +325,14 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 9 October 2026 — M2-S15 native browser transport correction
+
+- Manual catalogue testing as Chain Manager exposed a persistent connection banner despite authenticated direct `GET /api/room-types?active=all` returning `{"data":[]}`. `RoomAdminApi` stored native `fetch` directly and called it with the API instance as receiver, causing browser failure before a request was sent. Wrapped the default transport to preserve native fetch invocation, matching the existing availability and booking clients; injected transports, cookies, role checks and API payloads remain intact.
+- Added a regression for default catalogue reads and amenity saves with a receiver-sensitive fetch replacement. It failed before the fix with the same `NETWORK_ERROR`; all 13 room administration UI tests pass after the fix. `npm run build:frontend` passes. A temporary read-only browser probe reproduced `NETWORK_ERROR` on both native reads before the fix and received server `401 AUTHENTICATION_REQUIRED` afterwards in a separate unauthenticated browser, confirming dispatch and server authentication. Probe files were removed. No database writes or Git publication actions were performed.
+- Authenticated create/edit and broader AT-23/AT-24/AT-27 acceptance remain the ongoing manual checks; M2-S15 stays unchecked. No SQL/lecture concepts or contract changes apply to this frontend correction.
+- Proposed human commit: `fix(rooms): preserve native fetch receiver in room administration`.
+- Proposed PR title: `Fix room administration requests in the browser`. Description: `Room administration failed before sending native browser requests, leaving a connection banner despite a working API. Wrap the default fetch transport and add a receiver-sensitive regression for catalogue reads and amenity saves. Verified with 13 passing UI tests, the frontend build, and before/after read-only browser dispatch checks; authenticated manual acceptance continues.`
+
 ### 8 October 2026 — verified reservation integration and complete migration testing
 
 - Room administration and staff/guest reservation create/read/change pages now consume verified AuthProvider sessions. Mounted existing factories with approved Front Desk, own-branch room and guest-ownership middleware; availability remains public. Role-filtered navigation exposes applicable reservation tools.
