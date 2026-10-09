@@ -56,6 +56,8 @@ M2-S01 working handoff: [reservation contract](m2_s01_reservation_contract.md). 
 
 ## Completion notes
 
+M2-S15 correction (9 October 2026): Fixed native browser fetch invocation in `RoomAdminApi` after manual testing showed a connection banner while the authenticated API returned a valid empty catalogue. Default-transport regression fails before the fix and passes afterwards; 13/13 room administration UI tests and the frontend build pass. Read-only browser checks confirm requests now reach server authentication. Authenticated manual CRUD and full AT-23/AT-24/AT-27 acceptance remain in progress; the checkbox remains unchecked. Details and proposed human Git handoff are in `member_work_log.md`.
+
 The pre-deployment baseline was reset on 29 September 2026 at Imandi's direction. Because no Member 2 migration had been applied to the application database, the temporary single-room implementation and all correction migrations were removed. The active Member 2 chain now runs directly through M2-S28; later tasks remain unchecked.
 
 M2-S01 (18 September 2026): Imandi delegated the shared choices and reported agreement from Members 1, 3 and 4. [The reservation contract](m2_s01_reservation_contract.md), their task handoffs, SRS §6.1.4/§6.1.8/Appendix C, summary table and memory now state the selected labels/transitions, rate, UUIDv7, timestamp, actor, route and transaction ownership. Remaining owner-specific/evaluator decisions are identified rather than inferred from the ER.
