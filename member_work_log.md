@@ -4,6 +4,14 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 10 October 2026 — M1-S14 sidebar assigned-branch display
+
+- At Imandi's request during manual Member 2 testing, extended the existing sidebar `SessionPanel` to show the assigned branch name beside the staff role. Resolves only the verified session's `branchId` through existing protected `GET /api/branches/:branchId` with same-origin credentials and checks the returned ID before displaying its name. Long names wrap and the full role/branch label remains available through the title attribute. Loading, absent assignment and failed metadata reads have explicit labels; guest identity has no staff-branch lookup.
+- Keyed branch state by user/branch and aborts superseded requests so account changes do not display the previous identity's branch. Existing shadcn/sidebar/sign-out controls, authorization, session payload and schema contracts remain unchanged. No database or SQL work; no lecture concepts applied.
+- Verification: `node --import tsx --test frontend/tests/featureSessions.test.ts frontend/tests/staffNavigation.test.ts` passed 3/3; `npm run build:frontend` passed outside the filesystem sandbox after Vite's sandboxed realpath was denied. Temporary in-memory browser checks confirmed `Chain manager · Colombo`, another account with a long Kandy name wrapping within the footer, loading/failure/no-assignment labels and correct identity after a delayed request/account switch. Preview files removed; screenshot evidence under ignored `.scratch/sidebar-branch-preview-2026-10-10.jpg`. Real signed-in display can be checked by refreshing the user's current application. No Git publication actions or additional checklist completion claims.
+- Proposed commit: `feat(auth): show assigned branch beside sidebar role`.
+- Proposed PR title: `Show the assigned staff branch in the sidebar`. Description: `Display the branch name next to the authenticated staff role using the existing protected branch metadata endpoint. Preserve identity isolation during account changes, wrap long labels, and handle missing/unavailable metadata. Verified with 3 session/navigation regressions, the frontend production build and in-memory browser checks.`
+
 ### 8 October 2026 — verified session and administration integration audit
 
 - Mounted existing APIs with verified staff/guest cookies and session-derived actor/branch context in the production application factory. Removed null frontend identity adapters and development role selectors; relative API requests carry the cookie. Staff pages give sign-in guidance; guest account invoice/payment reads remain separate.
