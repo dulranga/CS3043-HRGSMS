@@ -4,6 +4,12 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface Branch {
   branch_id: string;
@@ -21,7 +27,14 @@ interface UserAccount {
   last_login_at: string | null;
 }
 
+async function mutationError(response: Response, fallback: string): Promise<string> {
+  const payload = await response.json().catch(() => null);
+  return typeof payload?.error === 'string' ? payload.error : payload?.error?.message ?? fallback;
+}
+
 export default function AdminOperationsPage() {
+  const { user: sessionUser } = useAuth();
+  const canWrite = sessionUser?.kind === 'STAFF' && sessionUser.role === 'SYSTEM_ADMINISTRATOR';
   const [activeTab, setActiveTab] = useState<"branches" | "users">("branches");
 
   // Branches state
@@ -43,7 +56,7 @@ export default function AdminOperationsPage() {
   const loadBranches = async () => {
     try {
       setBranchLoading(true);
-      const res = await fetch("http://localhost:4000/api/admin/branches");
+      const res = await fetch("/api/admin/branches");
       if (!res.ok) throw new Error("Failed to load branches");
       const data = await res.json();
       setBranches(data);
@@ -58,7 +71,7 @@ export default function AdminOperationsPage() {
   const loadUsers = async () => {
     try {
       setUserLoading(true);
-      const url = new URL("http://localhost:4000/api/admin/users");
+      const url = new URL("/api/admin/users", window.location.origin);
       if (userSearch) url.searchParams.append("search", userSearch);
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Failed to load users");
@@ -82,13 +95,14 @@ export default function AdminOperationsPage() {
   // Branch Handlers
   const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) return;
     if (!newBranchName || !newBranchCity) {
       setStatusMessage({ type: "error", text: "Branch name and city are required." });
       return;
     }
 
     try {
-      const res = await fetch("http://localhost:4000/api/admin/branches", {
+      const res = await fetch("/api/admin/branches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -99,56 +113,58 @@ export default function AdminOperationsPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create branch");
+      if (!res.ok) throw new Error(await mutationError(res, "Failed to create branch."));
 
       setStatusMessage({ type: "success", text: `Branch "${newBranchName}" created successfully.` });
       setNewBranchName("");
       setNewBranchCity("");
       setNewBranchAddress("");
       loadBranches();
-    } catch {
-      setStatusMessage({ type: "error", text: "Failed to create branch." });
+    } catch (error) {
+      setStatusMessage({ type: "error", text: error instanceof Error ? error.message : "Failed to create branch." });
     }
   };
 
   const toggleBranchStatus = async (branch: Branch) => {
+    if (!canWrite) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/admin/branches/${branch.branch_id}`, {
+      const res = await fetch(`/api/admin/branches/${branch.branch_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !branch.active }),
       });
 
-      if (!res.ok) throw new Error("Failed to update status");
+      if (!res.ok) throw new Error(await mutationError(res, "Failed to update branch status."));
 
       setStatusMessage({
         type: "success",
         text: `Branch "${branch.name}" marked as ${!branch.active ? "Active" : "Inactive"}.`,
       });
       loadBranches();
-    } catch {
-      setStatusMessage({ type: "error", text: "Failed to update branch status." });
+    } catch (error) {
+      setStatusMessage({ type: "error", text: error instanceof Error ? error.message : "Failed to update branch status." });
     }
   };
 
   // User Handlers
   const toggleUserStatus = async (user: UserAccount) => {
+    if (!canWrite || user.user_id === sessionUser?.userId) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/admin/users/${user.user_id}/status`, {
+      const res = await fetch(`/api/admin/users/${user.user_id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !user.active }),
       });
 
-      if (!res.ok) throw new Error("Failed to update user status");
+      if (!res.ok) throw new Error(await mutationError(res, "Failed to update user status."));
 
       setStatusMessage({
         type: "success",
         text: `User "${user.username}" ${!user.active ? "activated" : "deactivated"}.`,
       });
       loadUsers();
-    } catch {
-      setStatusMessage({ type: "error", text: "Failed to update user status." });
+    } catch (error) {
+      setStatusMessage({ type: "error", text: error instanceof Error ? error.message : "Failed to update user status." });
     }
   };
 
@@ -167,7 +183,8 @@ export default function AdminOperationsPage() {
 
               {/* Tab Selector */}
               <div className="inline-flex rounded-lg border border-border p-1 bg-muted/40">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => {
                     setActiveTab("branches");
@@ -178,8 +195,9 @@ export default function AdminOperationsPage() {
                   }`}
                 >
                   Branches
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => {
                     setActiveTab("users");
@@ -190,113 +208,101 @@ export default function AdminOperationsPage() {
                   }`}
                 >
                   User Accounts
-                </button>
+                </Button>
               </div>
             </header>
 
             {statusMessage && (
-              <div
-                className={`p-3 rounded-lg text-sm transition-all ${
-                  statusMessage.type === "success"
-                    ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                    : "bg-destructive/10 text-destructive border border-destructive/20"
-                }`}
-              >
-                {statusMessage.text}
-              </div>
+              <Alert variant={statusMessage.type === "error" ? "destructive" : "default"}><AlertDescription>{statusMessage.text}</AlertDescription></Alert>
             )}
 
             {/* TAB 1: BRANCH MANAGEMENT */}
             {activeTab === "branches" && (
               <div className="space-y-6">
                 {/* Create Branch Card */}
-                <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6">
+                <Card className="p-4 md:p-6">
                   <h2 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground mb-4">
                     Add New Branch
                   </h2>
                   <form onSubmit={handleCreateBranch} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                     <div>
-                      <label className="text-xs font-medium block mb-1">Branch Name</label>
+                      <Label htmlFor="branch-name" className="text-xs font-medium block mb-1">Branch Name</Label>
                       <Input
                         placeholder="e.g. Colombo Central"
+                        id="branch-name"
                         value={newBranchName}
                         onChange={(e) => setNewBranchName(e.target.value)}
                         className="h-9"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-medium block mb-1">City</label>
+                      <Label htmlFor="branch-city" className="text-xs font-medium block mb-1">City</Label>
                       <Input
                         placeholder="e.g. Colombo"
+                        id="branch-city"
                         value={newBranchCity}
                         onChange={(e) => setNewBranchCity(e.target.value)}
                         className="h-9"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-medium block mb-1">Address (Optional)</label>
+                      <Label htmlFor="branch-address" className="text-xs font-medium block mb-1">Address (Optional)</Label>
                       <Input
                         placeholder="e.g. Galle Road, Colombo 03"
+                        id="branch-address"
                         value={newBranchAddress}
                         onChange={(e) => setNewBranchAddress(e.target.value)}
                         className="h-9"
                       />
                     </div>
-                    <Button type="submit" className="h-9">
+                    <Button type="submit" className="h-9" disabled={!canWrite}>
                       Create Branch
                     </Button>
                   </form>
-                </section>
+                </Card>
 
                 {/* Branches Table */}
-                <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
+                <Card className="p-4 md:p-6">
                   {branchLoading ? (
                     <p className="text-sm text-muted-foreground py-4">Loading branches...</p>
                   ) : branches.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-4 text-center">No branches configured.</p>
                   ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b-2 border-border text-muted-foreground text-left">
-                          <th className="py-3 px-3 font-semibold">Branch Name</th>
-                          <th className="py-3 px-3 font-semibold">City</th>
-                          <th className="py-3 px-3 font-semibold">Address</th>
-                          <th className="py-3 px-3 font-semibold">Status</th>
-                          <th className="py-3 px-3 font-semibold text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table className="w-full text-sm">
+                      <TableHeader>
+                        <TableRow className="border-b-2 border-border text-muted-foreground text-left">
+                          <TableHead className="py-3 px-3 font-semibold">Branch Name</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold">City</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold">Address</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold">Status</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {branches.map((b) => (
-                          <tr key={b.branch_id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
-                            <td className="py-3 px-3 font-semibold">{b.name}</td>
-                            <td className="py-3 px-3">{b.city}</td>
-                            <td className="py-3 px-3 text-muted-foreground text-xs">{b.address || "—"}</td>
-                            <td className="py-3 px-3">
-                              <span
-                                className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
-                                  b.active
-                                    ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                                    : "bg-muted text-muted-foreground border border-border"
-                                }`}
-                              >
-                                {b.active ? "Active" : "Disabled"}
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 text-right">
+                          <TableRow key={b.branch_id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
+                            <TableCell className="py-3 px-3 font-semibold">{b.name}</TableCell>
+                            <TableCell className="py-3 px-3">{b.city}</TableCell>
+                            <TableCell className="py-3 px-3 text-muted-foreground text-xs">{b.address || "—"}</TableCell>
+                            <TableCell className="py-3 px-3">
+                              <Badge variant={b.active ? "default" : "secondary"}>{b.active ? "Active" : "Disabled"}</Badge>
+                            </TableCell>
+                            <TableCell className="py-3 px-3 text-right">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => toggleBranchStatus(b)}
+                                disabled={!canWrite}
                               >
                                 {b.active ? "Deactivate" : "Activate"}
                               </Button>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   )}
-                </section>
+                </Card>
               </div>
             )}
 
@@ -315,56 +321,49 @@ export default function AdminOperationsPage() {
                   </Button>
                 </div>
 
-                <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
+                <Card className="p-4 md:p-6">
                   {userLoading ? (
                     <p className="text-sm text-muted-foreground py-4">Loading user accounts...</p>
                   ) : users.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-4 text-center">No accounts found.</p>
                   ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b-2 border-border text-muted-foreground text-left">
-                          <th className="py-3 px-3 font-semibold">Username</th>
-                          <th className="py-3 px-3 font-semibold">User ID</th>
-                          <th className="py-3 px-3 font-semibold">Last Login</th>
-                          <th className="py-3 px-3 font-semibold">Account State</th>
-                          <th className="py-3 px-3 font-semibold text-right">Access Control</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table className="w-full text-sm">
+                      <TableHeader>
+                        <TableRow className="border-b-2 border-border text-muted-foreground text-left">
+                          <TableHead className="py-3 px-3 font-semibold">Username</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold">User ID</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold">Last Login</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold">Account State</TableHead>
+                          <TableHead className="py-3 px-3 font-semibold text-right">Access Control</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {users.map((u) => (
-                          <tr key={u.user_id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
-                            <td className="py-3 px-3 font-semibold">{u.username}</td>
-                            <td className="py-3 px-3 font-mono text-xs text-muted-foreground">{u.user_id}</td>
-                            <td className="py-3 px-3 text-xs text-muted-foreground">
+                          <TableRow key={u.user_id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
+                            <TableCell className="py-3 px-3 font-semibold">{u.username}</TableCell>
+                            <TableCell className="py-3 px-3 font-mono text-xs text-muted-foreground">{u.user_id}</TableCell>
+                            <TableCell className="py-3 px-3 text-xs text-muted-foreground">
                               {u.last_login_at ? new Date(u.last_login_at).toLocaleString() : "Never"}
-                            </td>
-                            <td className="py-3 px-3">
-                              <span
-                                className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
-                                  u.active
-                                    ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                                    : "bg-rose-500/15 text-rose-600 border border-rose-500/30"
-                                }`}
-                              >
-                                {u.active ? "Enabled" : "Suspended"}
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 text-right">
+                            </TableCell>
+                            <TableCell className="py-3 px-3">
+                              <Badge variant={u.active ? "default" : "destructive"}>{u.active ? "Enabled" : "Suspended"}</Badge>
+                            </TableCell>
+                            <TableCell className="py-3 px-3 text-right">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => toggleUserStatus(u)}
+                                disabled={!canWrite || u.user_id === sessionUser?.userId}
                               >
                                 {u.active ? "Suspend" : "Enable"}
                               </Button>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   )}
-                </section>
+                </Card>
               </div>
             )}
           </div>

@@ -34,7 +34,7 @@ test('M3-S02 service catalogue migration and constraints in a clean isolated sch
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await client.query(migration);
 
     const columns = await client.query(

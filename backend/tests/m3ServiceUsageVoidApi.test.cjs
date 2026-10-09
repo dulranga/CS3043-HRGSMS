@@ -47,7 +47,7 @@ async function withScratchSchema(run) {
 
   try {
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET search_path TO "${schema}", public`);
+    await client.query(`SET search_path TO "${schema}"`);
     await client.query(`
       CREATE TABLE branch (branch_id uuid PRIMARY KEY, active boolean NOT NULL DEFAULT true);
       CREATE TABLE role (role_id uuid PRIMARY KEY, role_name text NOT NULL);

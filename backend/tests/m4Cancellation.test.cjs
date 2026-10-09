@@ -18,11 +18,10 @@ test('M4-S11: Per-line and whole-booking cancellation before linked-policy cutof
 
   try {
     await client.query(`CREATE SCHEMA ${scratchSchema}`);
-    await client.query(`SET search_path TO ${scratchSchema}, public`);
+    await client.query(`SET search_path TO ${scratchSchema}`);
 
     // Apply all 21 migrations in order
     const migrationFiles = [
-      '0000_create_audit_and_config.sql',
       'm1_001_create_branch_and_role.sql',
       'm1_002_create_user_account_and_officer.sql',
       'm1_003_create_guest_and_guest_account.sql',
@@ -209,7 +208,7 @@ test('M4-S11: Per-line and whole-booking cancellation before linked-policy cutof
     // Schema-scoped client wrapper for services
     const dbClientWrapper = {
       async query(sql, params) {
-        await client.query(`SET search_path TO ${scratchSchema}, public`);
+        await client.query(`SET search_path TO ${scratchSchema}`);
         return client.query(sql, params);
       },
     };
@@ -218,7 +217,7 @@ test('M4-S11: Per-line and whole-booking cancellation before linked-policy cutof
     const { createPaymentRouter } = await import('../src/routes/paymentRoutes');
 
     app.use('/api', createCancellationRouter(dbClientWrapper));
-    app.use('/api', createPaymentRouter(dbClientWrapper));
+    app.use('/api', createPaymentRouter(undefined, dbClientWrapper));
 
     await new Promise((resolve) => {
       server = app.listen(0, () => {

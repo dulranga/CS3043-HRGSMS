@@ -17,7 +17,6 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const migrationsDir = path.join(__dirname, '..', 'migrations');
 const migrations = [
-  '0000_create_audit_and_config.sql',
   'm1_001_create_branch_and_role.sql',
   'm1_002_create_user_account_and_officer.sql',
   'm1_003_create_guest_and_guest_account.sql',

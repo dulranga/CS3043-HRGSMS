@@ -1,32 +1,33 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "secondary" | "outline" | "destructive" | "outline-destructive";
+const badgeVariants = cva(
+  "inline-flex items-center gap-1 whitespace-nowrap rounded-full border-2 px-2.5 py-0.5 text-xs font-semibold transition-colors duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] focus:outline-none focus:ring-2 focus:ring-ring/60 [&_svg]:size-3",
+  {
+    variants: {
+      variant: {
+        default: "border-transparent bg-primary text-primary-foreground shadow-sm",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive/15 text-destructive",
+        outline: "border-border text-foreground",
+        muted: "border-border bg-muted text-muted-foreground",
+        "outline-destructive": "border-destructive bg-card text-destructive",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLSpanElement>,
+    VariantProps<typeof badgeVariants> {}
+
+function Badge({ className, variant, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
-const badgeVariants = {
-  default: "bg-primary text-primary-foreground border-transparent",
-  secondary: "bg-secondary text-secondary-foreground border-transparent",
-  outline: "border-2 border-border bg-card text-foreground",
-  destructive: "bg-destructive text-destructive-foreground border-transparent",
-  "outline-destructive": "border-2 border-destructive text-destructive bg-card",
-} as const;
-
-const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
-  ({ className, variant = "default", ...props }, ref) => (
-    <span
-      ref={ref}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border-2 px-2.5 py-0.5 text-xs font-medium tracking-tight transition-colors",
-        badgeVariants[variant],
-        className
-      )}
-      {...props}
-    />
-  )
-);
-Badge.displayName = "Badge";
-
-export { Badge };
+export { Badge, badgeVariants };

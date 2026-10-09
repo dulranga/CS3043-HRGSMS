@@ -51,38 +51,32 @@ function isolateClient(client, schema) {
   };
 }
 
-// m5_002 indexes booking (branch_id, check_in_date, status), which Member 2's
-// normalized booking header does not carry, and m5_003's seed insert is refused
-// by Member 1's system_config guard because the chain seeds no active
-// SYSTEM_ADMINISTRATOR. Both are Member 5's files and unrelated to this
-// operation; the same exclusions are documented for the M3-S17 suite.
-const chainExclusions = ['m5_002_create_audit_indexes.sql', 'm5_003_seed_config_values.sql'];
+// All numbered member migrations must apply to the normalized current chain.
 
 async function applyChain(client, directory) {
   await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY)');
   const completed = new Set((await client.query('SELECT version FROM schema_migrations')).rows.map((row) => row.version));
-  const applied = [];
-  for (const migration of loadMigrations(directory)) {
-    if (completed.has(migration.key)) continue;
+  const pending = loadMigrations(directory).filter(migration => !completed.has(migration.key));
+  if (pending.length) {
     await client.query('BEGIN');
     try {
-      await client.query(migration.sql);
-      await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [migration.key]);
+      // Preserve ordered SQL while avoiding hundreds of hosted round trips.
+      await client.query(pending.map(migration => migration.sql).join('\n'));
+      await client.query('INSERT INTO schema_migrations (version) SELECT unnest($1::text[])', [pending.map(migration => migration.key)]);
       await client.query('COMMIT');
-      applied.push(migration.filename);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     }
   }
-  return { applied };
+  return { applied: pending.map(migration => migration.filename) };
 }
 
 async function withChain(run) {
   const schema = `m3_condition_${randomBytes(8).toString('hex')}`;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'skynest-m3-condition-'));
   const numbered = fs.readdirSync(sourceDir)
-    .filter((name) => /^(?:m\d+_)?\d+_.+\.sql$/.test(name) && !chainExclusions.includes(name));
+    .filter((name) => /^(?:m\d+_)?\d+_.+\.sql$/.test(name));
   const client = new Client({ connectionString });
   for (const name of numbered) fs.copyFileSync(path.join(sourceDir, name), path.join(directory, name));
   await client.connect();

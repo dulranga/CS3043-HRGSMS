@@ -1,15 +1,14 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
+import { createBranches } from '../branches';
+import { createStaffAccounts } from '../staffAccounts';
+import { setSystemConfig, SystemConfigValidationError } from '../systemConfig';
 
 import {
   Branch,
-  CreateBranchDTO,
-  UpdateBranchDTO,
   SafeUserAccount,
-  UpdateUserStatusDTO,
   AuditLog,
   SystemConfig,
-  UpdateConfigDTO,
 } from '../models/admin.model';
 
 // 1. BRANCH CONTROLLERs
@@ -41,58 +40,23 @@ export const getAllBranches = async (req: Request, res: Response) => {
   }
 };
 
-// Create new branch
-export const createBranch = async (req: Request, res: Response) => {
-  try {
-    const { name, city, address, active = true }: CreateBranchDTO = req.body;
-
-    if (!name || !city) {
-      return res.status(400).json({ error: 'Branch name and city are required' });
-    }
-
-    const query = `
-      INSERT INTO branch (name, city, address, active)
-      VALUES ($1, $2, $3, $4)
-      RETURNING branch_id, name, city, address, active, created_at, updated_at
-    `;
-
-    const { rows } = await pool.query<Branch>(query, [name, city, address || null, active]);
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    console.error('Create Branch Error:', err);
-    res.status(500).json({ error: 'Failed to create branch' });
-  }
-};
-
-// Update branch details or toggle active status
+// Compatibility endpoints reuse the audited owner services and their guards.
+const branchService = createBranches({ db: pool });
+const staffService = createStaffAccounts({ db: pool });
+export const createBranch = branchService.create;
 export const updateBranch = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { name, city, address, active }: UpdateBranchDTO = req.body;
-
-    const query = `
-      UPDATE branch
-      SET
-        name = COALESCE($1, name),
-        city = COALESCE($2, city),
-        address = COALESCE($3, address),
-        active = COALESCE($4, active),
-        updated_at = NOW()
-      WHERE branch_id = $5
-      RETURNING branch_id, name, city, address, active, created_at, updated_at
-    `;
-
-    const { rows } = await pool.query<Branch>(query, [name, city, address, active, id]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Branch not found' });
+  req.params.branchId = req.params.id;
+  if (Object.prototype.hasOwnProperty.call(req.body ?? {}, 'active')) {
+    if (typeof req.body.active !== 'boolean' || Object.keys(req.body).some(key => key !== 'active' && key !== 'reason')) {
+      res.status(400).json({ error: 'Change branch status separately from its details.' });
+      return;
     }
-
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('Update Branch Error:', err);
-    res.status(500).json({ error: 'Failed to update branch' });
+    const active = req.body.active;
+    req.body = req.body.reason === undefined ? {} : { reason: req.body.reason };
+    await (active ? branchService.reactivate : branchService.deactivate)(req, res);
+    return;
   }
+  await branchService.update(req, res);
 };
 
 // 2. USER ACCOUNT CONTROLLERs
@@ -102,23 +66,23 @@ export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const { active, search } = req.query;
     let query = `
-      SELECT user_id, username, active, created_at, updated_at, last_login_at
-      FROM user_account
+      SELECT u.user_id, u.username, u.active, u.created_at, u.updated_at, u.last_login_at
+      FROM user_account u JOIN officer o ON o.officer_id = u.user_id
       WHERE 1=1
     `;
     const params: unknown[] = [];
 
     if (active !== undefined) {
       params.push(active === 'true');
-      query += ` AND active = $${params.length}`;
+      query += ` AND u.active = $${params.length}`;
     }
 
     if (search) {
       params.push(`%${search}%`);
-      query += ` AND username ILIKE $${params.length}`;
+      query += ` AND u.username ILIKE $${params.length}`;
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY u.created_at DESC';
 
     const { rows } = await pool.query<SafeUserAccount>(query, params);
     res.json(rows);
@@ -128,36 +92,16 @@ export const getAllUsers = async (req: Request, res: Response) => {
   }
 };
 
-// Toggle active status or update user account
 export const updateUserStatus = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { active }: UpdateUserStatusDTO = req.body;
-
-    if (typeof active !== 'boolean') {
-      return res.status(400).json({ error: 'Active boolean flag is required' });
-    }
-
-    const query = `
-      UPDATE user_account
-      SET active = $1, updated_at = NOW()
-      WHERE user_id = $2
-      RETURNING user_id, username, active, created_at, updated_at, last_login_at
-    `;
-
-    const { rows } = await pool.query<SafeUserAccount>(query, [active, id]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'User account not found' });
-    }
-
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('Update User Status Error:', err);
-    res.status(500).json({ error: 'Failed to update user status' });
+  if (typeof req.body?.active !== 'boolean' || Object.keys(req.body).some(key => key !== 'active')) {
+    res.status(400).json({ error: 'Active boolean flag is required; other fields are not accepted.' });
+    return;
   }
+  const active = req.body.active;
+  req.params.userId = req.params.id;
+  req.body = {};
+  await (active ? staffService.reactivate : staffService.disable)(req, res);
 };
-
 
 // 3. AUDIT REVIEW CONTROLLERS
 
@@ -246,11 +190,14 @@ export const getAuditLogs = async (req: Request, res: Response) => {
 
 // 4. SYSTEM POLICY & CONFIG CONTROLLERS
 
-// Get all system policies (tax_rate, cancellation_fee, etc.)
+// Read registered, non-financial current-value settings.
 export const getAllConfigs = async (_req: Request, res: Response) => {
   try {
     const { rows } = await pool.query<SystemConfig>(
-      'SELECT config_key, config_value, effective_from, updated_by, updated_at FROM system_config ORDER BY config_key ASC'
+      `SELECT registered.config_key, current.config_value, current.effective_from, current.updated_by, current.updated_at
+       FROM system_config_key_registry() registered
+       LEFT JOIN system_config current ON current.config_key = registered.config_key
+       ORDER BY registered.config_key`
     );
     res.json(rows);
   } catch (err) {
@@ -259,41 +206,29 @@ export const getAllConfigs = async (_req: Request, res: Response) => {
   }
 };
 
-// Update a specific policy rate or setting
+// Financial rates are immutable billing_policy versions, not system_config.
 export const updateConfig = async (req: Request, res: Response) => {
+  if (!req.user || typeof req.body?.config_value !== 'string' || Object.keys(req.body).some(key => key !== 'config_value')) {
+    res.status(400).json({ error: 'Provide config_value only; actor and activation date are server controlled.' });
+    return;
+  }
+  const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
+  let client;
   try {
-    const { key } = req.params;
-    const { config_value, effective_from, updated_by }: UpdateConfigDTO = req.body;
-
-    if (config_value === undefined || config_value === null) {
-      return res.status(400).json({ error: 'config_value is required' });
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const entry = await setSystemConfig(client, key, req.body.config_value, req.user.userId);
+    await client.query('COMMIT');
+    res.json({ config_key: entry.configKey, config_value: entry.configValue, effective_from: entry.effectiveFrom, updated_by: entry.updatedBy, updated_at: entry.updatedAt });
+  } catch (error) {
+    await client?.query('ROLLBACK').catch(() => undefined);
+    if (error instanceof SystemConfigValidationError) {
+      res.status(400).json({ error: 'Invalid configuration.', fieldErrors: error.fieldErrors });
+    } else {
+      const code = (error as { code?: string }).code;
+      res.status(code === '42501' ? 403 : code === '23514' || code === '23503' ? 400 : 500).json({ error: 'Unable to update this registered non-financial setting.' });
     }
-
-    const query = `
-      UPDATE system_config
-      SET
-        config_value = $1,
-        effective_from = COALESCE($2::date, CURRENT_DATE),
-        updated_by = $3,
-        updated_at = NOW()
-      WHERE config_key = $4
-      RETURNING config_key, config_value, effective_from, updated_by, updated_at
-    `;
-
-    const { rows } = await pool.query<SystemConfig>(query, [
-      config_value,
-      effective_from || null,
-      updated_by || null,
-      key,
-    ]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: `Config key '${key}' not found` });
-    }
-
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('Update Config Error:', err);
-    res.status(500).json({ error: 'Failed to update system configuration' });
+  } finally {
+    client?.release();
   }
 };

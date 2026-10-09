@@ -1,5 +1,6 @@
 import { PoolClient, QueryResultRow } from 'pg';
 import { pool } from '../db';
+import type { AffectedRoomLine } from './roomInventoryService';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -36,7 +37,9 @@ async function inTransaction<T>(work: (client: PoolClient) => Promise<T>): Promi
 
 export class CatalogueValidationError extends Error {}
 export class CatalogueNotFoundError extends Error {}
-export class CatalogueConflictError extends Error {}
+export class CatalogueConflictError extends Error {
+  constructor(message: string, readonly affectedLines: AffectedRoomLine[] = []) { super(message); }
+}
 
 export interface CatalogueFilters {
   search: string;
@@ -244,6 +247,34 @@ export async function updateRoomType(
     );
     if (current.rowCount === 0) {
       throw new CatalogueNotFoundError('Room type was not found.');
+    }
+
+    // Explain reservation conflicts before writing. Existing SQL guards remain
+    // authoritative for direct SQL and concurrent assignment/catalogue changes.
+    if (patch.active === false || patch.capacity !== undefined) {
+      const affected = await client.query<AffectedRoomLine & QueryResultRow>(
+        `SELECT line.line_id AS "lineId", line.booking_id AS "bookingId",
+                booking.booking_ref AS "bookingRef", line.status,
+                line.stay_start_date::text AS "stayStartDate",
+                line.stay_end_date::text AS "stayEndDate", line.guest_count AS "guestCount"
+           FROM room AS inventory
+           JOIN booking_room_assignment AS assignment ON assignment.room_id = inventory.room_id
+           JOIN booking_room_line AS line ON line.line_id = assignment.line_id
+           JOIN booking ON booking.booking_id = line.booking_id
+          WHERE inventory.room_type_id = $1 AND assignment.unassigned_at IS NULL
+            AND line.status IN ('BOOKED', 'CHECKED_IN')
+            AND ($2::boolean OR line.guest_count > $3::integer)
+          ORDER BY booking.booking_ref, line.stay_start_date, line.line_id`,
+        [roomTypeId, patch.active === false, patch.capacity ?? null],
+      );
+      if (affected.rows.length) {
+        throw new CatalogueConflictError(
+          patch.active === false
+            ? 'This room type has active reservations and cannot be deactivated.'
+            : 'The proposed capacity is too small for existing assigned reservations.',
+          affected.rows,
+        );
+      }
     }
 
     const assignments: string[] = [];

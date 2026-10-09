@@ -1,8 +1,7 @@
+import { PageContainer } from '@/components/layout/PageContainer';
+import { BoundedContainer } from '@/components/layout/BoundedContainer';
+import { AvailabilitySearchScreen } from '@/components/rooms/AvailabilityPanel';
+
 export default function RoomsPage() {
-  return (
-    <div>
-      <h1>Rooms</h1>
-      <p>Manage hotel rooms.</p>
-    </div>
-  );
+  return <PageContainer><BoundedContainer><AvailabilitySearchScreen /></BoundedContainer></PageContainer>;
 }

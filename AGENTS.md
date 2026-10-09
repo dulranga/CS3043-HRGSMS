@@ -19,6 +19,8 @@ Before proposing or implementing database/SQL work, read the Markdown lecture no
 
 # Member Task Execution and Records
 
+`dev` removed the active `memory.md` file in commit `c79a603`. Where a workflow asks for that file, use the current SRS, member handoffs and `member_work_log.md` as the active records. The snapshot in `docs/archive/imandi-memory-2026-10-07.md` preserves historical decisions/incidents only; recheck it against current source. Record new durable confirmations in the relevant SRS/handoff and work log rather than recreating `memory.md`.
+
 When a member asks to do a named subtask or clearly member-owned implementation task, use `.agents/skills/skynest-member-task-workflow/SKILL.md`. Check `memory.md`, the shared `member_work_log.md`, and the live project before choosing any other relevant skill or editing. Use the matching `member_tasks/` checklist as the scope/acceptance guide; do not treat unchecked tasks as already implemented. After work, add a dated entry under that member's section of `member_work_log.md` with actual changes and verification, update `memory.md` only for durable confirmed decisions, and check off a subtask only when its tests/build and acceptance checks pass. Provide a proposed commit message and PR title/description as text even though the agent performs no Git publication actions.
 
 # Design System Reference

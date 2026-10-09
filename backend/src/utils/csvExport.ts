@@ -16,8 +16,11 @@ export function sendCsvResponse<T extends Record<string, unknown>>(
 
   const escapeCsvValue = (val: unknown): string => {
     if (val === null || val === undefined) return '';
-    let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    let str = val instanceof Date ? val.toISOString() : typeof val === 'object' ? JSON.stringify(val) : String(val);
+    // Text labels can otherwise execute a spreadsheet formula on CSV open.
+    // Signed numeric financial values remain numeric.
+    if (typeof val === 'string' && /^[=+\-@\t\r]/.test(str) && !/^[+\-]?\d+(?:\.\d+)?$/.test(str)) str = `'${str}`;
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
       str = `"${str.replace(/"/g, '""')}"`;
     }
     return str;

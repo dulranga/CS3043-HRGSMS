@@ -1,8 +1,27 @@
+import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { canViewStaffPage } from "@/lib/staffNavigation";
+
+const TOOLS = [
+  { path: "/bookings", label: "Reservations" },
+  { path: "/bookings/new", label: "New reservation" },
+  { path: "/check-in", label: "Guest check-in" },
+  { path: "/stays", label: "Active stays" },
+  { path: "/service-usage", label: "Service usage" },
+  { path: "/admin/rooms", label: "Room administration" },
+  { path: "/admin/services", label: "Service catalogue" },
+  { path: "/admin/reports", label: "Reports and CSV" },
+  { path: "/admin/operations", label: "Branches and staff accounts" },
+  { path: "/admin/config", label: "System configuration" },
+  { path: "/admin/audit", label: "Audit log" },
+];
 
 export default function DashboardPage() {
+  const { role } = useFeatureSessions();
   return (
     <AppShell>
       <PageContainer>
@@ -10,36 +29,16 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <header>
               <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-1">Overview of room allocations and bookings.</p>
+              <p className="text-sm text-muted-foreground mt-1">Manage SkyNest reservations and hotel operations with your staff tools.</p>
             </header>
-            <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b-2 border-border">
-                    <th className="text-left py-2 px-3 font-semibold tracking-tight">Room</th>
-                    <th className="text-left py-2 px-3 font-semibold tracking-tight">Status</th>
-                    <th className="text-left py-2 px-3 font-semibold tracking-tight">Guest</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border hover:bg-accent/40 transition-colors">
-                    <td className="py-2 px-3">101</td>
-                    <td className="py-2 px-3"><span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" /> Occupied</td>
-                    <td className="py-2 px-3">A. Patel</td>
-                  </tr>
-                  <tr className="border-b border-border hover:bg-accent/40 transition-colors">
-                    <td className="py-2 px-3">102</td>
-                    <td className="py-2 px-3"><span className="inline-flex h-2 w-2 rounded-full bg-amber-400" /> Reserved</td>
-                    <td className="py-2 px-3">J. Doe</td>
-                  </tr>
-                  <tr className="hover:bg-accent/40 transition-colors">
-                    <td className="py-2 px-3">103</td>
-                    <td className="py-2 px-3"><span className="inline-flex h-2 w-2 rounded-full bg-muted-foreground" /> Vacant</td>
-                    <td className="py-2 px-3">—</td>
-                  </tr>
-                </tbody>
-              </table>
-            </section>
+            <Card>
+              <CardHeader><CardTitle>Available tools</CardTitle></CardHeader>
+              <CardContent className="flex flex-wrap gap-3">
+                {TOOLS.filter(tool => canViewStaffPage(role, tool.path)).map(tool => (
+                  <Button key={tool.path} variant="outline" asChild><a href={tool.path}>{tool.label}</a></Button>
+                ))}
+              </CardContent>
+            </Card>
           </div>
         </BoundedContainer>
       </PageContainer>
