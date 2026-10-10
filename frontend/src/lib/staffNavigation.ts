@@ -18,6 +18,7 @@ const PAGE_PERMISSIONS: Record<string, PageRequirement> = {
   '/admin/services': '*',
   '/admin/rooms': 'room.read',
   '/guests': 'guest.manage',
+  '/billing/invoice': ['invoice.read.branch', 'invoice.read.chain'],
   '/admin/reports': ['report.read.branch', 'report.read.chain'],
   '/admin/branches': 'branch.write',
   '/admin/users': 'account.read',

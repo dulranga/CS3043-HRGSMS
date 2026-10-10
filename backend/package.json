@@ -64,6 +64,7 @@
         "test:m4-checkout": "node --test tests/m4CheckoutTransaction.test.cjs",
         "test:m4-checkout-api": "node --import tsx --test tests/m4CheckoutApi.test.cjs",
         "test:m4-cancellation": "node --test tests/m4Cancellation.test.cjs",
+        "test:m4-cancellation-quote": "node --import tsx --test tests/m4CancellationQuote.test.ts",
         "test:m4-no-show": "node --test tests/m4NoShow.test.cjs",
         "test:reports": "node --import tsx --test tests/m5_reports.test.cjs",
         "test:admin": "node --import tsx --test tests/m5_admin.test.cjs",

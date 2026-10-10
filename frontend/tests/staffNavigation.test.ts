@@ -16,4 +16,11 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('CHAIN_MANAGER', '/admin/reports'), true);
   assert.equal(canViewStaffPage('AUDITOR', '/admin/audit'), true);
   assert.equal(canViewStaffPage('SERVICE_STAFF', '/admin/config'), false);
+  assert.equal(canViewStaffPage(null, '/billing/invoice'), false);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/billing/invoice'), true);
+  assert.equal(canViewStaffPage('SERVICE_STAFF', '/billing/invoice'), true);
+  assert.equal(canViewStaffPage('BRANCH_MANAGER', '/billing/invoice'), true);
+  assert.equal(canViewStaffPage('CHAIN_MANAGER', '/billing/invoice'), true);
+  assert.equal(canViewStaffPage('AUDITOR', '/billing/invoice'), true);
+  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/billing/invoice'), false);
 });

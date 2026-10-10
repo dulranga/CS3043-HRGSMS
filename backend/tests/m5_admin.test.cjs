@@ -50,7 +50,12 @@ test('production app mounts feature routes and audits administration with sessio
     assert.equal((await request('frontdesk','/api/services')).status,200);
     assert.equal((await request('frontdesk','/api/stays/missing')).status,404);
     assert.equal((await request('frontdesk','/api/bookings/missing/lines/invalid/checkin','POST',{})).status,400);
+    for (const path of ['/api/bookings/missing/cancel', '/api/bookings/missing/no-show']) {
+      assert.equal((await request('service',path,'POST',{})).status,403,path);
+    }
     assert.equal((await request('service','/api/rooms/invalid/condition','PATCH',{})).status,400);
+    assert.equal((await request('chain','/api/rooms/invalid/condition','PATCH',{})).status,403);
+    assert.equal((await request('chain','/api/services')).status,200);
     const created = await request('admin','/api/admin/branches','POST',{name:'QA, Branch',city:'QA City'});
     assert.equal(created.status,201,created.content);
     const branchId = created.json.data.branchId;

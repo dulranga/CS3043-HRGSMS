@@ -114,8 +114,8 @@ export function createApplication(env: NodeJS.ProcessEnv = process.env): Applica
   // alone decides who may reach them; the services keep the resource-derived
   // branch/ownership check. No header or client-supplied identity reaches them
   // in production.
-  app.use('/api', authorization.guestOrStaff('booking.cancel'), createCancellationRouter());
-  app.use('/api', authorization.staff('booking.no_show'), createNoShowRouter());
+  app.use('/api', createCancellationRouter(undefined, authorization.guestOrStaff('booking.cancel')));
+  app.use('/api', createNoShowRouter(undefined, authorization.staff('booking.no_show')));
   app.use('/api', authorization.authenticated, serviceUsageRoutes);
   const staffBookingContext = { branchId: sessionBranchId, actorId: sessionUserId };
   app.use('/api', createBookingCreateRouter({ requireFrontDesk: authorization.staff('booking.manage') }, staffBookingContext));

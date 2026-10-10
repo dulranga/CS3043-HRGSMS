@@ -333,6 +333,15 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 10 October 2026 — resolve Imandi/dev pull-request conflicts
+
+- Verified the remote tips match local `Imandi` (`080739b`) and `origin/dev` (`7eb0edf`), then merged `origin/dev` with `--no-commit --no-ff`. Resolved the two content conflicts in `AppShell.tsx` and `staffNavigation.ts`: preserve Invoice Detail in the shared shadcn sidebar/dashboard while retaining dev's session redirects, separate branch/user administration pages and generated server permission matrix. Invoice discovery requires `invoice.read.branch` or `invoice.read.chain`; SYSTEM_ADMINISTRATOR receives no invoice link under dev's current grants. The branch's cancellation quote/envelope and room-history migration repairs remain intact.
+- The full backend suite exposed an integration issue in dev: cancellation/no-show middleware mounted at `/api` also rejected unrelated Service Staff room-condition requests. Injected those guards into the matching cancellation/no-show routes instead. Extended the real-session production-app regression to verify Service Staff remains denied cancellation/no-show, can reach condition validation, and Chain Manager can read services but cannot edit physical condition. No role grants, SQL, migrations or task acceptance statuses changed.
+- Verification: all **238 frontend tests** and both production builds pass (frontend Vite build required filesystem sandbox escalation and retains its existing bundle-size warning). Initial complete backend run passed **211/212**, including full-chain migrations, room-history repair and idempotent demo seed; its sole production-app routing failure is now fixed. Reran the five affected authorization/production-app/cancellation/no-show test files: **42/42 pass**. Final conflict-marker, unmerged-path and staged/working whitespace checks are clean. Existing owner-specific Appendix C and manual feature acceptance gaps remain unchanged; no new SQL/lecture concepts were introduced.
+- All merge changes are staged; the merge is intentionally uncommitted. No branch, commit, push or pull request was created. The human must conclude the merge and push Imandi before GitHub can use the resolution.
+- Proposed commit: `Merge dev into Imandi and resolve navigation conflicts`.
+- Proposed PR title: `Integrate Imandi repairs with dev navigation and authorization`. Description: `Preserve room-condition and cancellation repairs and Invoice Detail navigation while integrating dev's permission-based sidebar and separate administration pages. Scope cancellation/no-show middleware to its own endpoints so permitted staff workflows remain reachable. Verified with 238 frontend tests, 42 affected backend checks after fixing the one full-suite integration failure, both production builds and clean conflict/whitespace checks.`
+
 ### 10 October 2026 — M2-S16 return from Rooms to staff dashboard
 
 - Added a shadcn outline `Back to dashboard` link above availability search on `/rooms`, using the existing TanStack route and verified staff navigation policy. Staff can return directly to `/dashboard`; guest and signed-out availability browsing remains public and shows no staff-only dashboard link. Reused existing page/container spacing and design tokens; no schema, API, authentication or permission contracts changed.
@@ -568,6 +577,14 @@ Record actual project-task work here for all five members, including partial or 
 - Lecture concepts applied: typed PK/FK referential integrity, normalized many-to-many `room_type_amenity`, exact `numeric` rates, and ACID rollback in isolated migration tests. Reservation transaction isolation remains for later M2-S06/M2-S10 work.
 
 ## Member 3 — Kulunu
+
+### 10 October 2026 — manual-test room-condition failure repair (M3-S03 / M3-S18)
+
+- The Colombo Branch Manager's QA-102 CLEANING request returned a generic failure. Read-only checks confirmed QA-102 remained READY with no history event. Although all M3 migration versions were recorded, `public.room_status_history` retained the older `room_condition` enum and lacked `reason`; earlier `CREATE TABLE IF NOT EXISTS` statements had preserved that table. The installed condition function expected `room_condition_enum` and a reason column.
+- Added `m3_007_reconcile_room_history_condition.sql` without rewriting published migrations. It adds the nullable reason, converts historical condition labels into Member 2's existing enum, retains history IDs/actors/times and immutability, and restores the nullable initial old condition. Unsupported labels fail the transaction instead of discarding events; the old enum is retained for any other consumers.
+- Added an API regression reproducing the installed legacy shape with populated history: failure rolls back the room change, repair preserves all original event fields, a Branch Manager change records its reason/actor, repeated values add no event, history edits/deletes remain forbidden, active reservations reject OUT_OF_SERVICE, and repair reruns preserve events.
+- Verification: room-condition API 3/3, service 5/5 and booking-lifecycle integration 8/8 passed (16 total), including the complete numbered migration chain; `npm run build:backend` passed. Suites used direct database connections and isolated schemas. The scoped migration was the only pending file and was applied through the existing migration runner to the configured development database; follow-up reads confirmed both history columns use `room_condition_enum`, `reason` exists, existing history is preserved (0 preexisting rows), and QA-102 remains READY for the user's manual retry. No physical condition was changed on the user's behalf. Manual CLEANING/READY-only availability acceptance remains pending; no additional task checkboxes were changed.
+- Lecture concepts applied: explicit domain conversion through enum labels, preservation of foreign-key/append-only history, and transactional DDL/rollback. Human Git handoff: [repair notes](docs/qa/2026-10-10-room-condition-repair.md). No Git publication actions.
 
 ### 8 October 2026 — production mounting and migration-suite repairs
 
@@ -1436,6 +1453,19 @@ workflow requirements. Provides:
 
 Related: M4-S11
 ```
+
+### 2026-10-10 — M4-S11/S16 cancellation quote and receipt integration repair
+
+- During Imandi's manual reservation tests, an accidentally confirmed two-room booking could not obtain a usable cancellation quote: the page read `{ success, quote }` as the quote itself and displayed a fallback denial. Corrected frontend quote/receipt envelope decoding, preserving real eligibility, rejection reasons, fees and post-cancellation success feedback. Invalid envelopes fail explicitly rather than showing undefined fees or a valid confirmation.
+- Whole-booking quote service previously selected only the first line. It now inspects all lines, denies if any line is non-BOOKED, FINAL or at/past its own linked-policy cutoff, totals fees in integer cents and reports the earliest cutoff. The existing locked cancellation write remains the authority at confirmation; no migrations or reservation mutations were made.
+- Verification: frontend cancellation suite **6/6**, backend quote suite **5/5**, backend build and frontend production build pass (frontend build required sandbox filesystem escalation). Live read-only transaction verified accidental booking `SKY-01a12651ec6e7a55af371ae0927bec15`: both lines still BOOKED, whole cancellation eligible, LKR **10,000**, per-line LKR **5,000**. Manual cancellation confirmation/invoice/release checks remain pending; historical M4 acceptance claims were not expanded.
+- Lecture concepts applied: parameterized predicates and joins over normalized line/invoice/policy relations; all-line inspection rather than truncating related facts. Quotes remain read-only and existing write transactions retain atomic guards. Human Git handoff and remaining gaps: [cancellation quote repair](docs/qa/2026-10-10-cancellation-quote-repair.md).
+
+### 2026-10-10 — M4-S13 invoice navigation follow-up
+
+- Imandi requested normal dashboard/sidebar access to Invoice Detail during manual testing. Added a Billing group with an Invoice Detail link to the shared shadcn sidebar and a matching dashboard Available tools button. Both link to the existing `/billing/invoice` page and retain existing active-page styling and responsive shell behavior.
+- Added the route to shared staff navigation permissions after rechecking `invoiceService.verifyBookingAccess`: FRONT_DESK, SERVICE_STAFF and BRANCH_MANAGER can read within their branch; CHAIN_MANAGER, SYSTEM_ADMINISTRATOR and AUDITOR can read chain-wide. Server authorization remains responsible for each lookup; signed-out/online guest accounts receive no staff link.
+- Verification: existing `staffNavigation.test.ts` and `m4InvoiceUi.test.ts` pass **6/6**; frontend production build passes with the existing bundle-size warning. No new tests mirroring this small link addition, migrations or billing changes. Manual click-through is the next user check; no additional task checkboxes changed. [Human Git handoff](docs/qa/2026-10-10-invoice-navigation.md).
 
 ## Member 5 — Thusath
 
