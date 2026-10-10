@@ -15,6 +15,26 @@ function harness(role: StaffRole, payload: unknown = { data: room }, status = 20
   return { api, calls };
 }
 
+test('default browser fetch preserves its receiver for catalogue reads and writes', async () => {
+  const original = globalThis.fetch;
+  const calls: { path: string; options?: RequestInit }[] = [];
+  try {
+    globalThis.fetch = async function (this: unknown, input, options) {
+      assert.equal(this, undefined);
+      calls.push({ path: String(input), options });
+      return new Response(JSON.stringify({ data: options?.method === 'POST' ? amenity : [] }));
+    };
+    const api = new RoomAdminApi({ role: 'CHAIN_MANAGER', branchId });
+    assert.deepEqual(await api.types(), []);
+    assert.deepEqual(await api.amenities(), []);
+    assert.deepEqual(await api.saveAmenity({ name: 'WiFi', description: '' }), amenity);
+    assert.deepEqual(calls.map(call => [call.path, call.options?.method]), [
+      ['/api/room-types?active=all', 'GET'], ['/api/amenities?active=all', 'GET'], ['/api/amenities', 'POST'],
+    ]);
+    assert.ok(calls.every(call => call.options?.credentials === 'include'));
+  } finally { globalThis.fetch = original; }
+});
+
 test('AT-24 shared catalogue mutations admit only Chain Manager, before transport', async () => {
   for (const role of ['BRANCH_MANAGER', 'FRONT_DESK', 'SERVICE_STAFF', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'] as StaffRole[]) {
     const { api, calls } = harness(role);
