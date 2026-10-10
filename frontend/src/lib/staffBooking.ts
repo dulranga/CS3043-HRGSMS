@@ -165,12 +165,12 @@ export class StaffBookingApi implements StaffBookingClient {
 }
 
 export interface StaffBookingState {
-  lines: SelectedRoomLine[]; guestId: string; channel: StaffChannel; quote: BookingQuote | null;
+  lines: SelectedRoomLine[]; guestId: string; guestName: string; channel: StaffChannel; quote: BookingQuote | null;
   acknowledged: boolean; quoting: boolean; creating: boolean; failure: StaffBookingError | null;
   notice: string; created: CreatedStaffBooking | null; uncertain: boolean;
 }
-export const initialStaffBookingState = (): StaffBookingState => ({ lines: [], guestId: '', channel: 'FRONT_DESK', quote: null,
-  acknowledged: false, quoting: false, creating: false, failure: null, notice: '', created: null, uncertain: false });
+export const initialStaffBookingState = (): StaffBookingState => ({ lines: [], guestId: '', guestName: '', channel: 'FRONT_DESK',
+  quote: null, acknowledged: false, quoting: false, creating: false, failure: null, notice: '', created: null, uncertain: false });
 const failure = (error: unknown) => error instanceof StaffBookingError ? error : new StaffBookingError('The booking request could not be completed.');
 export class StaffBookingModel {
   private state = initialStaffBookingState();
@@ -188,7 +188,7 @@ export class StaffBookingModel {
     this.cancelPending();
     this.publish({ lines: structuredClone(lines), quote: null, acknowledged: false, quoting: false, failure: null, notice: 'Selection changed. Request a fresh combined quote.' });
   }
-  setGuest(guestId: string) { if (!this.locked()) this.publish({ guestId: guestId.trim().toLowerCase(), acknowledged: false, failure: null }); }
+  setGuest(guestId: string, guestName = '') { if (!this.locked()) this.publish({ guestId: guestId.trim().toLowerCase(), guestName: guestName.trim(), acknowledged: false, failure: null }); }
   setChannel(channel: StaffChannel) { if (!this.locked()) this.publish({ channel, acknowledged: false, failure: null }); }
   acknowledge() { if (!this.locked() && this.state.quote && !this.state.quoting) this.publish({ acknowledged: !this.state.acknowledged }); }
   private selections() {
