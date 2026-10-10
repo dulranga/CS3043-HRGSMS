@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { createApplication } from './app';
 import { initializeDatabase } from './db';
 
