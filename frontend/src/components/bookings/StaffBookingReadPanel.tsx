@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { ReactNode, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CalendarDays, Clock, Radio, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Clock, Moon, Pencil, Radio, RefreshCw, Users, type LucideIcon } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { formatLkr } from '@/lib/money';
 import {
-  BookingChannel, BookingRoomLine, LineSummary, RoomLineStatus, StaffBookingDetail, StaffBookingListItem, StaffBookingReadApi, StaffBookingReadClient,
+  BookingChannel, BookingRoomLine, LineSummary, RoomLineStatus, RoomLineValues, StaffBookingDetail, StaffBookingListItem, StaffBookingReadApi, StaffBookingReadClient,
   StaffBookingReadModel, StaffBookingReadSession, StaffBookingReadState, canReadStaffBookings,
-  hotelTime, summarizeLines,
+  summarizeLines,
 } from '@/lib/staffBookingRead';
 import { nights } from '@/lib/availability';
 import { formatHotelDateTime, formatStayRange } from '@/lib/dateFormat';
@@ -62,71 +62,147 @@ function BookingListCard({ booking, onOpen }: { booking: StaffBookingListItem; o
     </CardFooter>
   </Card>;
 }
+const when = (value: string | null) => value ? formatHotelDateTime(value) : '—';
+const guests = (n: number) => `${n} ${n === 1 ? 'guest' : 'guests'}`;
+const lineValues = (v: RoomLineValues) => `${formatStayRange(v.checkIn, v.checkOut)} · ${guests(v.guestCount)} · ${formatLkr(v.rateSnapshot)} / night`;
+
+function Fact({ label, icon: Icon, children, className = '' }: { label: string; icon?: LucideIcon; children: ReactNode; className?: string }) {
+  return <div className={`min-w-0 space-y-0.5 ${className}`}>
+    <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">{Icon && <Icon className="size-3.5" aria-hidden="true" />}{label}</dt>
+    <dd className="text-sm font-medium">{children}</dd>
+  </div>;
+}
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="flex items-baseline justify-between gap-3"><dt className="text-muted-foreground">{label}</dt><dd className="text-right font-medium">{children}</dd></div>;
+}
+function HistorySection({ title, count, label, children }: { title: string; count: number; label: string; children: ReactNode }) {
+  return <section className="min-w-0 space-y-3" aria-label={label}>
+    <h4 className="flex items-center gap-2 text-sm font-semibold">{title}<Badge variant="muted">{count}</Badge></h4>
+    <ol className="space-y-3 border-l-2 border-border pl-4">{children}</ol>
+  </section>;
+}
+function HistoryItem({ children }: { children: ReactNode }) {
+  return <li className="relative space-y-1.5 text-sm before:absolute before:-left-[1.3rem] before:top-1.5 before:size-2 before:rounded-full before:bg-accent">{children}</li>;
+}
+
 function RoomLineHistory({ line }: { line: BookingRoomLine }) {
   const current = line.assignments.find(a => a.current);
+  const shown = current ?? line.assignments[line.assignments.length - 1];
   const occupied = line.status === 'CHECKED_IN' && !!current?.occupiedFrom && !current.occupiedTo;
+  const count = nights(line);
   return <Card className="min-w-0">
-    <CardHeader><CardTitle className="break-words text-xl">{current ? `Room ${current.roomNumber} · ${current.roomType.name}` : 'Room line with closed assignments'}</CardTitle>
-      <Badge className="w-fit" variant="secondary">{line.status}</Badge></CardHeader>
-    <CardContent className="space-y-4 text-sm">
-      <p className="break-all text-xs text-muted-foreground">Line ID: {line.lineId}</p>
-      <p>{line.checkIn} to {line.checkOut} · {nights(line)} reserved nights</p>
-      <p>{line.guestCount} guests · agreed base rate {formatLkr(line.rateSnapshot)} / night</p>
-      <p>{occupied ? 'Currently occupied through this checked-in line' : current ? 'Assigned; not currently checked in' : 'No open room assignment'}</p>
-      <p>Line created {hotelTime(line.createdAt)} · updated {hotelTime(line.updatedAt)}</p>
-      <section className="space-y-3" aria-label={`Assignments for line ${line.lineId}`}>
-        <h4 className="font-semibold">Room assignment history ({line.assignments.length})</h4>
-        {line.assignments.map(a => <Card key={a.assignmentId} className="min-w-0 shadow-none"><CardContent className="space-y-2 p-4">
-          <p className="break-words font-medium">Room {a.roomNumber} · {a.roomType.name}</p>
-          <Badge variant={a.current ? 'default' : 'secondary'}>{a.current ? 'Current assignment' : 'Closed assignment'}</Badge>
-          <p>Assigned: {hotelTime(a.assignedAt)}</p><p>Released: {a.unassignedAt ? hotelTime(a.unassignedAt) : 'Still assigned'}</p>
-          <p>Actual occupancy began: {hotelTime(a.occupiedFrom)}</p><p>Actual occupancy ended: {hotelTime(a.occupiedTo)}</p>
-          <p className="text-muted-foreground">Current room catalogue: capacity {a.roomType.capacity} · {a.roomActive ? 'active' : 'inactive'} · physical condition {a.operationalStatus}</p>
-        </CardContent></Card>)}
-      </section>
-      <section className="space-y-3" aria-label={`Status changes for line ${line.lineId}`}>
-        <h4 className="font-semibold">Line status history ({line.statusHistory.length})</h4>
-        {!line.statusHistory.length && <p>No status history returned.</p>}
-        {line.statusHistory.map(s => <Card key={s.historyId} className="min-w-0 shadow-none"><CardContent className="space-y-2 p-4">
-          <p>{s.oldStatus ?? 'Created'} → {s.newStatus}</p><p>{hotelTime(s.changedAt)}</p>
-          <p className="break-all text-xs">Actor: {s.changedBy}</p><p className="break-words">Reason: {s.reason ?? 'Not recorded'}</p>
-        </CardContent></Card>)}
-      </section>
-      <section className="space-y-3" aria-label={`Revisions for line ${line.lineId}`}>
-        <h4 className="font-semibold">Date, guest and rate revisions ({line.revisions.length})</h4>
-        {!line.revisions.length && <p>No value revisions.</p>}
-        {line.revisions.map(r => <Card key={r.revisionId} className="min-w-0 shadow-none"><CardContent className="space-y-2 p-4">
-          <p>Before: {r.oldValues.checkIn} to {r.oldValues.checkOut} · {r.oldValues.guestCount} guests · {formatLkr(r.oldValues.rateSnapshot)} / night</p>
-          <p>After: {r.newValues.checkIn} to {r.newValues.checkOut} · {r.newValues.guestCount} guests · {formatLkr(r.newValues.rateSnapshot)} / night</p>
-          <p>{hotelTime(r.changedAt)}</p><p className="break-all text-xs">Actor: {r.changedBy}</p><p className="break-words">Reason: {r.reason}</p>
-        </CardContent></Card>)}
-      </section>
+    <CardHeader className="space-y-1 pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <CardTitle className="break-words text-xl">Room {shown.roomNumber}</CardTitle>
+          <p className="text-sm text-muted-foreground">{shown.roomType.name}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant={STATUS_VARIANT[line.status]}>{STATUS_LABEL[line.status]}</Badge>
+          <span className="text-xs text-muted-foreground">{occupied ? 'Currently occupied' : current ? 'Assigned; not currently checked in' : 'No open room assignment'}</span>
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-background/60 p-3 md:grid-cols-4">
+        <Fact label="Dates" icon={CalendarDays}>{formatStayRange(line.checkIn, line.checkOut)}</Fact>
+        <Fact label="Reserved nights" icon={Moon}>{count}</Fact>
+        <Fact label="Guests" icon={Users}>{line.guestCount}</Fact>
+        <Fact label="Agreed base rate">{formatLkr(line.rateSnapshot)} / night</Fact>
+      </dl>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <HistorySection title="Room assignments" count={line.assignments.length} label={`Assignments for line ${line.lineId}`}>
+          {line.assignments.map(a => <HistoryItem key={a.assignmentId}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="break-words font-medium">Room {a.roomNumber} · {a.roomType.name}</p>
+              <Badge variant={a.current ? 'default' : 'muted'}>{a.current ? 'Current assignment' : 'Closed assignment'}</Badge>
+            </div>
+            <dl className="space-y-1 text-xs">
+              <Row label="Assigned">{when(a.assignedAt)}</Row>
+              <Row label="Released">{a.unassignedAt ? when(a.unassignedAt) : 'Still assigned'}</Row>
+              <Row label="Actual occupancy began">{when(a.occupiedFrom)}</Row>
+              <Row label="Actual occupancy ended">{when(a.occupiedTo)}</Row>
+            </dl>
+            <p className="text-xs text-muted-foreground">Now: capacity {a.roomType.capacity} · {a.roomActive ? 'active' : 'inactive'} · physical condition {a.operationalStatus}</p>
+          </HistoryItem>)}
+        </HistorySection>
+
+        <HistorySection title="Status changes" count={line.statusHistory.length} label={`Status changes for line ${line.lineId}`}>
+          {!line.statusHistory.length && <li className="text-sm text-muted-foreground">No status history returned.</li>}
+          {line.statusHistory.map(h => <HistoryItem key={h.historyId}>
+            <p className="font-medium">{h.oldStatus ? STATUS_LABEL[h.oldStatus] : 'Created'} → {STATUS_LABEL[h.newStatus]}</p>
+            <p className="text-xs text-muted-foreground">{when(h.changedAt)}</p>
+            <p className="break-words text-xs">{h.reason ?? 'No reason recorded'}</p>
+            <p className="break-all font-mono text-[0.65rem] text-muted-foreground">by {h.changedBy}</p>
+          </HistoryItem>)}
+        </HistorySection>
+
+        <HistorySection title="Date, guest and rate revisions" count={line.revisions.length} label={`Revisions for line ${line.lineId}`}>
+          {!line.revisions.length && <li className="text-sm text-muted-foreground">No value revisions.</li>}
+          {line.revisions.map(r => <HistoryItem key={r.revisionId}>
+            <p className="text-xs text-muted-foreground">{when(r.changedAt)}</p>
+            <dl className="space-y-1 text-xs">
+              <div><dt className="inline text-muted-foreground">Before: </dt><dd className="inline line-through decoration-muted-foreground/60">{lineValues(r.oldValues)}</dd></div>
+              <div><dt className="inline text-muted-foreground">After: </dt><dd className="inline font-medium">{lineValues(r.newValues)}</dd></div>
+            </dl>
+            <p className="break-words text-xs">{r.reason}</p>
+            <p className="break-all font-mono text-[0.65rem] text-muted-foreground">by {r.changedBy}</p>
+          </HistoryItem>)}
+        </HistorySection>
+      </div>
+
+      <p className="break-all border-t-2 border-border pt-3 font-mono text-[0.65rem] text-muted-foreground">
+        Line {line.lineId} · created {when(line.createdAt)} · updated {when(line.updatedAt)}
+      </p>
     </CardContent>
   </Card>;
 }
 export function StaffBookingDetailPanel({ booking }: { booking: StaffBookingDetail }) {
-  return <section className="min-w-0 space-y-4" aria-label={`Booking ${booking.bookingRef}`}>
-    <Card><CardHeader><CardTitle className="break-words">{booking.bookingRef} · {booking.guest.fullName}</CardTitle></CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <BookingLineSummary summary={summarizeLines(booking.lines)} />
-        <p>{booking.lines.reduce((sum, line) => sum + line.guestCount, 0)} guests across all room lines, including terminal lines</p>
-        <p>Channel: {booking.bookingChannel} · created {hotelTime(booking.createdAt)} · updated {hotelTime(booking.updatedAt)}</p>
-        <p className="break-all text-xs text-muted-foreground">Booking ID: {booking.bookingId} · created by {booking.createdBy}</p>
-        <p className="text-muted-foreground">All times use Asia/Colombo. Stay dates and agreed rates belong to each room line. Assignment timestamps preserve room moves and actual occupancy; room type, capacity and physical condition reflect current catalogue values.</p>
+  const summary = summarizeLines(booking.lines);
+  return <section className="min-w-0 space-y-6" aria-label={`Booking ${booking.bookingRef}`}>
+    <Card>
+      <CardHeader className="space-y-1 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="break-words font-display text-2xl font-semibold leading-tight tracking-tight">{booking.guest.fullName}</p>
+            <CardTitle className="break-all font-mono text-sm font-normal tracking-normal text-muted-foreground">{booking.bookingRef}</CardTitle>
+          </div>
+          <BookingStatusBadge summary={summary} />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-background/60 p-4 md:grid-cols-3 lg:grid-cols-6">
+          <Fact label="Stay" icon={CalendarDays} className="col-span-2">{formatStayRange(summary.firstStayDate, summary.lastStayDate)}</Fact>
+          <Fact label="Guests" icon={Users}>{booking.lines.reduce((sum, line) => sum + line.guestCount, 0)}</Fact>
+          <Fact label="Channel" icon={Radio}>{CHANNEL_LABEL[booking.bookingChannel]}</Fact>
+          <Fact label="Created" icon={Clock}>{when(booking.createdAt)}</Fact>
+          <Fact label="Updated" icon={Clock}>{when(booking.updatedAt)}</Fact>
+        </dl>
+        <BookingLineSummary summary={summary} />
+        <p className="text-xs text-muted-foreground">Times are in Asia/Colombo. Dates and agreed rates belong to each room line; room type, capacity and condition show current catalogue values.</p>
+        <p className="break-all font-mono text-[0.65rem] text-muted-foreground">Booking {booking.bookingId} · created by {booking.createdBy}</p>
       </CardContent>
     </Card>
-    <h2 className="text-xl font-semibold">All room lines and their histories</h2>
-    <div className={GRID}>{booking.lines.map(line => <RoomLineHistory key={line.lineId} line={line} />)}</div>
+    <div className="space-y-4">
+      <h2 className="flex items-center gap-2 font-display text-xl font-semibold tracking-tight">Room lines<Badge variant="muted">{booking.lines.length}</Badge></h2>
+      <div className="space-y-4">{booking.lines.map(line => <RoomLineHistory key={line.lineId} line={line} />)}</div>
+    </div>
   </section>;
 }
 type Actions = Pick<StaffBookingReadModel, 'loadList' | 'open' | 'back' | 'next' | 'previous'>;
-export function StaffBookingReadPanel({ state, actions }: { state: StaffBookingReadState; actions: Actions }) {
+export function StaffBookingReadPanel({ state, actions, onModify }: { state: StaffBookingReadState; actions: Actions; onModify?(id: string): void }) {
   return <div className="min-w-0 space-y-6 @container">
     <header className="space-y-2"><h1 className="text-2xl font-bold tracking-tight">Staff booking records</h1>
       <p className="text-sm text-muted-foreground">View bookings in your assigned branch, with every room line and its preserved history.</p></header>
     {state.selectedId ? <>
-      <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => actions.back()}>Back to booking list</Button>
-        <Button variant="outline" disabled={state.loadingDetail} onClick={() => void actions.open(state.selectedId!)}>Reload booking</Button></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => actions.back()}><ArrowLeft aria-hidden="true" />Back to booking list</Button>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={state.loadingDetail} onClick={() => void actions.open(state.selectedId!)}><RefreshCw aria-hidden="true" />Reload booking</Button>
+          {state.detail && onModify && <Button size="sm" onClick={() => onModify(state.detail!.bookingId)}><Pencil aria-hidden="true" />Manage room lines</Button>}
+        </div>
+      </div>
       {state.loadingDetail && <p role="status">Loading booking and room-line histories…</p>}
       {state.detailFailure && <Card className="border-destructive"><CardContent className="p-4"><p role="alert" className="text-sm text-destructive">{state.detailFailure.message}</p></CardContent></Card>}
       {state.detail && <StaffBookingDetailPanel booking={state.detail} />}
@@ -163,9 +239,8 @@ export function StaffBookingReadScreen({ session, client, bookingId, onOpen, onB
   </CardContent></Card>;
   const view = bookingId && bookingId !== state.selectedId
     ? { ...state, selectedId: bookingId, detail: null, detailFailure: null, loadingDetail: true } : state;
-  return <div className="space-y-4">{view.detail && onModify && <Button variant="outline" onClick={() => onModify(view.detail!.bookingId)}>Manage room lines</Button>}
-  <StaffBookingReadPanel state={view} actions={{ loadList: model.loadList.bind(model), next: model.next.bind(model), previous: model.previous.bind(model),
+  return <StaffBookingReadPanel state={view} onModify={onModify} actions={{ loadList: model.loadList.bind(model), next: model.next.bind(model), previous: model.previous.bind(model),
     open: async id => { if (onOpen && id !== state.selectedId) onOpen(id); else await model.open(id); },
     back: () => { if (onBack) onBack(); else model.back(); },
-  }} /></div>;
+  }} />;
 }

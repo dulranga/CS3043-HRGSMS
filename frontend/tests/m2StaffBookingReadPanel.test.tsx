@@ -17,7 +17,7 @@ test('detail renders every line plus old/current assignments, occupancy and rate
   for (const text of ['Room 101', 'Room 103', 'Room 102', 'Closed assignment', 'Current assignment', 'Actual occupancy began', 'Actual occupancy ended', 'LKR 10,000.50', 'LKR 11,000.00', 'LKR 18,000.00', 'Before:', 'After:', 'Guest arrived', 'Guest extended reserved stay', 'physical condition READY', 'physical condition CLEANING', 'Currently occupied', 'Assigned; not currently checked in']) assert.ok(markup.includes(text), text);
   assert.doesNotMatch(markup, /Cancel booking|Confirm booking|<input|NIC/);
   const terminal = renderToStaticMarkup(<StaffBookingDetailPanel booking={terminalDetail} />);
-  assert.match(terminal, /CANCELLED/); assert.match(terminal, /No open room assignment/); assert.match(terminal, /Room 102/);
+  assert.match(terminal, /Cancelled/); assert.match(terminal, /No open room assignment/); assert.match(terminal, /Room 102/);
 });
 test('loading, empty, denied and failed reads have accessible messages and recovery controls without stale detail', () => {
   const render = (patch: object) => renderToStaticMarkup(<StaffBookingReadPanel state={{ ...initialStaffBookingReadState(), ...patch }} actions={actions} />);
