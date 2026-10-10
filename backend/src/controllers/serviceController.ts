@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { pool as db } from '../db';
 import { member3Actor } from './member3Actor';
+import { roleHasPermission } from '../authorization';
 
 function readActorUserId(req: Request): string | null {
   return member3Actor(req).userId || null;
@@ -101,7 +102,8 @@ async function ensureChainManager(req: Request): Promise<void> {
   const userId = readActorUserId(req);
   const roleName = await getActorRoleName(userId);
 
-  if (roleName !== 'CHAIN_MANAGER') {
+  // Single role-grant matrix: only CHAIN_MANAGER holds catalogue.write today.
+  if (!roleHasPermission(roleName, 'catalogue.write')) {
     throw new Error('Only CHAIN_MANAGER may change the service catalogue.');
   }
 }

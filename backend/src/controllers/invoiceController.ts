@@ -8,26 +8,10 @@ import {
   verifyBookingAccess,
 } from '../services/invoiceService';
 
-export function resolveActor(req: Request): ActorContext {
-  const customUser = (req as any).user;
-  if (customUser && customUser.userId) {
-    return {
-      userId: customUser.userId,
-      role: customUser.role,
-      branchId: customUser.branchId,
-    };
-  }
+import { resolveActor } from '../authorization';
 
-  const userId = req.header('x-user-id');
-  const role = req.header('x-role') || undefined;
-  const branchId = req.header('x-branch-id') || undefined;
-
-  return {
-    userId: userId || '',
-    role,
-    branchId,
-  };
-}
+// Re-exported so the checkout/payment controllers share the one actor seam.
+export { resolveActor };
 
 export function createInvoiceControllers(db: DbClient = pool) {
   const getBookingInvoiceHandler = async (req: Request, res: Response): Promise<void> => {

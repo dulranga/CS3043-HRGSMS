@@ -4,32 +4,10 @@ import {
   cancelWholeBooking,
   getCancellationQuote,
   verifyCancellationAccess,
-  ActorContext,
   DbClient,
 } from '../services/cancellationService.js';
 import { pool } from '../db.js';
-
-function resolveActor(req: Request): ActorContext {
-  const userId =
-    (req.headers['x-user-id'] as string) ||
-    (req.headers['x-actor-id'] as string) ||
-    (req as any).user?.userId ||
-    (req as any).user?.user_id;
-
-  const role =
-    (req.headers['x-role'] as string) ||
-    (req as any).user?.role;
-
-  const branchId =
-    (req.headers['x-branch-id'] as string) ||
-    (req as any).user?.branchId;
-
-  return {
-    userId: typeof userId === 'string' ? userId.trim() : undefined,
-    role: typeof role === 'string' ? role.trim() : undefined,
-    branchId: typeof branchId === 'string' ? branchId.trim() : undefined,
-  };
-}
+import { resolveActor } from '../authorization';
 
 function handleCancellationError(err: any, res: Response): void {
   const message = err?.message || String(err);

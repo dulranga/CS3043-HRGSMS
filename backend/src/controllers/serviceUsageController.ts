@@ -2,13 +2,9 @@ import { Request, Response } from 'express';
 import { pool } from '../db';
 import { member3Actor } from './member3Actor';
 import { recordServiceUsage, voidServiceUsage } from '../services/serviceUsageService';
+import { authorizeStaff, staffPrincipal } from '../authorization';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const USAGE_ROLES = new Set(['FRONT_DESK', 'SERVICE_STAFF']);
-// SRS §4.6.2 alternative flow: a manager creates the auditable reversal.
-// Recording roles may not void, so a mis-keyed charge needs manager authority.
-const VOID_BRANCH_ROLES = new Set(['BRANCH_MANAGER']);
-const VOID_CHAIN_ROLES = new Set(['CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR']);
 
 function readParam(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value || '').trim();
@@ -55,11 +51,15 @@ async function authorizeUsageActor(actorId: string, branchId: string): Promise<s
   );
   const actor = result.rows[0];
   const roleName = actor?.role_name?.trim().toUpperCase();
-  const actorBranchId = actor?.branch_id?.trim().toLowerCase();
-  if (!actor || !roleName || !USAGE_ROLES.has(roleName) || actorBranchId !== branchId.trim().toLowerCase()) {
+  if (!actor || !roleName) {
     return null;
   }
-  return roleName;
+  const decision = authorizeStaff(
+    staffPrincipal(actorId, roleName, actor.branch_id),
+    'service_usage.record',
+    branchId.trim().toLowerCase(),
+  );
+  return decision.allowed ? roleName : null;
 }
 
 async function resolveBookingAnyAssignment(bookingRef: string): Promise<{ bookingId: string; branchId: string } | null> {
@@ -96,13 +96,12 @@ async function authorizeVoidActor(actorId: string, branchId: string): Promise<st
   if (!actor || !roleName) {
     return null;
   }
-  if (VOID_CHAIN_ROLES.has(roleName)) {
-    return roleName;
-  }
-  if (VOID_BRANCH_ROLES.has(roleName) && actor.branch_id?.trim().toLowerCase() === branchId.trim().toLowerCase()) {
-    return roleName;
-  }
-  return null;
+  const decision = authorizeStaff(
+    staffPrincipal(actorId, roleName, actor.branch_id),
+    'service_usage.void',
+    branchId.trim().toLowerCase(),
+  );
+  return decision.allowed ? roleName : null;
 }
 
 function parseQuantity(value: unknown): number | string | null {

@@ -2,10 +2,9 @@ import { Request, Response } from 'express';
 import { pool } from '../db';
 import { member3Actor } from './member3Actor';
 import { checkInRoomLine } from '../services/checkInService';
+import { authorizeStaff, staffPrincipal } from '../authorization';
 
 const UUID_ANY_VERSION_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BRANCH_SCOPED_ROLES = new Set(['FRONT_DESK', 'BRANCH_MANAGER']);
-const CHAIN_SCOPED_ROLES = new Set(['CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR']);
 
 function readParam(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value || '').trim();
@@ -78,12 +77,17 @@ export async function postCheckIn(req: Request, res: Response): Promise<void> {
     }
 
     const { branch_id: actorBranchId, role_name: roleName } = staff.rows[0];
-    if (!BRANCH_SCOPED_ROLES.has(roleName) && !CHAIN_SCOPED_ROLES.has(roleName)) {
-      errorResponse(res, 403, 'CHECK_IN_FORBIDDEN', `Role ${roleName} cannot perform check-in.`);
-      return;
-    }
-    if (BRANCH_SCOPED_ROLES.has(roleName) && actorBranchId !== target.rows[0].branch_id) {
-      errorResponse(res, 403, 'BRANCH_ACCESS_DENIED', 'Check-in is restricted to the staff member\'s branch.');
+    const decision = authorizeStaff(
+      staffPrincipal(actor.userId, roleName, actorBranchId),
+      'booking.check_in',
+      target.rows[0].branch_id,
+    );
+    if (!decision.allowed) {
+      if (decision.code === 'CROSS_BRANCH_FORBIDDEN') {
+        errorResponse(res, 403, 'BRANCH_ACCESS_DENIED', 'Check-in is restricted to the staff member\'s branch.');
+      } else {
+        errorResponse(res, 403, 'CHECK_IN_FORBIDDEN', `Role ${roleName} cannot perform check-in.`);
+      }
       return;
     }
 

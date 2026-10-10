@@ -1,4 +1,5 @@
 import { ActorContext, DbClient } from './invoiceService.js';
+import { authorizeStaff, staffPrincipal } from '../authorization';
 import { CheckoutLineParams, CheckoutResult, CheckoutReceipt } from '../models/checkout.js';
 
 export interface CheckoutAccessResult {
@@ -118,58 +119,48 @@ export async function verifyStaffCheckoutAccess(
 
   const officer = offRes.rows[0];
 
-  // 4. Role restrictions per SRS staff-permission mapping (§6.1.4, Table 24)
-  if (officer.role_name === 'SERVICE_STAFF') {
-    return {
-      allowed: false,
-      statusCode: 403,
-      reason: 'Access denied: SERVICE_STAFF role is not authorized to perform checkout',
-    };
-  }
-
-  if (officer.role_name === 'AUDITOR') {
-    return {
-      allowed: false,
-      statusCode: 403,
-      reason: 'Access denied: AUDITOR role is not authorized to perform checkout',
-    };
-  }
-
-  // 5. Chain-wide roles: universal checkout access across all branches
-  if (['CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR'].includes(officer.role_name)) {
-    return {
-      allowed: true,
-      statusCode: 200,
-      roleName: officer.role_name,
-      branchId: officer.branch_id,
-      resolvedBookingId: booking.booking_id,
-      guestId: booking.guest_id,
-    };
-  }
-
-  // 6. Branch-scoped roles: FRONT_DESK and BRANCH_MANAGER restricted to own branch
-  if (['FRONT_DESK', 'BRANCH_MANAGER'].includes(officer.role_name)) {
-    if (booking.branch_id && officer.branch_id !== booking.branch_id) {
+  // 4. Role/scope decision from the single role-grant matrix (SRS §6.1.4).
+  const decision = authorizeStaff(
+    staffPrincipal(actor.userId, officer.role_name, officer.branch_id),
+    'checkout.perform',
+    booking.branch_id ?? undefined,
+  );
+  if (!decision.allowed) {
+    if (decision.code === 'CROSS_BRANCH_FORBIDDEN') {
       return {
         allowed: false,
         statusCode: 403,
         reason: 'Access denied: staff checkout is restricted to own branch',
       };
     }
+    if (officer.role_name === 'SERVICE_STAFF') {
+      return {
+        allowed: false,
+        statusCode: 403,
+        reason: 'Access denied: SERVICE_STAFF role is not authorized to perform checkout',
+      };
+    }
+    if (officer.role_name === 'AUDITOR') {
+      return {
+        allowed: false,
+        statusCode: 403,
+        reason: 'Access denied: AUDITOR role is not authorized to perform checkout',
+      };
+    }
     return {
-      allowed: true,
-      statusCode: 200,
-      roleName: officer.role_name,
-      branchId: officer.branch_id,
-      resolvedBookingId: booking.booking_id,
-      guestId: booking.guest_id,
+      allowed: false,
+      statusCode: 403,
+      reason: `Access denied: role ${officer.role_name} is not authorized to perform checkout`,
     };
   }
 
   return {
-    allowed: false,
-    statusCode: 403,
-    reason: `Access denied: role ${officer.role_name} is not authorized to perform checkout`,
+    allowed: true,
+    statusCode: 200,
+    roleName: officer.role_name,
+    branchId: officer.branch_id,
+    resolvedBookingId: booking.booking_id,
+    guestId: booking.guest_id,
   };
 }
 

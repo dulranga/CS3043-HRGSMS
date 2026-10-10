@@ -1,4 +1,5 @@
 import { DbClient } from './invoiceService.js';
+import { authorizeStaff, staffPrincipal } from '../authorization';
 
 // SRS FR-012 / §4.4.3: room.operational_status stores physical condition only.
 // `AVAILABLE`, `RESERVED` and `OCCUPIED` stay derived and are never stored.
@@ -6,13 +7,13 @@ export const ROOM_CONDITIONS = ['READY', 'CLEANING', 'OUT_OF_SERVICE'] as const;
 export type RoomCondition = (typeof ROOM_CONDITIONS)[number];
 
 // SRS §6.1.4 Table 24: SERVICE_STAFF records own-branch physical room-condition
-// changes and BRANCH_MANAGER handles own-branch physical rooms. FRONT_DESK owns
-// reservations, check-in and checkout; a checkout may invoke the internal
+// changes and BRANCH_MANAGER handles own-branch physical rooms (the single
+// role-grant matrix, `room.condition.write`, is the source of truth). FRONT_DESK
+// owns reservations, check-in and checkout; a checkout may invoke the internal
 // CLEANING transition inside its own transaction but is not granted a general
 // condition-edit right. Audit of the change is the append-only
 // `room_status_history` trail Member 3 owns (M2-S01 §audit ownership); this
 // operation never invents an `audit_log` action for a physical condition.
-const ROOM_CONDITION_EDIT_ROLES = new Set(['SERVICE_STAFF', 'BRANCH_MANAGER']);
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SCHEMA_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -162,11 +163,16 @@ export async function changeRoomCondition(
     await applySearchPath(db, input.schema);
     const room = await lockRoom(db, roomId);
     const actor = await requireActiveOfficer(db, actorId);
-    if (!ROOM_CONDITION_EDIT_ROLES.has(actor.roleName)) {
+    const decision = authorizeStaff(
+      staffPrincipal(actorId, actor.roleName, actor.branchId),
+      'room.condition.write',
+      room.branch_id.trim().toLowerCase(),
+    );
+    if (!decision.allowed) {
+      if (decision.code === 'CROSS_BRANCH_FORBIDDEN') {
+        throw accessDenied('Physical room condition changes are restricted to the actor\'s own branch.');
+      }
       throw accessDenied('Only an active BRANCH_MANAGER or SERVICE_STAFF of this branch may change physical room condition.');
-    }
-    if (actor.branchId !== room.branch_id.trim().toLowerCase()) {
-      throw accessDenied('Physical room condition changes are restricted to the actor\'s own branch.');
     }
 
     const previousCondition = room.operational_status.trim().toUpperCase();

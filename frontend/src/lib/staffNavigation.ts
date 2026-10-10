@@ -1,19 +1,36 @@
 import type { StaffRole } from './roomAdministration';
-// Discovery follows server permissions; every API still authorizes independently.
-const PAGE_ROLES: Record<string, readonly StaffRole[]> = {
-  '/dashboard': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'],
-  '/rooms': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER'],
-  '/bookings': ['FRONT_DESK'], '/bookings/new': ['FRONT_DESK'],
-  '/check-in': ['FRONT_DESK'], '/stays': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR'],
-  '/service-usage': ['FRONT_DESK', 'SERVICE_STAFF'],
-  '/admin/services': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'],
-  '/admin/rooms': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'],
-  '/guests': ['FRONT_DESK'],
-  '/admin/reports': ['BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR'],
-  '/admin/operations': ['SYSTEM_ADMINISTRATOR', 'AUDITOR'],
-  '/admin/config': ['SYSTEM_ADMINISTRATOR', 'AUDITOR'],
-  '/admin/audit': ['SYSTEM_ADMINISTRATOR', 'AUDITOR'],
+import { ROLE_GRANTS } from './rolePermissions.generated';
+
+// Navigation is derived from the backend's single role-grant matrix (generated
+// into rolePermissions.generated.ts). Each staff page declares the operation(s)
+// it requires; '*' means any authenticated staff role. Every API still
+// authorizes independently, so hiding a link is discovery only, never control.
+type PageRequirement = '*' | string | readonly string[];
+
+const PAGE_PERMISSIONS: Record<string, PageRequirement> = {
+  '/dashboard': '*',
+  '/rooms': 'room.read',
+  '/bookings': 'booking.manage',
+  '/bookings/new': 'booking.manage',
+  '/check-in': 'booking.check_in',
+  '/stays': ['room.read', 'invoice.read.chain'],
+  '/service-usage': 'service_usage.record',
+  '/admin/services': '*',
+  '/admin/rooms': 'room.read',
+  '/guests': 'guest.manage',
+  '/admin/reports': ['report.read.branch', 'report.read.chain'],
+  '/admin/operations': ['branch.write', 'account.read'],
+  '/admin/config': ['config.read', 'config.write'],
+  '/admin/audit': 'audit.read',
 };
+
 export function canViewStaffPage(role: StaffRole | null, path: string): boolean {
-  return role !== null && Boolean(PAGE_ROLES[path]?.includes(role));
+  if (!role) return false;
+  const grants = ROLE_GRANTS[role];
+  if (!grants) return false;
+  const required = PAGE_PERMISSIONS[path];
+  if (required === undefined) return false;
+  if (required === '*') return true;
+  const operations = typeof required === 'string' ? [required] : required;
+  return operations.some((operation) => grants[operation as keyof typeof grants] !== undefined);
 }
