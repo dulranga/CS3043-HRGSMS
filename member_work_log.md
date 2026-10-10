@@ -4,6 +4,15 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 10 October 2026 — remove redundant booking sub-nav from staff booking pages
+
+- At the owner's request, removed the in-page sub-nav strip ("Room availability", "Create staff booking", "Staff booking records", "Room administration") that sat above `/dashboard/bookings/new` and the other staff booking/room-admin pages. It duplicated the sidebar and its buttons sat in a section unrelated to the page content.
+- Deleted `frontend/src/components/layout/StaffBookingLayout.tsx` (it rendered only that nav) and unwrapped its four consumers — `StaffBookingCreatePage`, `StaffBookingRecordsPage`, `StaffBookingModificationPage` and `RoomAdministrationPage` — which now render `<PageContainer><BoundedContainer>…` directly. The nav was shared, so the strip is gone from all four pages, not just the create page. Every destination stays reachable from the sidebar (Rooms, New Reservation/Reservations, Room Administration), so no navigation is lost.
+- No API, schema, authorization or session changes; no DB/SQL work; no lecture concepts applied.
+- Verification: `npx tsc --noEmit` and `npx vite build` **passed** (only the pre-existing >500 kB chunk-size warning); `npm run test:frontend` **239/239** (no test referenced `StaffBookingLayout`). No task checkbox changed. No Git publication actions.
+- Proposed commit: `refactor(nav): remove redundant booking sub-nav from staff booking pages`.
+- Proposed PR title: `Remove the redundant booking sub-nav`. Description: `Drop the in-page quick-link strip shown above the staff booking and room-administration pages; it duplicated the sidebar and was unrelated to each page's content. Delete the now-empty StaffBookingLayout wrapper and render the four pages directly, keeping all destinations reachable from the sidebar. Verified with the type-check, the production build and the full 239-test frontend suite.`
+
 ### 10 October 2026 — sidebar pins each role's most-frequent action
 
 - At the owner's request, the staff sidebar now surfaces and highlights each role's single most-frequent day-to-day action at the top instead of only Front Desk's "New Reservation". Added `PRIMARY_ACTION_PATHS` + `primaryActionPath(role)` to `frontend/src/lib/staffNavigation.ts`; the pinned path is still checked with `canViewStaffPage`, so a stale map entry can never expose a link the role cannot open (guests get no pinned action).
