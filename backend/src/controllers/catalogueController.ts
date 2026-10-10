@@ -180,7 +180,7 @@ function sendError(error: unknown, res: Response): void {
     return;
   }
   if (error instanceof CatalogueConflictError) {
-    res.status(409).json({ error: { code: 'CATALOGUE_CONFLICT', message: error.message } });
+    res.status(409).json({ error: { code: 'CATALOGUE_CONFLICT', message: error.message, affectedLines: error.affectedLines } });
     return;
   }
 

@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import {
   AvailabilitySearchInput,
   findAvailableRooms,
+  getAvailabilityOptions,
 } from '../services/availabilityService';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -104,6 +105,14 @@ function sendError(error: unknown, res: Response): void {
   res.status(500).json({
     error: { code: 'INTERNAL_ERROR', message: 'Availability could not be searched.' },
   });
+}
+
+export function availabilityOptionsHandler(req: Request, res: Response): void {
+  if (Object.keys(req.query).length) {
+    sendError(new AvailabilityValidationError('Search choices do not accept query parameters.'), res);
+    return;
+  }
+  getAvailabilityOptions().then(data => res.json({ data })).catch(error => sendError(error, res));
 }
 
 export function searchAvailabilityHandler(

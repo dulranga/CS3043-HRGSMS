@@ -1,0 +1,11 @@
+import { Request } from 'express';
+import { ActorContext } from '../services/invoiceService';
+
+// Only Member 1's verified session middleware may supply req.user. Request
+// headers, query parameters and body fields are never proof of identity; the
+// check-in / service-usage / room-condition tests assert that a header-only
+// request is refused with 401.
+export function member3Actor(req: Request): ActorContext {
+  const user = (req as Request & { user?: ActorContext }).user;
+  return { userId: typeof user?.userId === 'string' ? user.userId : '' };
+}

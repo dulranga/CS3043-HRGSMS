@@ -15,7 +15,7 @@ CS3043-HRGSMS/
 ├── SkyNest_HRGSMS_SRS_v1.0.md  # Version 1.4 draft SRS (legacy filename)
 ├── member_summary_table.md    # Draft member ownership and handoffs
 ├── member_tasks/             # One-commit-sized plans and workflow for each member
-├── memory.md                 # Verified cross-task project decisions
+├── docs/archive/             # Historical project records (not active decisions)
 └── member_work_log.md         # Shared actual-work log, organized by member
 ```
 
@@ -37,7 +37,7 @@ CS3043-HRGSMS/
 - PostgreSQL 18 with native UUIDv7 generation (`uuidv7()`)
 - Parameterized raw SQL; Member 2's rate fields use exact LKR `numeric(12,2)`
 
-The SRS uses this stack, not Next.js. It covers staff-assisted and direct online guest bookings through linked `guest_account` records. Its amended target permits multiple separately dated/priced room lines under one booking, with room-assignment history. The active Member 2 migrations implement the normalized baseline and its database integrity guards directly through M2-S28; later reservation API and UI work remains pending.
+The SRS uses this stack, not Next.js. It covers staff-assisted and direct online guest bookings through linked `guest_account` records. Its amended target permits multiple separately dated/priced room lines under one booking, with room-assignment history. The active Member 2 migrations implement the normalized baseline and its database integrity guards directly through M2-S28; reservation API/UI integration is mounted with verified sessions, with remaining owner acceptance described in the integration audit.
 
 ## 📋 Prerequisites
 
@@ -83,6 +83,12 @@ Frontend will start on `http://localhost:5173` (Vite default)
 
 Both should be running to ensure full functionality.
 
+The backend allows up to 15 seconds to establish a PostgreSQL connection, including
+hosted-database wake-up and TLS authentication. If registration reports a temporary
+service failure, check backend/database connectivity before retrying. Run
+`npm run test:db-connection --workspace backend` to verify delayed connection handling;
+this check uses the configured database with read-only SQL through a local delay proxy.
+
 ## 📝 Available Commands
 
 ### Root Level Commands
@@ -119,6 +125,8 @@ npm run dev              # Start with tsx watch (auto-reload on file changes)
 npm run build            # Compile TypeScript to dist/
 npm run start            # Run compiled JavaScript (use after build)
 npm run migrate          # Apply pending SQL migrations using PG_URL
+npm run seed             # Seed additive demonstration data (idempotent; see below)
+npm run test:seed        # Verify the seed on an isolated schema, including idempotency
 npm run test:migrations  # Apply migrations to an isolated temp schema and assert
 ```
 
@@ -135,12 +143,25 @@ number (`m1` before `m2`) and then version.
   `PG_URL`, recording each in `schema_migrations`. Every file runs inside its own transaction, so a
   failure rolls back that file only and stops the run; a session advisory lock serialises concurrent
   runners.
+- Supply a direct, session-capable `PG_URL` when running migrations. Transaction-pooler URLs do
+  not preserve the advisory lock/search path between migrations. The CLI uses the supplied URL
+  unchanged; the root test runner prepares a direct connection for its isolated suites.
 - Set `MIGRATIONS_DIR` to override the folder and `PG_SCHEMA` to apply into an isolated schema
   instead of `public`.
 - `npm run test:migrations` proves the workflow against a clean temporary PostgreSQL schema: it
   applies fixture migrations, asserts the resulting objects, checks re-runs are skipped and verifies
   a failing migration is rolled back and not recorded. Set `PG_TEST_URL` to target a disposable
   database in CI; otherwise `PG_URL` from `backend/.env` is used.
+
+### Seeding demonstration data
+
+`npm run seed` (or `node dist/seed/cli.js` after a build) loads the additive demonstration dataset for manual and UI testing: demonstration staff and one online guest, room types/amenities/rooms, a six-service catalogue, non-demo billing policy, dated room block and six bookings covering the full lifecycle (two-room different-rate, two-simultaneous-Single, checked-in, cancelled, no-show and DIRECT_ONLINE guest booking) with partial and settling payments plus service usage and one voided charge.
+
+- **Idempotent and additive:** the seed resolves or creates every entity by a stable natural key (`demo.*` usernames, `DEMO-*` booking references, `Demo *` catalogue names), drives the real SQL contracts (`sp_create_booking`, `sp_create_online_guest_booking`, check-in, service usage, `fn_record_payment`, checkout, cancellation, no-show) and never mutates or deletes non-demo rows. Re-running adds only missing work.
+- **Sign in** with `demo.chain`, `demo.frontdesk`, `demo.service`, `demo.branchmanager`, `demo.admin`, `demo.auditor`, `demo.frontdesk.kandy` or `demo.guest`; the password is `SkyNest#2026` (override with `DEMO_SEED_PASSWORD`).
+- **Isolated, repeatable runs:** `npm run seed -- --schema demo` applies the migration chain into a new `demo` schema and seeds it; add `--reset` to drop and rebuild that schema first. `--reset` requires `--schema` and never targets the shared `public` schema.
+- `npm run test:seed` verifies the Table 48 baseline and idempotency in a throwaway schema.
+- The shared development database currently has a drifted `room_status_history` (a pre-`reason` mock table using the old `room_condition` enum), so the audited `fn_set_room_condition` and therefore the checkout transaction cannot run there. The seed detects this, applies guarded initial conditions directly and skips only the checkout/FINAL-invoice demonstration; use an isolated schema (or a clean database) for a FINAL invoice.
 
 For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
 
@@ -154,11 +175,25 @@ For the Member 2 reservation-integrity guards, run `npm run test:m2-guards --wor
 
 For the Member 2 capacity and room-type edit guards, run `npm run test:m2-capacity-guards --workspace backend`. The test applies M2-S02 through M2-S28 in isolated PostgreSQL schemas and verifies assigned-line capacity at assignment and guest-count edit time, rejects unsafe room-type capacity reductions and room type changes, permits valid edits after assignment closure, preserves historical lines/rates/assignments, and exercises concurrent booking-versus-catalogue and booking-versus-room edits.
 
-For the Member 2 room-type/amenity catalogue API core, run `npm run test:m2-catalogue-api --workspace backend`. The test mounts the route factory with test-only authorization handlers and verifies parameterized search, validation, Chain Manager writes, forbidden-role denials, active filtering, atomic amenity links, rate-snapshot persistence and reservation conflict mapping in an isolated PostgreSQL schema. The production router remains unmounted until Member 1 supplies the authenticated read and Chain Manager middleware required by M2-S07; this test adapter is not an application authentication mechanism.
+For the Member 2 room-type/amenity catalogue API core, run `npm run test:m2-catalogue-api --workspace backend`. The test mounts the route factory with test-only authorization handlers and verifies parameterized search, validation, Chain Manager writes, forbidden-role denials, active filtering, atomic amenity links, rate-snapshot persistence and reservation conflict mapping in an isolated PostgreSQL schema. This test adapter is not an application authentication mechanism; `backend/src/app.ts` mounts the production router with Member 1's M1-S09 session middleware (any signed-in user reads, CHAIN_MANAGER writes).
 
-For the Member 2 own-branch room and dated room-block API core, run `npm run test:m2-room-api --workspace backend`. The isolated HTTP/database test verifies Branch Manager writes, permitted Service Staff reads, strict branch scoping, room-number uniqueness, active room-type checks, half-open block dates, cross-branch denial and affected-line conflicts for blocks, deactivation and room-type reassignment. The route factory accepts Member 1 authorization/context middleware and remains unmounted until that production middleware exists. Physical-condition changes are intentionally absent from this router until Member 3 supplies the M3-S18 audited condition operation.
+For the Member 2 own-branch room and dated room-block API core, run `npm run test:m2-room-api --workspace backend`. The isolated HTTP/database test verifies Branch Manager writes, permitted Service Staff reads, strict branch scoping, room-number uniqueness, active room-type checks, half-open block dates, cross-branch denial and affected-line conflicts for blocks, deactivation and room-type reassignment. `backend/src/app.ts` mounts the route factory with Member 1's M1-S09 middleware: FRONT_DESK/SERVICE_STAFF/BRANCH_MANAGER read and BRANCH_MANAGER writes, always scoped to the session's assigned branch. Physical-condition changes use Member 3's separate M3-S18 audited route factory (`PATCH /api/rooms/:roomId/condition`, `createRoomConditionRouter`), which is not yet mounted in `backend/src/index.ts`.
+
+For the Member 2 room administration UI core (M2-S15), open `/admin/rooms` and run `npm run test:m2-room-admin-ui --workspace frontend`. The shadcn panel manages room types/amenities for Chain Managers and own-branch rooms/dated blocks for Branch Managers; Branch Managers and Service Staff use the separate audited condition endpoint. Catalogue capacity/deactivation conflicts now return affected booking lines, while the existing database guards remain authoritative. Forms validate exact decimal rates, capacities, names, UUIDs, reasons and half-open calendar dates; rejected writes retain drafts and successful writes refresh records. Vite proxies `/api` to the local backend on port 4000. The production page currently has no verified session adapter, so it loads no records and disables writes; it must be connected to Member 1's real session/CSRF contract. No browser-selected role/branch or actor header is used for production access. M2-S15 remains unchecked until authenticated end-to-end AT-23/AT-24/AT-27 checks pass. To review the interactive sample UI without a database, start the frontend and visit `/tests/room-administration-preview.html`; this development fixture uses an in-memory transport and is excluded from the production router/build.
 
 For the Member 2 availability function and API, run `npm run test:m2-availability --workspace backend`. Migration `m2_007` adds the parameterized `fn_available_rooms` set-returning function and an active-stay index; `GET /api/availability` accepts `branchId`, `checkIn`, `checkOut`, `guestCount`, optional `roomTypeId` and optional `immediateCheckIn` (default `false`). Results require active room/branch/type records, sufficient capacity, no overlapping block or open BOOKED/CHECKED_IN assignment and a condition other than OUT_OF_SERVICE. Immediate check-in additionally requires READY, while a non-overlapping future search may return a currently CLEANING room.
+
+For the Member 2 staff booking-create core, run `npm run test:m2-booking-create --workspace backend`. Migration `m2_008` adds `sp_create_booking`, which rechecks the selected rooms, catalogue rates and latest published production billing policy inside one transaction, then creates one booking header, all room lines, status histories, room assignments and Member 4's DRAFT invoice atomically. The authorization-injected route factory provides quote and confirmation endpoints for own-branch Front Desk staff. It is mounted through Member 1's verified production session and own-branch Front Desk middleware. Complete owner acceptance still governs M2-S10's checklist.
+
+For the Member 2 staff booking list/detail core, run `npm run test:m2-booking-read --workspace backend`. The authorization-injected route factory provides `GET /api/bookings` with bounded pagination and `GET /api/bookings/:bookingId`. Both derive scope exclusively from the authenticated Front Desk branch context; list rows aggregate line summaries so a multi-room booking appears once, while detail responses include every current or terminal room line plus complete status, revision and physical-room assignment histories. Out-of-branch IDs return the same not-found response as unknown IDs. The router is mounted behind Member 1's verified Front Desk session middleware; complete owner acceptance still governs M2-S11.
+
+For the Member 2 booking-line modification core, run `npm run test:m2-booking-modify --workspace backend`. Migration `m2_009` adds atomic routines for adding a quoted BOOKED line, revisioning dates/guests/rates on a still-BOOKED line, and moving a BOOKED or CHECKED_IN line while closing and preserving the previous assignment. Every successful change refreshes Member 4's DRAFT invoice while retaining approved discounts and explicit price adjustments; a paid-down reduction can therefore return a visible credit. Checked-in dates and rates remain fixed, with a Branch Manager-approved difference stored as a signed line-attributed `PRICE_ADJUSTMENT`. The POST/PATCH route factory is mounted behind verified staff authentication with session-derived actor/branch scope; complete owner acceptance still governs M2-S12.
+
+For the Member 2 online guest booking-create core, run `npm run test:m2-online-booking --workspace backend`. Migration `m2_010` derives the booking owner exclusively from the authenticated `user_account` → `guest_account` link, forces `DIRECT_ONLINE`, rechecks every selected room and current base rate, confirms the latest effective production billing policy, and atomically creates the multi-room booking and DRAFT invoice. The `/api/guest/bookings/quote` and `/api/guest/bookings` route factory rejects client-supplied `guestId` and booking-channel fields. It is mounted behind Member 1's verified online-guest session middleware; complete owner acceptance still governs M2-S13.
+
+For the Member 2 online guest own-booking read core, run `npm run test:m2-online-booking-read --workspace backend`. Migration `m2_011` adds the ownership/newest-first booking index, while the authorization-injected route factory provides bounded `GET /api/guest/bookings` and `GET /api/guest/bookings/:bookingId` reads. Both resolve the linked guest from the authenticated account; list results contain only that guest's bookings, detail includes every room line plus status, revision and assignment history, and unknown or other-owner IDs return the same not-found response. Internal guest/staff actor identifiers are omitted from the guest-facing DTO. The router is mounted behind Member 1's verified online-guest session middleware; complete owner acceptance still governs M2-S14.
+
+For the Member 2/3 reconciliation, run `npm run test:m3-current-baseline --workspace backend`. It applies the numbered migration chain in temporary schemas with transaction-local schema isolation, verifies data-preserving upgrades from the published Member 3 mocks, and exercises real booking creation, guarded per-line check-in, active stays and partial checkout together. The existing `m3_001`/`m3_002` mock keys are retained; `m3_003` upgrades usage, `m3_004` upgrades the catalogue and `m3_005` upgrades history using Member 2's `room_condition_enum`. Member 3's protected factories are mounted with verified sessions. Obsolete competing audit/config DDL is archived in `docs/archive/legacy-audit-and-config.sql`. Full migration tests use a session-capable direct connection and isolated search paths.
 
 ## 🔌 API Endpoints
 
@@ -166,7 +201,52 @@ The backend runs on `http://localhost:4000` and exposes:
 
 - `GET /` — Home endpoint
 - `GET /rooms` — Get all rooms
+- `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session` — session cookie authentication (M1-S08)
+- `POST /api/auth/register` — public online guest registration; `POST /api/guests/:guestId/link-code` — FRONT_DESK issues a 24-hour link code so an existing guest profile can be claimed (M1-S10)
+- `POST /api/guests/search`, `POST /api/guests`, `GET|PATCH /api/guests/:guestId`, `POST /api/guests/:guestId/deactivate|reactivate` — FRONT_DESK guest-profile maintenance (M1-S11)
+- `GET /api/guest/profile`, `PATCH /api/guest/profile` — online guest own-profile read and edit (M1-S12)
+- `POST /api/users/search`, `GET /api/users/:userId`, `POST /api/users`, `PATCH /api/users/:userId`, `POST /api/users/:userId/disable|reactivate` — staff-account administration (M1-S13)
+- `GET /api/branches`, `GET /api/branches/:branchId`, `POST /api/branches`, `PATCH /api/branches/:branchId`, `POST /api/branches/:branchId/deactivate|reactivate` — audited branch-record administration (M1-S20)
+- `GET /api/guest/bookings`, `GET /api/guest/bookings/:bookingId`, `GET /api/bookings/:bookingId/invoice|payments` — online guest own-booking and payment summary (M1-S18; read cores owned by M2/M4)
 - Additional endpoints as per SRS requirements
+
+Staff guest profiles (M1-S11) are FRONT_DESK-only and chain-wide (`guest.manage`). Responses never contain the raw NIC, only `maskedNic` (`•••••567V`) and `hasNic`. Search takes `{ query?, nic?, includeInactive?, limit? }` in a POST body so NICs stay out of URLs: `query` (2–100 characters) matches name, email or phone digits as a literal substring, and `nic` matches exactly only. Create/update share the M1-S10 identity locks: a NIC match is always refused (`GUEST_NIC_EXISTS`); an email/phone match returns `POSSIBLE_DUPLICATE` with masked candidates unless `confirmNotDuplicate: true`. Deactivation is refused while the guest has a BOOKED or CHECKED_IN line and immediately disables a linked online login. Run `npm run test:m1-guest-profiles --workspace backend`.
+
+Staff guest-profile UI (M1-S16): `/guests` (in the staff sidebar) gives FRONT_DESK search-before-create (FR-019), a masked-NIC results table, a create form, and a detail panel with edit, deactivate/reactivate (optional reason; blocked with the open-booking count) and the deferred **Issue link code** action. Because the API never returns the raw NIC, edit uses dirty-field diffing and sends only changed keys. `POSSIBLE_DUPLICATE` lists masked candidates and offers a "different person — continue" override; `GUEST_NIC_EXISTS` has no override. Non-FRONT_DESK roles see an "Access restricted" card. The client is `frontend/src/lib/guests.ts`; the new dependency-free shadcn primitives `Table` and `Badge` live in `frontend/src/components/ui/`.
+
+Online guest own-profile UI (M1-S17): `/account` is a guest-only page (no staff sidebar, search or navigation) that reads and edits the signed-in guest's own profile via `/api/guest/profile`. It shows only a masked NIC, uses dirty-field diffing for edits (a blank NIC keeps the current value), and enforces the one-contact rule. Staff sessions get a "this area is for guest accounts" card; deactivated sessions get a session-ended card; `POSSIBLE_DUPLICATE` offers a confirm while `GUEST_NIC_EXISTS` does not. Signed-in guests see a "My account" link in the home navigation. The client is `frontend/src/lib/guestAccount.ts`. Run `npm run test:m1-guest-account --workspace backend`.
+
+Online guest own-profile (M1-S12) is guest-only (no staff access). The guest reads and edits only their own profile linked at account creation (M1-S10 registration). Validation and duplicate rules match the staff API; NIC is always masked. Deactivation at the staff level (M1-S11) is enforced here—a deactivated guest's existing cookie fails on the next request. The linked guest's booking and payment history is surfaced by the account summary (M1-S18) through Member 2's own-booking reads and Member 4's invoice/payment reads. Run `npm run test:m1-guest-account --workspace backend`.
+
+Staff-account administration (M1-S13): writes are SYSTEM_ADMINISTRATOR-only (`account.write`) and reads are SYSTEM_ADMINISTRATOR/AUDITOR (`account.read`), chain-wide. Create takes `{ fullName, username, email?, phone?, nic?, branchId, roleId, password? }`; without a `password` a one-time `temporaryPassword` is returned (never stored or audited). Update accepts partial contact/branch/role changes plus `password` (a reset kills the officer's existing cookie immediately via the M1-S08 hash fingerprint). Disable/reactivate are soft flags on both `officer` and `user_account` — nothing is ever deleted (FR-074) — and an administrator cannot disable their own account. NIC is masked like the guest API, search is a POST with exact-only NIC matching, and every write is audited with only changed fields. The non-login system principal has no officer row and is unreachable. Run `npm run test:m1-staff-accounts --workspace backend`.
+
+Branch-record administration (M1-S20, FR-008/AT-25): reads use `branch.read` (any staff role) and writes use `branch.write` (SYSTEM_ADMINISTRATOR only), both chain-wide. Create takes `{ name, city, address?, active? }`; update accepts partial `name`/`city`/`address` changes; deactivate/reactivate are explicit endpoints with an optional `reason` recorded in the audit evidence. A branch is never deleted, so rooms, officers and bookings keep a valid FK, and member 2's `m2_guard_branch_deactivation` rejects deactivation while any room in the branch has a current BOOKED/CHECKED_IN assignment, returning `BRANCH_HAS_ACTIVE_ASSIGNMENTS`. Because that trigger and Member 2's booking validation both lock the branch row, a booking cannot slip past a concurrent deactivation. Run `npm run test:m1-branches --workspace backend`.
+
+Online guest reservations summary (M1-S18, FR-020/FR-082/AT-15): `/account` now lists the signed-in guest's own bookings below the profile. It mounts Member 2's M2-S14 read router at `/api/guest` behind Member 1's guest session middleware (`authorization.guest`) and calls Member 4's `GET /api/bookings/:bookingId/invoice|payments`, so the summary never duplicates their APIs or screens. Expanding a booking shows every room line (room type, assigned room, stay, guests, rate and line status) under its one owned booking, and the invoice/payment history is shown once per booking (no per-line duplication). Ownership is derived server-side from the authenticated account: only the guest's own booking list is returned, other-owner or guessed booking ids return `BOOKING_NOT_FOUND`, and Member 4 reads return `FORBIDDEN` for another guest's booking. The clients are `frontend/src/lib/guestBookings.ts` and `frontend/src/components/account/GuestReservations.tsx`. Run `npm run test:m1-guest-booking-summary --workspace backend`.
+
+Online guest registration (M1-S10) creates a new `user_account` + `guest` + `guest_account`, but refuses details (email, phone or NIC) that match an existing guest profile. That guest must instead get a link code from the front desk after an identity check and register with `{ username, password, linkCode }`. Codes are HMAC-signed with `SESSION_SECRET`, bound to one guest, never stored, and stop working once the profile is linked. Failed attempts are audited and limited to 10 per client address per 15 minutes. Registration does not sign in; the client calls `/api/auth/login` next. Run `npm run test:m1-guest-registration --workspace backend`.
+
+Online guest registration UI (M1-S15): the public `/register` route offers both M1-S10 paths behind one form — **New guest** (full name, an email or phone, optional NIC, username and password) and **I have a link code** (link code, username, password). Client-side validation mirrors the server (`frontend/src/lib/registration.ts`), and failures are mapped to safe messages: a matching profile (`PROFILE_EXISTS`) never reveals which detail matched and instead offers the link-code path, unusable/expired/reused codes (`INVALID_LINK_CODE`/`LINK_CODE_USED`), taken usernames and throttling (`TOO_MANY_ATTEMPTS` with retry minutes) are shown without leaking data, and inline field errors come from the server's `VALIDATION_ERROR.fields`. On success the page confirms the account and sends the guest to `/login` (preserving a safe `redirect`). The `Sign up`/`Get Started` calls to action and the sign-in page link here.
+
+Sign-in UI (M1-S14): `/login` (`?redirect=`, `?reason=expired`) is one form for staff and guests, built from the shadcn `Card`/`Input`/`Button`/`Alert` primitives. It validates required fields inline with `aria-invalid`/`aria-describedby`, offers a show/hide password toggle and a busy state that blocks double submission, and maps server failures to distinct messages: wrong credentials, disabled account (`ACCOUNT_DISABLED`), throttling (with retry minutes), connection failure and expired session; the password field is cleared after a failed attempt. On success it sends staff to `/dashboard` and guests to `/`, following only a same-app sanitized `redirect`. The client is `frontend/src/lib/auth.ts` with `frontend/src/components/auth/AuthProvider.tsx`. Verified in real headless Chrome (form render, empty-submit validation, the real `INVALID_CREDENTIALS` response, and a fulfilled `ACCOUNT_DISABLED` response) alongside `npm run build:frontend`; the mapped login contract is covered by `npm run test:m1-auth --workspace backend`.
+
+Protected `/api/*` routes require the session cookie; identity headers such as `x-user-id`/`x-role` are ignored when the router is mounted with Member 1's middleware. Staff permissions come from the version-controlled role matrix in `backend/src/authorization.ts` (M1-S09; SRS §6.1.4 working mapping pending TBD-15 sign-off). `/api/admin/*` and `/api/reports/*` use a default-deny route policy, so a new route there must be added to `ADMIN_ROUTE_POLICY`/`REPORT_ROUTE_POLICY` before it is reachable. Run `npm run test:m1-authorization --workspace backend` for the per-role, cross-branch and AT-24 checks. The frontend calls the API through relative `/api/...` URLs (Vite proxies them) so the cookie is sent.
+
+## Integration verification (8 October 2026)
+
+Run all current automated suites from the repository root:
+
+```bash
+npm test
+npm run test:frontend
+npm run test:backend
+```
+
+The root runner discovers all tests in both workspaces. Backend integration tests require PostgreSQL 18 and `PG_TEST_URL` or `PG_URL` (environment or `backend/.env`) with permission to create temporary schemas. Session-dependent suites use a direct session-capable connection; the runner removes the configured hosted `-pooler` hostname suffix. It does not modify the environment file. Use a dedicated test database when available. The runner requires a Node version supporting `--test-timeout` (Node 22 or later).
+
+Current verification: **437 tests pass** (233 frontend, 204 backend); both production builds pass. The production Express factory is `backend/src/app.ts`; `index.ts` initializes the database and starts listening. Current staff/guest feature pages derive identity from AuthProvider and use same-origin session cookies. All 37 current migrations apply cleanly and rerun idempotently, including `m5_004_repair_report_contracts.sql` for existing reporting installations.
+
+The development database currently needs room-type and physical-room setup before booking searches can return inventory. Chain Manager catalogue writes and Branch Manager own-branch room writes retain their approved permissions. No generic configuration keys seed financial percentages or fees; those belong to immutable typed billing policies. See [8 October integration audit](docs/qa/2026-10-08-bug-fix-audit.md) for bug fixes, browser evidence, remaining SRS gaps and proposed human Git handoff.
 
 ## 📖 Design & Layout References
 
@@ -176,8 +256,7 @@ The backend runs on `http://localhost:4000` and exposes:
 - **SkyNest_HRGSMS_SRS_v1.0.md** — ER-aligned SRS draft; unresolved design decisions are in Appendix C
 - **member_summary_table.md** — Proposed member tasks, table ownership and cross-team handoffs
 - **member_tasks/** — Five member-specific subtask checklists and completion workflows
-- **memory.md** — Durable verified project decisions; recheck against current files before use
-- **member_work_log.md** — Shared record of what each member's completed or partial tasks changed and verified
+- **member_work_log.md** — Current execution records; recheck against source and requirements. The removed memory file is preserved as [historical context](docs/archive/imandi-memory-2026-10-07.md).
 
 Always refer to these documents when making design or layout decisions.
 
@@ -198,6 +277,7 @@ Key utilities:
 ### Backend
 - Uses `tsx watch` for automatic restart on file changes
 - Environment variables can be set in a `.env` file (default PORT=4000)
+- `SESSION_SECRET` (at least 32 characters) is required to start the server; see `backend/.env.example`. For plain-HTTP local development set `SESSION_COOKIE_SECURE=false` (rejected in production)
 - CORS is enabled for frontend requests
 
 ### TypeScript
@@ -235,7 +315,7 @@ cd backend && npm start
 - **Component Rule:** Use only shadcn components from `frontend/src/components/ui/`
 - **Design System:** All visual decisions must align with `DESIGN.md`
 - **Layout Architecture:** Reference `LAYOUT.md` for page structure and responsiveness
-- **Git:** Never commit directly (use PR workflow as defined in project guidelines)
+- **Git:** Agents must never create branches, commits, pushes or pull requests; provide proposed handoff text for a human.
 
 ## 📞 Need Help?
 
@@ -244,6 +324,48 @@ Refer to the project documentation:
 - **Design Questions** → Check `DESIGN.md`
 - **Requirements & Specifications** → Check `SkyNest_HRGSMS_SRS_v1.0.md`
 - **Agent Guidelines** → Check `AGENTS.md`
+
+## Member 2 guest My Bookings UI core (M2-S21)
+
+`/guest/my-bookings` lists the signed-in guest's reservations, and `/guest/my-bookings/:bookingId` displays every active/terminal room line under one reference. Own history includes staff-assisted bookings as well as DIRECT_ONLINE bookings. Each line shows its own dates, guest count, agreed rate and state, previous/current room assignments, actual occupancy times, state changes and date/guest/rate revisions. Room type labels are current catalogue metadata; previous assignments and agreed rates remain preserved. The guest screen excludes internal identity/contact/condition metadata and free-text staff notes. It displays no invented booking-level status or final bill.
+
+The GET-only client calls M2-S14's `/api/guest/bookings?limit=20&offset=…` and `/api/guest/bookings/:bookingId` with same-origin credentials. It supplies no guest/user/branch identity overrides or `x-user-id` header. Backend ownership checks authorize every request; the UI cannot establish ownership from an ID alone. Unknown and other-owner UUIDs show the same safe `Booking not found` state. Expired/denied reads clear list/detail data and require a new verified session; late responses cannot restore another booking's detail. Loading, empty, failure, reload, back and bounded pagination states are provided. Both list/detail use guest-only navigation.
+
+Run `npm run test:m2-guest-booking-read-ui --workspace frontend`. `/tests/guest-booking-records-preview.html` is a development-only in-memory sample for mixed/all-five states, pagination, empty lists, denial, failed reads and missing/other-owner IDs; it makes no database requests or writes. Production now uses verified AuthProvider guest identity and the mounted M2-S14 protected read routes. M2-S21 stays subject to its full owner acceptance checks. The old Member 4 `GuestBookingsPage.tsx` cancellation simulator is preserved but no longer mounted as My Bookings; integrating Member 4's authenticated cancellation quote/confirmation controls remains its guest action handoff. The read screen directs guests to contact SkyNest for changes/cancellation and provides no cancellation/payment/staff mutation action.
+
+## Member 2 direct guest booking UI core (M2-S20)
+
+`/guest/bookings/new` provides the direct guest reservation screen with guest-only navigation. It reuses multi-room availability search: every line keeps its own dates, guests and room type within one selected branch. A fresh M2-S13 server quote shows each base rate/room charge, exact-decimal service charge and tax, combined provisional total, and published policy terms. Guests must explicitly review the quote before confirming. Selection edits and rejected stale rates/policies invalidate that review; a fresh quote needs a new acknowledgement. One unavailable room rejects the entire confirmation, retains the draft and rechecks every selected line. No write is automatically replayed; unknown confirmation outcomes block another submission and direct the guest to the hotel.
+
+The API client sends only branch/search criteria and server-quoted type/rate/policy values. Ownership and DIRECT_ONLINE channel are derived by the backend from the authenticated account, with no guest ID/actor/channel inputs. The receipt shows one reference, every agreed room line and the server's DRAFT total; guest/actor IDs, NIC/contact details and unrelated response metadata are excluded. No online payment is taken; payment is arranged through cash or verified bank transfer with the hotel.
+
+Run `npm run test:m2-guest-booking-ui --workspace frontend`. The development-only `/tests/guest-booking-preview.html` uses sample identity, rates and an in-memory transport; it makes no database requests or payments. The production page now derives its guest session from AuthProvider and uses the same-origin HTTP-only session cookie. Its `accountKind` is a frontend adapter discriminator, not a database enum or authentication provider. The guest booking creation/read routers are mounted behind verified guest authentication; complete owner acceptance still governs the M2-S20/S21 checkboxes.
+
+## Member 2 staff room-line modification UI core (M2-S19)
+
+`/bookings/:bookingId/edit` opens from the staff booking detail's **Manage room lines** action. It supports adding a separately dated/priced room line, changing a still-BOOKED line's dates/guests/current catalogue rate, and moving a BOOKED or CHECKED_IN line to an available own-branch room. All other lines and complete assignment/revision/status histories remain visible. CHECKED_IN dates/guests/agreed rate stay fixed and targets require READY; this Front Desk screen sends no price adjustment, because non-zero approved differences require Branch Manager authority. Cancellation opens Member 4's existing `/cancellation` workflow; no line is deleted or cancelled here.
+
+The client consumes M2-S12's exact POST/PATCH contracts with same-origin credentials and Member 1's verified mutation headers. It reads the assigned type from M2-S07 for BOOKED changes and rechecks M2-S09 availability for add/move reviews. Staff explicitly acknowledge each fresh review. Known rejection states explain rollback, preserve drafts and require new review; changed-state/concurrency errors require reload. Unknown mutation outcomes block another submission until refreshed booking records and explicit booking/invoice reconciliation. Success displays the authoritative DRAFT total/balance/credit and reloads full histories; failed history refresh retains committed-result proof. Credits use Member 4's manual refund workflow under the existing invoice policy.
+
+Run `npm run test:m2-booking-modification-ui --workspace frontend`. The development-only `/tests/staff-booking-modification-preview.html` simulates changes, conflicts, credits, denial and unknown outcomes entirely in memory. The production page now uses the verified AuthProvider staff/branch session; the protected availability and booking modification routers are mounted. M2-S19 remains subject to its full owner acceptance checks. Branch Manager-approved non-zero adjustment integration remains an owner handoff.
+
+## Member 2 staff booking records UI core (M2-S18)
+
+Open `/bookings` for the assigned-branch staff booking list and `/bookings/:bookingId` for a booking's complete room-line detail. The screen consumes M2-S11's GET-only contracts with bounded pagination, showing one booking card regardless of room count and derived mixed/partial progress. Detail includes all active/terminal lines, individual dates/occupants/agreed rates, current and closed room assignments, actual occupancy segments, status history and old/new date/guest/rate revisions. Historical assignment times and agreed rates are preserved; room type/capacity/condition labels describe current catalogue values. NIC/contact data and extra response fields are excluded from the screen's DTO. Denied reads clear records and not-found/failed reads offer reload/back recovery.
+
+Run `npm run test:m2-staff-booking-read-ui --workspace frontend`. The development-only `/tests/staff-booking-records-preview.html` offers sample history, pagination, empty/missing records and denial simulations without database requests. Production pages now use the verified staff session and mounted Front Desk booking read router. M2-S18 still requires its full owner acceptance checks.
+
+## Member 2 staff booking-create UI core (M2-S17)
+
+Open `/bookings/new` for staff-assisted multi-room booking creation. A verified Front Desk session scopes room search to its assigned branch. Add/remove unconfirmed room lines with separate dates and occupants, supply an existing primary guest record ID and Front desk/Phone/Email channel, then request the M2-S10 server quote. Review per-line base rates, the selected policy and the provisional combined room/service-charge/tax total before acknowledging and confirming. Selection edits invalidate quotes; changed catalogue/policy values require a fresh quote and another review. Inventory conflicts retain and recheck lines and refresh results. A successful server response shows the booking reference, every agreed room line and one DRAFT invoice. Lost or unreadable confirmation responses block blind retries until staff verify booking records.
+
+Run `npm run test:m2-staff-booking-ui --workspace frontend`. For sample-only browser review, visit `/tests/staff-booking-preview.html` while Vite runs; it uses in-memory transports and is excluded from production. The production page now uses verified staff/branch identity and the mounted protected quote/confirmation routes. M2-S17 still requires its full owner acceptance checks. Drafts live only on this page; neither room selection nor quoting reserves inventory. Guest creation/lookup, check-in, payment, cancellation and checkout use their respective owners' workflows.
+
+## Member 2 availability search (M2-S16)
+
+Open `/rooms` for the shared staff/direct-guest availability search. It uses public `GET /api/availability` and `GET /api/availability/options`; the latter exposes only active branch IDs/names/cities and active room-type IDs/names, so the UI does not depend on protected administration endpoints or hard-coded UUIDs. Choose a branch, per-room dates/guest count, optional type and immediate READY-only filter, then add multiple rooms. Each selected line retains its own criteria and exact catalogue rate; mixed branches and overlapping selections of the same room are refused, while adjacent intervals are allowed. Recheck selected rooms to show stale inventory or catalogue changes without silently dropping lines.
+
+Selections remain on the page and reserve no inventory. Booking confirmation, authenticated staff/guest identity and effective-policy quotes belong to the later booking tasks; this screen issues GET requests only. The configured database must contain active room types/rooms to show real results. The development-only `/tests/availability-preview.html` fixture supplies sample data and conflict/rate-change simulations without database access and is excluded from the production build. Run `npm run test:m2-availability-ui --workspace frontend` (15 tests) and `npm run test:m2-availability --workspace backend` (isolated database/API suite).
 
 ## 📄 License
 

@@ -54,18 +54,16 @@ export interface AuditLog {
   username?: string; // Present when joined with user_account
 }
 
-// Matches system_config table (billing policy & global rates)
+// Registered non-financial settings, including keys not initialized yet.
 export interface SystemConfig {
   config_key: string;
-  config_value: string;
-  effective_from: Date | string;
+  config_value: string | null;
+  effective_from: Date | string | null;
   updated_by: string | null;
-  updated_at: Date | string;
+  updated_at: Date | string | null;
 }
 
-// Payload for updating policy values
+// Activation date and actor are server controlled.
 export interface UpdateConfigDTO {
   config_value: string;
-  effective_from?: string;
-  updated_by?: string;
 }

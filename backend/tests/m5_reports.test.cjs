@@ -1,13 +1,12 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
-const { Client } = require('pg');
+const { isolatedDatabase } = require('./helpers/isolatedDatabase.cjs');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 test('M5 Reports - Views load, match schema contracts, and calculate metrics safely', async () => {
-  assert.ok(process.env.PG_URL, 'PG_URL must be defined');
-  const client = new Client({ connectionString: process.env.PG_URL });
-  await client.connect();
+  const fixture = await isolatedDatabase();
+  const { client } = fixture;
 
   try {
     // 1. Verify all 5 views exist and can be queried without SQL errors
@@ -89,6 +88,6 @@ test('M5 Reports - Views load, match schema contracts, and calculate metrics saf
       assert.ok('entity_id' in row, 'Audit row must contain entity_id');
     }
   } finally {
-    await client.end();
+    await fixture.close();
   }
 });

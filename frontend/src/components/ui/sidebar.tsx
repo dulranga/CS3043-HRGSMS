@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 import { PanelLeft } from "lucide-react";
 
@@ -218,16 +219,20 @@ export function SidebarMenuItem({ className, ...props }: React.HTMLAttributes<HT
 
 export interface SidebarMenuButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isActive?: boolean;
+  asChild?: boolean;
 }
 
-export function SidebarMenuButton({ className, isActive, ...props }: SidebarMenuButtonProps) {
+export function SidebarMenuButton({ className, isActive, asChild = false, ...props }: SidebarMenuButtonProps) {
+  const Comp = asChild ? Slot : "button";
   return (
-    <button
+    <Comp
       data-slot="sidebar-menu-button"
       data-active={isActive}
       className={cn(
-        "flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-sm active:scale-[0.98]",
-        isActive && "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md",
+        "flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] active:scale-[0.98]",
+        isActive
+          ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md"
+          : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]",
         className
       )}
       {...props}

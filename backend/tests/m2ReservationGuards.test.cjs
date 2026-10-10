@@ -176,7 +176,7 @@ test('M2-S06 enforces line, assignment, occupancy and status-history lifecycle',
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(client);
 
     const triggers = await client.query(
@@ -372,7 +372,7 @@ test('M2-S06 enforces overlap, branch, block and checked-in room rules', async (
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(client);
     const fixture = await createBaseFixture(client, randomBytes(3).toString('hex'));
 
@@ -560,7 +560,7 @@ test('M2-S06 protects room, branch and room-type state until assignment closure'
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(client);
     const fixture = await createBaseFixture(client, randomBytes(3).toString('hex'));
     const bookingId = await createBooking(
@@ -722,7 +722,7 @@ test('M2-S06 serializes overlapping booking, block and branch-deactivation races
   try {
     await admin.query('BEGIN');
     await admin.query(`CREATE SCHEMA "${schema}"`);
-    await admin.query(`SET LOCAL search_path TO "${schema}", public`);
+    await admin.query(`SET LOCAL search_path TO "${schema}"`);
     await applyMigrations(admin);
     const fixture = await createBaseFixture(admin, randomBytes(3).toString('hex'));
     const bookingOne = await createBooking(
@@ -747,8 +747,8 @@ test('M2-S06 serializes overlapping booking, block and branch-deactivation races
 
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
     const secondPid = (await second.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
 
     const firstLine = await createBookedLine(first, {
@@ -779,8 +779,8 @@ test('M2-S06 serializes overlapping booking, block and branch-deactivation races
 
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
     const blockLine = await createBookedLine(first, {
       bookingId: bookingTwo,
       actorId: fixture.actorId,
@@ -805,8 +805,8 @@ test('M2-S06 serializes overlapping booking, block and branch-deactivation races
 
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SET LOCAL search_path TO "${schema}", public`);
-    await second.query(`SET LOCAL search_path TO "${schema}", public`);
+    await first.query(`SET LOCAL search_path TO "${schema}"`);
+    await second.query(`SET LOCAL search_path TO "${schema}"`);
     const branchLine = await createBookedLine(first, {
       bookingId: bookingThree,
       actorId: fixture.actorId,

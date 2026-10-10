@@ -38,7 +38,7 @@ test('M1-S03/S04 branch, role, user_account and officer in a clean isolated sche
   try {
     await client.query('BEGIN');
     await client.query(`CREATE SCHEMA "${schema}"`);
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
 
     await client.query(branchRoleMigration);
     await client.query(accountOfficerMigration);

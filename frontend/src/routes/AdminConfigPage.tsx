@@ -4,23 +4,24 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
 
 interface ConfigItem {
   config_key: string;
-  config_value: string;
+  config_value: string | null;
   effective_from?: string;
   updated_at?: string;
 }
 
 const FRIENDLY_NAMES: Record<string, { label: string; unit: string; description: string }> = {
-  tax_rate: { label: "Tax Rate", unit: "%", description: "Government tax rate applied across bookings" },
-  cancellation_fee_rate: { label: "Cancellation Fee", unit: "%", description: "Deduction percentage on canceled bookings" },
-  service_charge_rate: { label: "Service Charge", unit: "%", description: "Standard service charge added to orders" },
-  late_checkout_amount: { label: "Late Checkout Fee", unit: "LKR", description: "Fixed penalty for departures after designated checkout time" },
-  discount_rate: { label: "Default Discount Rate", unit: "%", description: "Base promotional discount applied to standard tariffs" },
+  session_idle_timeout_minutes: { label: "Session idle timeout", unit: "minutes", description: "Whole minutes from 1 to 999. Uses 30 minutes until set. Changes take effect immediately." },
 };
 
 export default function AdminConfigPage() {
+  const canWrite = useFeatureSessions().role === 'SYSTEM_ADMINISTRATOR';
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function AdminConfigPage() {
   const fetchConfigs = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:4000/api/admin/configs");
+      const res = await fetch("/api/admin/configs");
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       setConfigs(data);
@@ -47,14 +48,15 @@ export default function AdminConfigPage() {
   }, []);
 
   const handleSave = async (key: string) => {
-    if (isNaN(Number(editValue)) || Number(editValue) < 0) {
-      setStatusMessage({ type: "error", text: "Please enter a valid non-negative number." });
+    if (!canWrite) return;
+    if (!editValue.trim() || (key === 'session_idle_timeout_minutes' && !/^[1-9][0-9]{0,2}$/.test(editValue.trim()))) {
+      setStatusMessage({ type: "error", text: "Enter a valid value; session timeout must be a whole number from 1 to 999." });
       return;
     }
 
     try {
       setSavingKey(key);
-      const res = await fetch(`http://localhost:4000/api/admin/configs/${encodeURIComponent(key)}`, {
+      const res = await fetch(`/api/admin/configs/${encodeURIComponent(key)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -80,65 +82,60 @@ export default function AdminConfigPage() {
         <BoundedContainer>
           <div className="space-y-6">
             <header>
-              <h1 className="text-2xl font-bold tracking-tight">System & Billing Policies</h1>
+              <h1 className="text-2xl font-bold tracking-tight">System Configuration</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage global tax rates, fee percentages, and system-wide operational parameters.
+                Manage registered operational settings. Financial policy versions are published separately by authorized management.
               </p>
             </header>
 
             {statusMessage && (
-              <div
-                className={`p-3 rounded-lg text-sm transition-all ${
-                  statusMessage.type === "success"
-                    ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                    : "bg-destructive/10 text-destructive border border-destructive/20"
-                }`}
-              >
-                {statusMessage.text}
-              </div>
+              <Alert variant={statusMessage.type === "error" ? "destructive" : "default"}><AlertDescription>{statusMessage.text}</AlertDescription></Alert>
             )}
 
-            <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
+            <Card className="p-4 md:p-6">
               {loading ? (
                 <p className="text-sm text-muted-foreground py-4">Loading system settings...</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b-2 border-border text-muted-foreground">
-                      <th className="text-left py-3 px-3 font-semibold">Policy Name & Description</th>
-                      <th className="text-left py-3 px-3 font-semibold">System Key</th>
-                      <th className="text-left py-3 px-3 font-semibold">Current Value</th>
-                      <th className="text-right py-3 px-3 font-semibold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="w-full text-sm">
+                  <TableHeader>
+                    <TableRow className="border-b-2 border-border text-muted-foreground">
+                      <TableHead className="text-left py-3 px-3 font-semibold">Policy Name & Description</TableHead>
+                      <TableHead className="text-left py-3 px-3 font-semibold">System Key</TableHead>
+                      <TableHead className="text-left py-3 px-3 font-semibold">Current Value</TableHead>
+                      <TableHead className="text-right py-3 px-3 font-semibold">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {configs.map((cfg) => {
                       const isEditing = editingKey === cfg.config_key;
                       const isSaving = savingKey === cfg.config_key;
                       const meta = FRIENDLY_NAMES[cfg.config_key];
 
                       return (
-                        <tr
+                        <TableRow
                           key={cfg.config_key}
                           className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors"
                         >
-                          <td className="py-3 px-3">
+                          <TableCell className="py-3 px-3">
                             <div className="font-semibold text-foreground">
                               {meta?.label || cfg.config_key}
                             </div>
                             {meta?.description && (
                               <div className="text-xs text-muted-foreground">{meta.description}</div>
                             )}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-xs text-muted-foreground">
+                          </TableCell>
+                          <TableCell className="py-3 px-3 font-mono text-xs text-muted-foreground">
                             {cfg.config_key}
-                          </td>
-                          <td className="py-3 px-3">
+                          </TableCell>
+                          <TableCell className="py-3 px-3">
                             {isEditing ? (
                               <div className="flex items-center gap-1.5">
                                 <Input
                                   type="number"
-                                  step="any"
+                                  step="1"
+                                  min="1"
+                                  max="999"
+                                  aria-label={meta?.label || cfg.config_key}
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
                                   className="h-8 w-28"
@@ -152,12 +149,12 @@ export default function AdminConfigPage() {
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1 font-semibold text-foreground bg-muted px-2.5 py-1 rounded-md text-xs">
-                                {cfg.config_value}
+                                {cfg.config_value ?? "Not set"}
                                 {meta?.unit && <span className="text-muted-foreground font-normal">{meta.unit}</span>}
                               </span>
                             )}
-                          </td>
-                          <td className="py-3 px-3 text-right">
+                          </TableCell>
+                          <TableCell className="py-3 px-3 text-right">
                             {isEditing ? (
                               <div className="flex justify-end gap-2">
                                 <Button
@@ -180,23 +177,24 @@ export default function AdminConfigPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
+                                disabled={!canWrite}
                                 onClick={() => {
                                   setEditingKey(cfg.config_key);
-                                  setEditValue(cfg.config_value);
+                                  setEditValue(cfg.config_value ?? '');
                                   setStatusMessage(null);
                                 }}
                               >
                                 Edit
                               </Button>
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
-            </section>
+            </Card>
           </div>
         </BoundedContainer>
       </PageContainer>

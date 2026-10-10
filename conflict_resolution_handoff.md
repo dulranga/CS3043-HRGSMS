@@ -1,0 +1,226 @@
+# Imandi/dev conflict correction — 8 October 2026
+
+## Current blocker and fix
+
+The human committed and published the 7 October edits as Imandi
+`211399ebd27ccb2d33acbffdf9d38a68eda6a9ce`. Remote dev remains
+`15cdda58588420f09d6b8cd445258a41314f2dc6`; both remote IDs were verified
+read-only on 8 October. There was no local merge in progress.
+
+The earlier per-file content check missed **Git rename detection**. Git's full
+ORT preview recognizes the single archive as an 89% similar rename of
+`memory.md`, producing a rename/delete conflict against dev's deliberate
+deletion. The earlier statement that there were no remaining conflicts was
+therefore incomplete and is superseded by this correction.
+
+The archive is now an index linking six smaller topic records: foundations,
+Member 2 UI, Member 3, Member 4, verification/database incidents and original
+record context. All original nonblank note lines were checked against the new
+topic files and remain preserved. Existing links still resolve to the index.
+No active memory file was restored, and no application code was changed.
+
+## Current verification
+
+- Full ORT preview of the committed branch reproduces the archive rename/delete
+  conflict (exit 1).
+- Full ORT preview of the candidate working-file tree against the same dev and
+  common ancestor returns **exit 0, no conflicts**. Rename detection shows the
+  memory deletion and new archive files separately, with no memory rename.
+- Preview objects and the candidate index live only in ignored
+  `.scratch/dev-conflict-resolution-2026-10-08/`; the actual Git object storage,
+  index, HEAD and branch references were not written. No commit was created,
+  including for the preview, and no actual merge, staging, push or PR occurred.
+- Archive preservation and Markdown targets pass; `git diff --check` passes.
+  The changes are documentation-only, so application builds/tests were not
+  rerun; the 7 October results below are historical verification.
+- GitHub will continue comparing committed branch tips until the human
+  publishes these working-file corrections. This request performs no Git
+  publication action.
+
+Suggested human handoff title (no commit/PR created):
+`fix: prevent memory archive rename-delete conflict with dev`
+
+## Historical record — 7 October 2026
+
+The following records the earlier content-level check and layout edits. Its
+claim of zero overall merge conflicts is superseded by the rename-aware check
+above.
+
+This request changes working files only. There is no merge in progress, no
+staging, no branch/ref update and no commit or merge was performed.
+
+Verified source: Imandi `3e18abf1e552076e198d53b0838b1990c043da24`.
+Verified target: dev `15cdda58588420f09d6b8cd445258a41314f2dc6`.
+Common ancestor: `b2189c6d285d5ac7ee7b9a3ba079db59ef5ba80c`.
+Remote IDs were checked with read-only `git ls-remote` and match the local refs.
+
+## Current resolution
+
+- `frontend/src/components/RootLayout.tsx` matches dev's bare outlet. Guest
+  navigation/header now belong to `GuestBookingLayout`; guest create/list/detail
+  pages use that layout. Staff booking/inventory pages use the shared AppShell
+  through `StaffBookingLayout`, retaining room/booking navigation without a
+  duplicate root sidebar. Member 1's public/auth/account layout decisions and
+  Imandi's M2-S18–S21 routes are compatible.
+- dev deliberately removed `memory.md` in `c79a603`. The active file remains
+  removed; its full Imandi snapshot is retained in
+  `docs/archive/imandi-memory-2026-10-07.md` as historical context. AGENTS and
+  README explain the active work-log/SRS/handoff records and archive fallback.
+- No dev files were checked out wholesale over Imandi. Incoming auth/account
+  implementations, migrations and other cleanly combining dev edits remain for
+  the human's later integration. Existing session seams are unchanged.
+- GitHub still compares committed remote branches. These local edits alone
+  cannot clear that warning; the human must publish the resolution later.
+
+Suggested human handoff commit title (no commit created):
+`fix: reconcile booking layouts and archived records with dev`
+
+## Current verification
+
+- Line-ending-normalized three-way content checks against the verified dev tip
+  report **zero remaining conflicts** across its 60 changed paths. Candidate
+  content was checked in temporary files; no Git merge or index update occurred.
+- A separate ignored `.scratch/dev-conflict-resolution/integration/frontend`
+  snapshot combines current frontend files with clean incoming dev content.
+  `npx tsc --noEmit -p .scratch/dev-conflict-resolution/integration/frontend/tsconfig.json`
+  passes, including Member 1's auth/account routes and Imandi's booking routes.
+  This snapshot is verification data, not an applied merge or deployable handoff.
+- Current frontend production build passes (existing >500 kB bundle warning).
+  Guest create **20/20**, guest reads **18/18**, staff create **18/18**, staff
+  reads **16/16**, staff modification **18/18**, room administration **12/12**
+  tests pass: **102 tests total**. `git diff --check` passes and affected source
+  files contain no conflict markers.
+- HEAD remains `3e18abf1e552076e198d53b0838b1990c043da24`; dev/origin-dev remain
+  `15cdda58588420f09d6b8cd445258a41314f2dc6`; origin-Imandi remains unchanged.
+  The index is unchanged/empty of staged edits and no merge is in progress.
+- No backend/database test, migration, server startup or database write was run.
+
+Suggested PR title/description for the human (none created):
+**Resolve Imandi/dev booking layout and memory conflicts** — Preserve dev's
+page-owned shells and Imandi's guest/staff booking screens; archive the removed
+memory record, update record links and verify conflict-free candidate content,
+combined frontend types, build and affected UI tests.
+
+## Historical record — 5 October 2026
+
+The following describes an earlier request, not an action in this session.
+
+The local `Imandi` branch was merged with the verified remote `dev` tip
+`a8f2c88d61d2068da13e49d3ed464eb40a3de3af` using `--no-commit --no-ff`.
+No branch, commit, push or pull request was created. A human must finish and
+publish the merge before GitHub's PR conflict warning can change.
+
+## Changes within the existing implementation scope
+
+- Preserved Imandi's M2-S11 booking-read core and Member 3's existing M3-S02–S08
+  schema/API/check-in work. The package script conflict keeps both sets of tests.
+- Removed conflict markers already committed in the ownership summary and
+  replaced retired M2 correction-task prerequisites with M2-S03/S04/S05/S06/S28.
+- Kept published `m3_001` and `m3_002` mock migration keys and consumers intact.
+  Member 3 upgrades now use unique keys: `m3_003` service usage, `m3_004` catalogue,
+  `m3_005` room history. They preserve existing IDs, snapshots, history, reason
+  fields and the existing checkout hook, and reuse `room_condition_enum`.
+- Check-in compares SQL-formatted dates with the server's Asia/Colombo hotel
+  date after locking. It records one actual instant for occupancy/history/audit
+  and cannot use a submitted stayDate to check in a future or expired line.
+- Member 3 protected routers require injected authentication and use only
+  verified `req.user` actors. They remain unmounted pending M1-S08/S09. The
+  earlier M3-S07/S08 checked rows are corrected to partial/uncompleted status.
+- The operational handoff reflects the implemented checkout lock order:
+  booking, invoice, line, assignment, room. No later service-recording/void,
+  direct-condition authorization, room-move or UI tasks were implemented.
+- The M2-S11 test now casts booking function arguments explicitly, preventing
+  ambiguous overload resolution when `public` also contains the same function.
+
+## Verification
+
+- Backend and frontend production builds pass.
+- All eleven existing Member 3 schema, service API, check-in and active-stay
+  tests pass. The two new current-baseline cases pass: complete numbered chain
+  with real creation/check-in/active stays/partial checkout, and data-preserving
+  upgrades over the published mocks.
+- M2 booking creation, booking reads, availability, catalogue/room APIs,
+  lifecycle/overlap guards and capacity/type-edit concurrency tests pass.
+- Member 4 billing calculations, checkout transaction scenarios and the
+  migration runner's fixture tests pass. The unchanged Member 4 checkout API
+  suite still fails scenarios 12–18: expected credit becomes positive balance,
+  so checkout fails and later receipt/repeat assertions cascade. Its files were
+  not changed; see `.scratch/m4-checkout-api.log` from this session.
+- The numbered chain applies in isolated schemas. The production runner still
+  rejects Member 5's unnumbered `backend/migrations/audit_and_config.sql`.
+  That file and Member 1's runner are outside the authorized code ownership.
+- Database concepts used: normalized relationships, foreign keys/domain
+  constraints, immutable history, exact decimal snapshots, atomic rollback,
+  row locking and transaction-local schema isolation.
+
+## Database verification incident — unresolved restoration
+
+The agent mistakenly used the existing production migration runner for one
+pooled-database verification run. Its session-scoped `SET search_path` was not
+reliable between transactions. Pending migrations were applied to **public**,
+not only the intended scratch schema. This was unintended and is not evidence
+of user approval to deploy these migrations.
+
+Before verification, `public.schema_migrations` contained 14 records: `0000`,
+`m1_001`–`m1_005` (where `m1_004` records the old billing-policy mock),
+`m2_001`–`m2_006`, and `m4_001`–`m4_002`. The unintended run added these 13:
+
+`m1_006`, `m2_007`, `m2_008`, `m3_001`–`m3_005`, `m4_003`–`m4_007`.
+
+Their recorded application times are 4 October 2026 19:10:16–19:10:20 UTC
+(5 October 2026 00:40:16–00:40:20 Asia/Colombo). `m1_006` drops/recreates
+`system_config`; its current row count is zero. The user confirmed there is
+no pre-session snapshot or record of the previous values. No speculative
+database rollback or configuration reinsertion was performed.
+
+The user subsequently identified `main` as a previous snapshot. Its verified
+local/remote tip is `1a30682d50bfdc65c8e5ee5076683515c852d4a17`. Its full tracked
+file inventory contains source/migrations/tests, with no database dump or saved
+live `system_config` rows; it already includes the same `m1_006` replacement.
+It can recover source/schema definitions, but cannot prove the erased live
+values. No checkout, branch change or database restoration from `main` occurred.
+
+These last audit-recorded values are recoverable evidence, not a complete
+pre-run snapshot or approved financial policy:
+
+| Legacy key | Last audited value | Audit timestamp UTC |
+|---|---|---|
+| cancellation_fee_rate | 12.0 | 19 September 2026 12:49:05 |
+| tax_rate | 10 | 19 September 2026 12:49:19 |
+| late_checkout_amount | 2009.00 | 3 October 2026 17:49:34 |
+
+No matching audit evidence was found for `service_charge_rate` or
+`discount_rate`. Do not assume bootstrap defaults are their previous values.
+The current SRS puts financial rules in immutable typed `billing_policy`
+versions; these legacy audit values must not be silently published as a new
+production policy or inserted into the new non-financial `system_config`.
+
+The corrected reconciliation test never uses the production runner. It uses
+the runner's filename/key ordering, then pins every migration and operation
+to a temporary schema with an explicit transaction and `SET LOCAL` excluding
+`public`. A cancelled earlier test also left session advisory locks; only the
+identified test locks were cleared. Member 1 must address the shared runner's
+transaction-pool isolation before anyone uses it for pooled-schema migrations.
+The interrupted scratch schema was removed after checking that it had no
+external dependencies. The final lock audit found no remaining test-runner
+advisory locks. The application migration count remained 27.
+
+## Proposed human Git handoff
+
+Commit message: `fix: reconcile Imandi and Member 3 with the normalized baseline`
+
+PR title: `Reconcile reservations and check-in with the current normalized schema`
+
+PR description:
+
+Preserve the existing M2 booking-read and M3 operational cores while resolving
+the dev merge, retiring obsolete correction-task dependencies and removing
+duplicate Member 3 migration keys/condition types. Upgrade existing mock
+tables without losing IDs, rates or history, use the server hotel date for
+check-in, and keep protected M3 routers behind pending Member 1 authentication.
+
+Both builds and affected M2/M3 integration coverage pass. The current-baseline
+test covers creation through partial checkout and preserved mock data. Remaining
+gaps are Member 1 auth/runner isolation, the unnumbered Member 5 SQL file, the
+unchanged Member 4 checkout API failures and the database incident documented
+above. No pending feature task is completed by this reconciliation.

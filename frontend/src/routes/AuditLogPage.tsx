@@ -4,6 +4,13 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface AuditRecord {
   audit_id: string;
@@ -34,12 +41,12 @@ export default function AuditLogPage() {
   // Filters
   const [selectedEntity, setSelectedEntity] = useState<string>("");
   const [selectedAction, setSelectedAction] = useState<string>("");
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [diffRecord, setDiffRecord] = useState<AuditRecord | null>(null);
 
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const url = new URL("http://localhost:4000/api/admin/audit-logs");
+      const url = new URL("/api/admin/audit-logs", window.location.origin);
       url.searchParams.append("page", String(page));
       url.searchParams.append("limit", "15");
       if (selectedEntity) url.searchParams.append("entity_name", selectedEntity);
@@ -160,7 +167,6 @@ export default function AuditLogPage() {
                   </thead>
                   <tbody>
                     {logs.map((log) => {
-                      const isExpanded = expandedRow === log.audit_id;
                       return (
                         <tr key={log.audit_id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
                           <td className="py-3 px-3 text-xs text-muted-foreground whitespace-nowrap">
@@ -187,9 +193,9 @@ export default function AuditLogPage() {
                               variant="outline"
                               size="sm"
                               className="text-xs h-7 px-2"
-                              onClick={() => setExpandedRow(isExpanded ? null : log.audit_id)}
+                              onClick={() => setDiffRecord(log)}
                             >
-                              {isExpanded ? "Hide" : "Diff"}
+                              Diff
                             </Button>
                           </td>
                         </tr>
@@ -199,33 +205,48 @@ export default function AuditLogPage() {
                 </table>
               )}
 
-              {/* Expansion Drawer / Diff View */}
-              {expandedRow && (() => {
-                const activeRecord = logs.find((l) => l.audit_id === expandedRow);
-                if (!activeRecord) return null;
-                return (
-                  <div className="mt-4 p-4 rounded-xl bg-muted/60 border border-border space-y-3">
-                    <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Change Snapshot ({activeRecord.action})</span>
-                      <span>IP: {activeRecord.ip_address || "N/A"}</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <span className="font-semibold block mb-1 text-rose-500">Before Value</span>
-                        <pre className="p-2.5 rounded bg-background border border-border overflow-x-auto max-h-48 font-mono">
-                          {formatJson(activeRecord.before_value)}
-                        </pre>
+              {/* Diff Modal */}
+              <Dialog open={!!diffRecord} onOpenChange={(open) => !open && setDiffRecord(null)}>
+                <DialogContent className="max-w-3xl">
+                  {diffRecord && (
+                    <>
+                      <DialogHeader>
+                        <DialogTitle>
+                          Change Snapshot
+                          <span className="ml-2 align-middle">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${getActionBadgeColor(diffRecord.action)}`}
+                            >
+                              {diffRecord.action}
+                            </span>
+                          </span>
+                        </DialogTitle>
+                        <DialogDescription>
+                          <span className="font-mono">{diffRecord.entity_name}</span>
+                          <span className="mx-2">·</span>
+                          <span className="font-mono">{diffRecord.entity_id}</span>
+                          <span className="mx-2">·</span>
+                          IP: {diffRecord.ip_address || "N/A"}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="font-semibold block mb-1 text-rose-500">Before Value</span>
+                          <pre className="p-2.5 rounded-lg bg-background border border-border overflow-x-auto max-h-80 font-mono">
+                            {formatJson(diffRecord.before_value)}
+                          </pre>
+                        </div>
+                        <div>
+                          <span className="font-semibold block mb-1 text-emerald-500">After Value</span>
+                          <pre className="p-2.5 rounded-lg bg-background border border-border overflow-x-auto max-h-80 font-mono">
+                            {formatJson(diffRecord.after_value)}
+                          </pre>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-semibold block mb-1 text-emerald-500">After Value</span>
-                        <pre className="p-2.5 rounded bg-background border border-border overflow-x-auto max-h-48 font-mono">
-                          {formatJson(activeRecord.after_value)}
-                        </pre>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+                    </>
+                  )}
+                </DialogContent>
+              </Dialog>
 
               {/* Pagination Controls */}
               <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
