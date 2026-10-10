@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   AvailabilityApi, AvailabilityClient, AvailabilityError, AvailabilityModel,
-  AvailableRoom, nights, parseOptions, parseRooms, selectionIssue, validateSearch,
+  AvailableRoom, nights, parseOptions, parseRoomsSearchParams, readPendingSelection, savePendingSelection, clearPendingSelection, parseRooms, selectionIssue, validateSearch,
 } from '../src/lib/availability.ts';
 import { double, draft, envelope, id, options, search, single } from './availabilityFixtures.ts';
 
@@ -176,4 +176,34 @@ test('public failures do not expose internal server messages and choices can be 
   await model.loadOptions(); assert.ok(model.getSnapshot().failure);
   await model.loadOptions(); assert.deepEqual(model.getSnapshot().options, options);
   assert.equal(model.getSnapshot().failure, null);
+});
+
+test('public selection carries to guest booking via storage and must be rechecked after restore', async () => {
+  const store = new Map<string, string>();
+  const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); }, removeItem: (k: string) => { store.delete(k); } };
+  const source = await ready();
+  source.add(single.roomId);
+  savePendingSelection(source.getSnapshot().selected, storage);
+  const pending = readPendingSelection(storage);
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].room.roomId, single.roomId);
+  assert.equal(pending[0].check, 'unverified');
+
+  const target = new AvailabilityModel(client());
+  await target.loadOptions();
+  target.restore(pending);
+  assert.equal(target.getSnapshot().draft.branchId, search.branchId);
+  assert.equal(target.getSnapshot().selected[0].check, 'unverified');
+  await target.recheck();
+  assert.equal(target.getSnapshot().selected[0].check, 'available');
+
+  clearPendingSelection(storage);
+  assert.deepEqual(readPendingSelection(storage), []);
+  store.set('skynest.pendingRoomSelection', '{"tampered":true}');
+  assert.deepEqual(readPendingSelection(storage), []);
+});
+
+test('rooms URL criteria keep only well-formed values', () => {
+  assert.deepEqual(parseRoomsSearchParams({ branchId: id(1), checkIn: '2027-06-01', checkOut: '2027-02-30', guestCount: 2, roomTypeId: 'x' }),
+    { branchId: id(1), checkIn: '2027-06-01', checkOut: undefined, guestCount: '2', roomTypeId: undefined });
 });

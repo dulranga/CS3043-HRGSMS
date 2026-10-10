@@ -706,7 +706,22 @@ export function createStaffAccounts({ db }: { db: StaffAccountDb }) {
     });
   }
 
-  return { search, get, create, update, disable, reactivate };
+  // GET /api/roles — the role choices for the account create/edit form.
+  async function roles(_req: Request, res: Response): Promise<void> {
+    res.set('Cache-Control', 'no-store');
+    try {
+      const result = await db.query<{ role_id: string; role_name: string; description: string | null }>(
+        'SELECT role_id, role_name, description FROM role ORDER BY role_name, role_id',
+      );
+      res.json({
+        data: result.rows.map((row) => ({ roleId: row.role_id, roleName: row.role_name, description: row.description })),
+      });
+    } catch {
+      sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'An unexpected error occurred.');
+    }
+  }
+
+  return { search, get, create, update, disable, reactivate, roles };
 }
 
 export type StaffAccountService = ReturnType<typeof createStaffAccounts>;

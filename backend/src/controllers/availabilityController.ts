@@ -3,6 +3,7 @@ import {
   AvailabilitySearchInput,
   findAvailableRooms,
   getAvailabilityOptions,
+  getAvailabilityShowcase,
 } from '../services/availabilityService';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -113,6 +114,14 @@ export function availabilityOptionsHandler(req: Request, res: Response): void {
     return;
   }
   getAvailabilityOptions().then(data => res.json({ data })).catch(error => sendError(error, res));
+}
+
+export function availabilityShowcaseHandler(req: Request, res: Response): void {
+  if (Object.keys(req.query).length) {
+    sendError(new AvailabilityValidationError('The showcase does not accept query parameters.'), res);
+    return;
+  }
+  getAvailabilityShowcase().then(data => res.json({ data })).catch(error => sendError(error, res));
 }
 
 export function searchAvailabilityHandler(

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,9 @@ import {
   AvailabilityClient,
   AvailabilityModel,
   AvailabilityState,
+  RoomsSearchParams,
   SearchDraft,
+  SelectedRoomLine,
   nights,
   selectionIssue,
 } from "@/lib/availability";
@@ -78,6 +80,8 @@ export function AvailabilityPanel({
   description = "Search for a direct guest reservation or a staff-assisted booking. Add rooms individually with their own dates and guest counts.",
   showHeader = true,
   variant = "full",
+  selectionAction,
+  hideSearch = false,
 }: {
   state: AvailabilityState;
   actions: Actions;
@@ -87,6 +91,9 @@ export function AvailabilityPanel({
   description?: string;
   showHeader?: boolean;
   variant?: "full" | "date-first";
+  selectionAction?: ReactNode;
+  /** Show only the current selection (search form and results hidden). */
+  hideSearch?: boolean;
 }) {
   const { draft, options, results, selected, failure } = state;
   // `date-first` is the trimmed staff view: enter stay dates and guests, then
@@ -143,6 +150,7 @@ export function AvailabilityPanel({
             >
               Clear selection
             </Button>
+            {selectionAction}
           </div>
           <div className={GRID}>
             {selected.map((line) => (
@@ -302,6 +310,7 @@ export function AvailabilityPanel({
         </p>
       )}
 
+      {hideSearch ? selectionSection : (<>
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">
@@ -496,14 +505,22 @@ export function AvailabilityPanel({
           {resultsSection}
         </>
       )}
+      </>)}
     </div>
   );
 }
 
 export function AvailabilitySearchScreen({
   client,
+  initialSearch,
+  onContinue,
+  continueLabel = "Continue to booking",
 }: {
   client?: AvailabilityClient;
+  initialSearch?: RoomsSearchParams;
+  /** Hands the verified selection to the next step (e.g. guest booking). */
+  onContinue?: (selected: SelectedRoomLine[]) => void;
+  continueLabel?: string;
 }) {
   const api = useMemo(() => client ?? new AvailabilityApi(), [client]);
   const model = useMemo(() => new AvailabilityModel(api), [api]);
@@ -512,9 +529,41 @@ export function AvailabilitySearchScreen({
     model.getSnapshot,
     model.getSnapshot,
   );
+  const prefill = useRef(initialSearch);
   useEffect(() => {
-    void model.loadOptions();
+    void model.loadOptions().then(() => {
+      const initial = prefill.current;
+      if (!initial || !model.getSnapshot().options) return;
+      const patch: Partial<SearchDraft> = {};
+      for (const key of ["branchId", "checkIn", "checkOut", "guestCount", "roomTypeId"] as const) {
+        if (initial[key]) patch[key] = initial[key];
+      }
+      if (!Object.keys(patch).length) return;
+      prefill.current = undefined;
+      model.setDraft(patch);
+      if (patch.branchId && patch.checkIn && patch.checkOut) void model.search();
+    });
     return model.cancelPending;
   }, [model]);
-  return <AvailabilityPanel state={state} actions={model} />;
+  const ready =
+    state.selected.length > 0 &&
+    !state.rechecking &&
+    state.selected.every((line) => line.check === "available");
+  return (
+    <AvailabilityPanel
+      state={state}
+      actions={model}
+      selectionAction={
+        onContinue && (
+          <Button
+            className="h-auto min-h-11 whitespace-normal"
+            disabled={!ready}
+            onClick={() => onContinue(state.selected)}
+          >
+            {continueLabel}
+          </Button>
+        )
+      }
+    />
+  );
 }

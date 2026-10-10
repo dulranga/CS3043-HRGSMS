@@ -29,6 +29,7 @@ import GuestProfilesPage from './routes/GuestProfilesPage';
 import AccountPage from './routes/AccountPage';
 import { safeRedirectPath } from './lib/auth';
 import { validateBillingFlowSearch } from './lib/billingFlow';
+import { parseRoomsSearchParams, type RoomsSearchParams } from './lib/availability';
 import InvoiceDetailPage from './routes/InvoiceDetailPage';
 import PaymentPage from './routes/PaymentPage';
 
@@ -49,6 +50,7 @@ const indexRoute = createRoute({
 const roomsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/rooms',
+  validateSearch: (search: Record<string, unknown>): RoomsSearchParams => parseRoomsSearchParams(search),
   component: RoomsPage,
 });
 

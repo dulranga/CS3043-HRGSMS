@@ -47,6 +47,28 @@ export function validateSearch(draft: SearchDraft, options?: AvailabilityOptions
   if (Object.keys(fields).length) throw new AvailabilityError('Correct the search fields below.', 'VALIDATION_ERROR', 400, fields);
   return { ...draft, guestCount: Number(draft.guestCount), roomTypeId: draft.roomTypeId || null };
 }
+// Prefill criteria passed in the /rooms URL (e.g. from the home-page search).
+// Values are only shape-checked here; validateSearch still runs before search.
+export interface RoomsSearchParams {
+  branchId?: string;
+  checkIn?: string;
+  checkOut?: string;
+  guestCount?: string;
+  roomTypeId?: string;
+}
+export function parseRoomsSearchParams(search: Record<string, unknown>): RoomsSearchParams {
+  const pick = (value: unknown, ok: (text: string) => boolean) => {
+    const text = typeof value === 'number' ? String(value) : value;
+    return typeof text === 'string' && ok(text) ? text : undefined;
+  };
+  return {
+    branchId: pick(search.branchId, value => UUID.test(value)),
+    checkIn: pick(search.checkIn, validDate),
+    checkOut: pick(search.checkOut, validDate),
+    guestCount: pick(search.guestCount, value => /^[1-9]\d{0,4}$/.test(value)),
+    roomTypeId: pick(search.roomTypeId, value => UUID.test(value)),
+  };
+}
 export function nights(search: Pick<AvailabilitySearch, 'checkIn' | 'checkOut'>): number {
   return (Date.parse(`${search.checkOut}T00:00:00Z`) - Date.parse(`${search.checkIn}T00:00:00Z`)) / DAY_MS;
 }
@@ -231,6 +253,18 @@ export class AvailabilityModel {
     this.publish({ selected: this.state.selected.filter(line => line.selectionId !== selectionId), failure: null, notice: 'Room removed from this unconfirmed selection.' });
   }
   clear() { if (!this.state.rechecking) this.publish({ selected: [], failure: null, notice: 'Selection cleared.' }); }
+  // Reinstates a selection carried over from another screen. Lines are marked
+  // unverified until recheck() confirms them against current inventory.
+  restore(lines: SelectedRoomLine[]) {
+    if (this.state.rechecking || this.state.selected.length || !lines.length) return;
+    const last = lines[lines.length - 1].search;
+    this.searchAbort?.abort(); this.searchToken++;
+    this.publish({
+      draft: { branchId: last.branchId, checkIn: last.checkIn, checkOut: last.checkOut, guestCount: String(last.guestCount), roomTypeId: last.roomTypeId ?? '', immediateCheckIn: false },
+      selected: lines.map(line => ({ ...line, selectionId: `selection-${++this.sequence}`, search: { ...line.search, immediateCheckIn: false }, check: 'unverified' as const, issue: null })),
+      results: null, searching: false, failure: null, notice: '',
+    });
+  }
   async recheck() {
     if (!this.state.selected.length || this.state.rechecking) return;
     this.checkAbort = new AbortController();
@@ -248,4 +282,34 @@ export class AvailabilityModel {
     if (signal.aborted) return;
     this.publish({ selected, rechecking: false, notice: selected.every(line => line.check === 'available') ? 'Selected rooms are available when checked. They remain unreserved until confirmation.' : 'Some selections need attention. Remove affected rooms and search again.' });
   }
+}
+
+// A room selection made on the public /rooms page is carried to the guest
+// booking screen (possibly across sign-in) through sessionStorage. It holds
+// only public inventory data; the booking screen rechecks every line.
+const PENDING_SELECTION_KEY = 'skynest.pendingRoomSelection';
+export function savePendingSelection(lines: SelectedRoomLine[], storage: Pick<Storage, 'setItem'> | undefined = globalThis.sessionStorage): void {
+  try { storage?.setItem(PENDING_SELECTION_KEY, JSON.stringify(lines.map(({ room, search }) => ({ room, search })))); } catch { /* storage unavailable */ }
+}
+export function clearPendingSelection(storage: Pick<Storage, 'removeItem'> | undefined = globalThis.sessionStorage): void {
+  try { storage?.removeItem(PENDING_SELECTION_KEY); } catch { /* storage unavailable */ }
+}
+export function readPendingSelection(storage: Pick<Storage, 'getItem'> | undefined = globalThis.sessionStorage): SelectedRoomLine[] {
+  let raw: string | null = null;
+  try { raw = storage?.getItem(PENDING_SELECTION_KEY) ?? null; } catch { return []; }
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length > 50) return [];
+    return parsed.map((value, index) => {
+      const entry = object(value), search = object(entry.search);
+      const draft: SearchDraft = {
+        branchId: String(search.branchId), checkIn: String(search.checkIn), checkOut: String(search.checkOut),
+        guestCount: String(search.guestCount), roomTypeId: search.roomTypeId ? String(search.roomTypeId) : '', immediateCheckIn: false,
+      };
+      const valid = validateSearch(draft);
+      const [room] = parseRooms({ data: [entry.room], meta: { ...valid, resultCount: 1 } }, valid);
+      return { selectionId: `pending-${index}`, room, search: valid, check: 'unverified' as const, issue: null };
+    });
+  } catch { return []; }
 }

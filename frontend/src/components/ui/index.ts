@@ -7,6 +7,7 @@ export * from "./command";
 export * from "./dialog";
 export * from "./input";
 export * from "./label";
+export * from "./native-select";
 export * from "./form";
 export * from "./popover";
 export * from "./table";

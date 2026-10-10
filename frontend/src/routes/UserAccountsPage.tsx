@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { CreateUserAccountDialog } from "@/components/admin/CreateUserAccountDialog";
 
 interface UserAccount {
   user_id: string;
@@ -31,6 +32,7 @@ export default function UserAccountsPage() {
   const [userSearch, setUserSearch] = useState<string>("");
 
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [createOpen, setCreateOpen] = useState<boolean>(false);
 
   const loadUsers = async () => {
     try {
@@ -77,12 +79,26 @@ export default function UserAccountsPage() {
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
-            <header>
-              <h1 className="text-2xl font-bold tracking-tight">User Accounts</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Review staff user accounts and enable or suspend access.
-              </p>
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">User Accounts</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Create staff user accounts and enable or suspend access.
+                </p>
+              </div>
+              {canWrite && (
+                <Button onClick={() => setCreateOpen(true)}>Create account</Button>
+              )}
             </header>
+
+            <CreateUserAccountDialog
+              open={createOpen}
+              onOpenChange={setCreateOpen}
+              onCreated={(username) => {
+                setStatusMessage({ type: "success", text: `Account "${username}" created.` });
+                void loadUsers();
+              }}
+            />
 
             {statusMessage && (
               <Alert variant={statusMessage.type === "error" ? "destructive" : "default"}><AlertDescription>{statusMessage.text}</AlertDescription></Alert>
