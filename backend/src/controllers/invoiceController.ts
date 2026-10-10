@@ -5,6 +5,7 @@ import {
   DbClient,
   getBookingInvoiceDetail,
   getBookingPaymentHistory,
+  resolveBookingId,
   verifyBookingAccess,
 } from '../services/invoiceService';
 
@@ -16,8 +17,17 @@ export { resolveActor };
 export function createInvoiceControllers(db: DbClient = pool) {
   const getBookingInvoiceHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-      const bookingId = Array.isArray(req.params.bookingId) ? req.params.bookingId[0] : req.params.bookingId;
+      const bookingParam = Array.isArray(req.params.bookingId) ? req.params.bookingId[0] : req.params.bookingId;
       const actor = resolveActor(req);
+
+      // Accept a booking reference or UUID; downstream reads use the resolved UUID.
+      const bookingId = await resolveBookingId(db, bookingParam);
+      if (!bookingId) {
+        res.status(404).json({
+          error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found' },
+        });
+        return;
+      }
 
       const access = await verifyBookingAccess(db, bookingId, actor);
       if (!access.allowed) {
@@ -54,8 +64,17 @@ export function createInvoiceControllers(db: DbClient = pool) {
 
   const getBookingPaymentsHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-      const bookingId = Array.isArray(req.params.bookingId) ? req.params.bookingId[0] : req.params.bookingId;
+      const bookingParam = Array.isArray(req.params.bookingId) ? req.params.bookingId[0] : req.params.bookingId;
       const actor = resolveActor(req);
+
+      // Accept a booking reference or UUID; downstream reads use the resolved UUID.
+      const bookingId = await resolveBookingId(db, bookingParam);
+      if (!bookingId) {
+        res.status(404).json({
+          error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found' },
+        });
+        return;
+      }
 
       const access = await verifyBookingAccess(db, bookingId, actor);
       if (!access.allowed) {

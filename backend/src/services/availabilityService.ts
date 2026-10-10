@@ -43,6 +43,70 @@ export async function getAvailabilityOptions(): Promise<AvailabilityOptionsDto> 
   } finally { client.release(); }
 }
 
+export interface AvailabilityShowcaseDto {
+  stats: { branchCount: number; cityCount: number; roomCount: number; roomTypeCount: number };
+  roomTypes: {
+    roomTypeId: string;
+    name: string;
+    capacity: number;
+    baseDailyRate: string;
+    roomCount: number;
+    amenities: string[];
+    branches: { branchId: string; name: string; city: string }[];
+  }[];
+}
+
+// Public home-page summary derived from live inventory: only active branches,
+// active rooms and active room types/amenities. No booking or guest data.
+export async function getAvailabilityShowcase(): Promise<AvailabilityShowcaseDto> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    if (availabilitySchema) await client.query(`SET LOCAL search_path TO "${availabilitySchema}", public`);
+    const stats = await client.query<AvailabilityShowcaseDto['stats']>(
+      `SELECT (SELECT count(*) FROM branch WHERE active)::int AS "branchCount",
+              (SELECT count(DISTINCT lower(btrim(city))) FROM branch WHERE active)::int AS "cityCount",
+              (SELECT count(*) FROM room r
+                 JOIN branch b ON b.branch_id = r.branch_id AND b.active
+                 JOIN room_type t ON t.room_type_id = r.room_type_id AND t.active
+                WHERE r.active)::int AS "roomCount",
+              (SELECT count(DISTINCT r.room_type_id) FROM room r
+                 JOIN branch b ON b.branch_id = r.branch_id AND b.active
+                 JOIN room_type t ON t.room_type_id = r.room_type_id AND t.active
+                WHERE r.active)::int AS "roomTypeCount"`,
+    );
+    const roomTypes = await client.query<AvailabilityShowcaseDto['roomTypes'][number]>(
+      `SELECT t.room_type_id AS "roomTypeId",
+              t.name,
+              t.capacity::int AS capacity,
+              t.base_daily_rate::text AS "baseDailyRate",
+              count(r.room_id)::int AS "roomCount",
+              COALESCE((SELECT array_agg(a.name ORDER BY a.name)
+                          FROM room_type_amenity ta
+                          JOIN amenity a ON a.amenity_id = ta.amenity_id AND a.active
+                         WHERE ta.room_type_id = t.room_type_id), '{}') AS amenities,
+              jsonb_agg(DISTINCT jsonb_build_object('branchId', b.branch_id, 'name', b.name, 'city', b.city)) AS branches
+         FROM room_type t
+         JOIN room r ON r.room_type_id = t.room_type_id AND r.active
+         JOIN branch b ON b.branch_id = r.branch_id AND b.active
+        WHERE t.active
+        GROUP BY t.room_type_id
+        ORDER BY t.base_daily_rate, t.name, t.room_type_id`,
+    );
+    await client.query('COMMIT');
+    return {
+      stats: stats.rows[0],
+      roomTypes: roomTypes.rows.map(row => ({
+        ...row,
+        branches: [...row.branches].sort((a, b) => a.name.localeCompare(b.name)),
+      })),
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}
+
 interface AmenityRow {
   amenity_id: string;
   name: string;

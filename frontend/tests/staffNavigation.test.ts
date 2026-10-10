@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canViewStaffPage } from '../src/lib/staffNavigation';
+import { canViewStaffPage, primaryActionPath } from '../src/lib/staffNavigation';
 test('navigation separates staff operations, account administration, and chain finance', () => {
   assert.equal(canViewStaffPage(null, '/dashboard/admin/branches'), false);
   assert.equal(canViewStaffPage(null, '/dashboard/admin/users'), false);
@@ -22,12 +22,12 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('BRANCH_MANAGER', '/dashboard/admin/rooms'), true);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/admin/rooms'), false);
   // Billing operation pages are exposed to the roles the backend authorizes.
-  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/checkout'), true);
-  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/cancellation'), true);
-  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/no-show'), true);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/checkout'), true);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/cancellation'), true);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/no-show'), true);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/payments'), true);
-  assert.equal(canViewStaffPage('AUDITOR', '/dashboard/checkout'), false);
+  assert.equal(canViewStaffPage('AUDITOR', '/dashboard/billing/checkout'), false);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('CHAIN_MANAGER', '/dashboard/billing/payments'), false);
   // Invoice detail is readable across branch and chain finance roles (dev #42),
@@ -37,4 +37,22 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('BRANCH_MANAGER', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('CHAIN_MANAGER', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/billing/invoice'), false);
+});
+
+test('every staff role has a highlighted primary action it is allowed to open', () => {
+  const expected: Record<string, string> = {
+    FRONT_DESK: '/dashboard/bookings/new',
+    SERVICE_STAFF: '/dashboard/service-usage',
+    BRANCH_MANAGER: '/dashboard/admin/rooms',
+    CHAIN_MANAGER: '/dashboard/admin/reports',
+    SYSTEM_ADMINISTRATOR: '/dashboard/admin/users',
+    AUDITOR: '/dashboard/admin/audit',
+  };
+  for (const [role, path] of Object.entries(expected)) {
+    assert.equal(primaryActionPath(role as Parameters<typeof primaryActionPath>[0]), path);
+    // The pinned action must always be a page the role can actually view.
+    assert.equal(canViewStaffPage(role as Parameters<typeof canViewStaffPage>[0], path), true);
+  }
+  // Guests (no verified staff role) get no pinned action.
+  assert.equal(primaryActionPath(null), null);
 });

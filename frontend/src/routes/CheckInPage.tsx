@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { BookingFinder } from "@/components/bookings/BookingFinder";
+import { BillingFlowNav } from "@/components/billing/BillingFlowNav";
+import { NextStepCard } from "@/components/billing/NextStepCard";
 import { LineCheckInPanel } from "@/components/checkin/LineCheckInPanel";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useBillingBooking } from "@/lib/billingFlow";
 import {
   CheckInLine,
   CheckInSuccess,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/checkInViewModel";
 
 const API_BASE = "/api";
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FLOW_PATH = "/dashboard/check-in" as const;
 
 interface BookingDetailLine extends CheckInLine {}
 
@@ -40,7 +41,7 @@ function currentStayDate(): string {
 }
 
 export default function CheckInPage() {
-  const [bookingId, setBookingId] = useState<string>("");
+  const { booking, label, select } = useBillingBooking(FLOW_PATH);
   const [loadedBooking, setLoadedBooking] = useState<BookingDetailPayload | null>(null);
   const [lines, setLines] = useState<CheckInLine[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -51,10 +52,10 @@ export default function CheckInPage() {
 
   const stayDate = currentStayDate();
 
-  const loadBooking = useCallback(async () => {
-    const trimmed = bookingId.trim();
-    if (!UUID_PATTERN.test(trimmed)) {
-      setLoadError("Enter the booking UUID for the stay you are checking in.");
+  const loadBooking = useCallback(async (identifier: string) => {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      setLoadError("Select or enter the booking for the stay you are checking in.");
       setLoadedBooking(null);
       setLines([]);
       return;
@@ -91,12 +92,26 @@ export default function CheckInPage() {
     } finally {
       setLoading(false);
     }
-  }, [bookingId]);
+  }, []);
 
+  const handleSelect = useCallback(
+    (identifier: string, nextLabel: string) => {
+      select(identifier, nextLabel);
+    },
+    [select],
+  );
+
+  useEffect(() => {
+    if (booking) void loadBooking(booking);
+  }, [booking, loadBooking]);
+
+  // Clear stale per-line rejections and the previous success banner only when a
+  // different booking is loaded — not after a check-in, so the success message
+  // and its next step stay on screen (they used to be wiped by a `lines` effect).
   useEffect(() => {
     setRejections({});
     setLastSuccess(null);
-  }, [lines]);
+  }, [loadedBooking?.bookingId]);
 
   const handleCheckIn = useCallback(
     async (line: CheckInLine) => {
@@ -155,25 +170,20 @@ export default function CheckInPage() {
               </p>
             </header>
 
+            <BillingFlowNav current={FLOW_PATH} booking={booking} label={label} />
+
             <Card className="shadow-md">
               <CardHeader className="p-4 md:p-5">
                 <CardTitle className="text-lg tracking-tight">Booking</CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-5 pt-0 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="booking-id">Booking UUID</Label>
-                    <Input
-                      id="booking-id"
-                      value={bookingId}
-                      placeholder="e.g. 0193f1c2-4d5e-7a8b-9c0d-1e2f3a4b5c6d"
-                      onChange={(event) => setBookingId(event.target.value)}
-                    />
-                  </div>
-                  <Button onClick={loadBooking} disabled={loading}>
-                    {loading ? "Loading…" : "Load booking"}
-                  </Button>
-                </div>
+                <BookingFinder
+                  onSelect={handleSelect}
+                  selectedLabel={label ?? null}
+                  busy={loading}
+                  searchLabel="Search bookings by reference or guest name"
+                  allowReference={false}
+                />
                 {loadError ? (
                   <p role="alert" className="text-sm text-destructive">
                     {loadError}
@@ -195,12 +205,17 @@ export default function CheckInPage() {
                 </section>
 
                 {lastSuccess ? (
-                  <p
-                    role="status"
-                    className="rounded-xl border-2 border-border bg-card p-3 text-sm text-foreground"
-                  >
-                    Room line checked in. Remaining rooms of this booking are untouched.
-                  </p>
+                  <NextStepCard
+                    tone="success"
+                    title="Room checked in"
+                    description="The guest is admitted. Continue to the invoice when the stay is ready to settle."
+                    actions={[
+                      { label: "View invoice", to: "/dashboard/billing/invoice" },
+                      { label: "Go to checkout", to: "/dashboard/billing/checkout", variant: "outline" },
+                    ]}
+                    booking={booking}
+                    label={label}
+                  />
                 ) : null}
 
                 <LineCheckInPanel

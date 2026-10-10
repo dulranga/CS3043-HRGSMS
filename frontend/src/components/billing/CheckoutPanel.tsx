@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { AlertCircle, CheckCircle, Clock, FileText, Info } from 'lucide-react';
 
 import { StayBookingGroup, StayLineView } from '@/lib/activeStayViewModel';
@@ -14,6 +15,10 @@ export interface CheckoutPanelProps {
   processingLineId: string | null;
   errorLineId: string | null;
   errorMsg: string | null;
+  /** Links that clear a blocked balance (record a payment / refund a credit). */
+  balanceAction?: ReactNode;
+  /** Links shown when no room line is currently checked in. */
+  emptyAction?: ReactNode;
 }
 
 export function CheckoutPanel({
@@ -23,6 +28,8 @@ export function CheckoutPanel({
   processingLineId,
   errorLineId,
   errorMsg,
+  balanceAction,
+  emptyAction,
 }: CheckoutPanelProps) {
   const summary = invoice.summary;
   const isZeroBalance = summary.isSettled;
@@ -65,10 +72,15 @@ export function CheckoutPanel({
           {!isZeroBalance && (
             <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3">
               <AlertCircle className="size-4 mt-0.5 shrink-0" aria-hidden="true" />
-              <div>
-                <span className="font-semibold">Checkout blocked.</span>{' '}
-                The booking must have an exact zero balance before rooms can be checked out.
-                Please process {summary.isCredit ? 'refunds' : 'payments'} in the billing section.
+              <div className="space-y-3">
+                <div>
+                  <span className="font-semibold">Checkout blocked.</span>{' '}
+                  The booking must have an exact zero balance before rooms can be checked out.
+                  {summary.isCredit
+                    ? ' Refund the unrefunded credit to continue.'
+                    : ' Record the outstanding payment to continue.'}
+                </div>
+                {balanceAction ? <div className="flex flex-wrap gap-2">{balanceAction}</div> : null}
               </div>
             </div>
           )}
@@ -104,7 +116,10 @@ export function CheckoutPanel({
           {eligibleLines.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground bg-muted/50 rounded-lg">
               <Info className="size-5 mx-auto mb-2 opacity-50" />
-              No rooms are currently checked in for this booking.
+              <p>No rooms are currently checked in for this booking.</p>
+              {emptyAction ? (
+                <div className="mt-3 flex flex-wrap justify-center gap-2">{emptyAction}</div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-3">

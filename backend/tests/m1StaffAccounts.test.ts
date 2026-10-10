@@ -221,6 +221,7 @@ test('M1-S13 staff-account administration with permissions, masking and audit', 
       { method: 'PATCH', path: `/api/users/${kamala}`, body: { fullName: 'Hijacked' } },
       { method: 'POST', path: `/api/users/${kamala}/disable`, body: {} },
       { method: 'POST', path: `/api/users/${kamala}/reactivate`, body: {} },
+      { method: 'GET', path: '/api/roles' },
     ];
     for (const route of routes) {
       assert.equal((await api(route.path, { method: route.method, body: route.body })).status, 401, `${route.path} anonymous`);
@@ -251,6 +252,17 @@ test('M1-S13 staff-account administration with permissions, masking and audit', 
 
     const adminCookie = await login('system_administrator');
     const adminId = officerIds.SYSTEM_ADMINISTRATOR;
+
+    // Role choices for the create form; AUDITOR may read them too.
+    const roleList = await api('/api/roles', { cookie: adminCookie });
+    assert.equal(roleList.status, 200);
+    assert.equal(roleList.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(
+      roleList.json.data.map((r: { roleName: string }) => r.roleName).sort(),
+      [...STAFF_ROLES].sort(),
+    );
+    assert.equal(roleList.json.data.find((r: { roleName: string }) => r.roleName === 'FRONT_DESK').roleId, roleIds.FRONT_DESK);
+    assert.equal((await api('/api/roles', { cookie: auditorCookie })).status, 200);
 
     // 2. Search: literal substrings, exact-only NIC, masked output (AT-10).
     const byName = await api('/api/users/search', { method: 'POST', cookie: adminCookie, body: { query: 'kamal' } });

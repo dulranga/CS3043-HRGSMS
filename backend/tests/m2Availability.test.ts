@@ -324,6 +324,20 @@ test('M2-S09 derives available rooms from dates, capacity, condition, blocks and
     for (const type of choices.roomTypes) assert.deepEqual(Object.keys(type).sort(), ['name', 'roomTypeId']);
     assert.equal((await fetch(`${baseUrl}/api/availability/options?branchId=${branchId}`)).status, 400);
 
+    const showcaseResponse = await fetch(`${baseUrl}/api/availability/showcase`);
+    assert.equal(showcaseResponse.status, 200);
+    const showcase = (await showcaseResponse.json()).data;
+    assert.deepEqual(Object.keys(showcase.stats).sort(), ['branchCount', 'cityCount', 'roomCount', 'roomTypeCount']);
+    assert.ok(showcase.stats.roomCount > 0);
+    const showcaseType = showcase.roomTypes.find((type: any) => type.roomTypeId === activeTypeId);
+    assert.ok(showcaseType);
+    assert.equal(showcaseType.baseDailyRate, '20000.00');
+    assert.ok(Array.isArray(showcaseType.amenities));
+    assert.ok(showcaseType.branches.some((branch: any) => branch.branchId === branchId));
+    assert.ok(!showcaseType.branches.some((branch: any) => branch.branchId === inactiveBranchId));
+    assert.ok(!showcase.roomTypes.some((type: any) => type.roomTypeId === inactiveTypeId));
+    assert.equal((await fetch(`${baseUrl}/api/availability/showcase?x=1`)).status, 400);
+
     async function api(query: string): Promise<{ status: number; json: any }> {
       const response = await fetch(`${baseUrl}/api/availability?${query}`);
       return { status: response.status, json: await response.json() };

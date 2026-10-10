@@ -1,12 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { BookingFinder } from '@/components/bookings/BookingFinder';
+import { BillingFlowNav } from '@/components/billing/BillingFlowNav';
 import { CancellationPanel } from '@/components/billing/CancellationPanel';
+import { NextStepCard } from '@/components/billing/NextStepCard';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   BookingStaySummary,
   StayBookingGroup,
@@ -15,22 +15,27 @@ import {
   parseActiveStays,
   stayRequestPath,
 } from '@/lib/activeStayViewModel';
+import { useBillingBooking } from '@/lib/billingFlow';
 import {
   describeCancellationError,
   postCancelLine,
   postCancelWholeBooking,
 } from '@/lib/cancellationViewModel';
+import { formatLkr } from '@/lib/money';
 
 const API_BASE = '/api';
+const FLOW_PATH = '/dashboard/billing/cancellation' as const;
 
 /**
  * M4-S16: Staff per-line or whole-booking cancellation UI.
  *
- * Looks up a booking by UUID, lists eligible lines for cancellation,
- * displays policy quotes, and confirms cancellation operations.
+ * Looks up a booking (carried through the billing flow as URL state), lists
+ * eligible lines for cancellation, displays policy quotes, and confirms
+ * cancellation operations. After a cancellation the page points at the
+ * updated invoice and payments instead of ending the journey.
  */
 export default function CancellationPage() {
-  const [bookingId, setBookingId] = useState('');
+  const { booking, label, select } = useBillingBooking(FLOW_PATH);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,10 +46,10 @@ export default function CancellationPage() {
   const [cancelErrorMsg, setCancelErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    const trimmed = bookingId.trim();
+  const loadData = useCallback(async (identifier: string) => {
+    const trimmed = identifier.trim();
     if (!trimmed) {
-      setError('Enter a booking UUID.');
+      setError('Select or enter a booking.');
       setGroup(null);
       return;
     }
@@ -92,7 +97,18 @@ export default function CancellationPage() {
     } finally {
       setLoading(false);
     }
-  }, [bookingId]);
+  }, []);
+
+  useEffect(() => {
+    if (booking) void loadData(booking);
+  }, [booking, loadData]);
+
+  const handleSelect = useCallback(
+    (identifier: string, nextLabel: string) => {
+      select(identifier, nextLabel);
+    },
+    [select],
+  );
 
   const handleCancelLine = useCallback(
     async (lineId: string, reason: string) => {
@@ -111,9 +127,9 @@ export default function CancellationPage() {
         return;
       }
 
-      setSuccessMsg(`Room line cancelled successfully. Fee applied: LKR ${result.data.cancellation_fee}`);
+      setSuccessMsg(`Room line cancelled. Fee applied: ${formatLkr(result.data.cancellation_fee)}`);
       setProcessingId(null);
-      await loadData();
+      await loadData(group.bookingId);
     },
     [group, loadData],
   );
@@ -135,9 +151,11 @@ export default function CancellationPage() {
         return;
       }
 
-      setSuccessMsg(`Whole booking cancelled successfully. Total fees: LKR ${result.data.total_cancellation_fees}`);
+      setSuccessMsg(
+        `Whole booking cancelled. Total fees: ${formatLkr(result.data.total_cancellation_fees)}`,
+      );
       setProcessingId(null);
-      await loadData();
+      await loadData(group.bookingId);
     },
     [group, loadData],
   );
@@ -155,35 +173,39 @@ export default function CancellationPage() {
               </p>
             </header>
 
+            <BillingFlowNav current={FLOW_PATH} booking={booking} label={label} />
+
             <Card className="shadow-md" id="cancel-lookup-card">
               <CardHeader className="p-4 md:p-5">
                 <CardTitle className="text-lg tracking-tight">Find booking</CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-5 pt-0 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="cancel-booking-id">Booking UUID</Label>
-                    <Input
-                      id="cancel-booking-id"
-                      value={bookingId}
-                      placeholder="e.g. 01930000-0000-0000-0000-000000000001"
-                      onChange={(e) => setBookingId(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') loadData();
-                      }}
-                    />
-                  </div>
-                  <Button onClick={loadData} disabled={loading}>
-                    {loading ? 'Loading…' : 'Load booking data'}
-                  </Button>
-                </div>
+                <BookingFinder
+                  onSelect={handleSelect}
+                  selectedLabel={label ?? null}
+                  busy={loading}
+                  searchLabel="Search bookings by reference or guest name"
+                  allowReference={false}
+                />
               </CardContent>
             </Card>
 
             {successMsg && (
-              <div className="flex items-center gap-2 text-sm bg-secondary text-foreground p-3 rounded-lg border border-border shadow-sm">
-                <span className="font-semibold text-primary">Success:</span> {successMsg}
-              </div>
+              <NextStepCard
+                tone="success"
+                title="Cancellation complete"
+                description={
+                  <>
+                    {successMsg} The updated invoice and any outstanding balance are ready to review.
+                  </>
+                }
+                actions={[
+                  { label: 'View updated invoice', to: '/dashboard/billing/invoice' },
+                  { label: 'View payments', to: '/dashboard/billing/payments', variant: 'outline' },
+                ]}
+                booking={booking}
+                label={label}
+              />
             )}
 
             {error && (

@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 import RootLayout from './components/RootLayout';
 import DashboardLayout from './components/layout/DashboardLayout';
 import IndexPage from './routes/IndexPage';
@@ -28,6 +28,8 @@ import RegisterPage from './routes/RegisterPage';
 import GuestProfilesPage from './routes/GuestProfilesPage';
 import AccountPage from './routes/AccountPage';
 import { safeRedirectPath } from './lib/auth';
+import { validateBillingFlowSearch } from './lib/billingFlow';
+import { parseRoomsSearchParams, type RoomsSearchParams } from './lib/availability';
 import InvoiceDetailPage from './routes/InvoiceDetailPage';
 import PaymentPage from './routes/PaymentPage';
 
@@ -48,6 +50,7 @@ const indexRoute = createRoute({
 const roomsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/rooms',
+  validateSearch: (search: Record<string, unknown>): RoomsSearchParams => parseRoomsSearchParams(search),
   component: RoomsPage,
 });
 
@@ -156,6 +159,7 @@ const staffBookingModificationRoute = createRoute({
 const checkInRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'check-in',
+  validateSearch: validateBillingFlowSearch,
   component: CheckInPage,
 });
 
@@ -167,20 +171,49 @@ const activeStayRoute = createRoute({
 
 const checkoutRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
-  path: 'checkout',
+  path: 'billing/checkout',
+  validateSearch: validateBillingFlowSearch,
   component: CheckoutPage,
 });
 
 const cancellationRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
-  path: 'cancellation',
+  path: 'billing/cancellation',
+  validateSearch: validateBillingFlowSearch,
   component: CancellationPage,
 });
 
 const noShowRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
-  path: 'no-show',
+  path: 'billing/no-show',
+  validateSearch: validateBillingFlowSearch,
   component: NoShowPage,
+});
+
+// Legacy billing paths kept as redirects so existing bookmarks and links keep
+// working after the billing screens moved under /dashboard/billing.
+const legacyCheckoutRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'checkout',
+  beforeLoad: () => {
+    throw redirect({ to: '/dashboard/billing/checkout' });
+  },
+});
+
+const legacyCancellationRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'cancellation',
+  beforeLoad: () => {
+    throw redirect({ to: '/dashboard/billing/cancellation' });
+  },
+});
+
+const legacyNoShowRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'no-show',
+  beforeLoad: () => {
+    throw redirect({ to: '/dashboard/billing/no-show' });
+  },
 });
 
 const roomAdministrationRoute = createRoute({
@@ -240,12 +273,14 @@ const serviceUsageRoute = createRoute({
 const invoiceDetailRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'billing/invoice',
+  validateSearch: validateBillingFlowSearch,
   component: InvoiceDetailPage,
 });
 
 const paymentRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: 'billing/payments',
+  validateSearch: validateBillingFlowSearch,
   component: PaymentPage,
 });
 
@@ -272,6 +307,9 @@ const routeTree = rootRoute.addChildren([
     checkoutRoute,
     cancellationRoute,
     noShowRoute,
+    legacyCheckoutRoute,
+    legacyCancellationRoute,
+    legacyNoShowRoute,
     guestsRoute,
     adminConfigRoute,
     auditLogRoute,

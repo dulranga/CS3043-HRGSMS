@@ -14,7 +14,7 @@ export function GuestBookingLayout({ activePath, children }: { activePath: strin
 export function GuestReservationNavigation({ activePath = '/guest/bookings/new' }: { activePath?: string }) {
   return <nav className="flex flex-wrap gap-2" aria-label="Direct reservation navigation">
     <Button variant="ghost" asChild><a href="/">SkyNest home</a></Button>
-    <Button variant="ghost" asChild><a href="/rooms">Browse rooms</a></Button>
+    <Button variant={activePath === '/rooms' ? 'secondary' : 'ghost'} asChild><a href="/rooms" aria-current={activePath === '/rooms' ? 'page' : undefined}>Browse rooms</a></Button>
     <Button variant={activePath === '/guest/bookings/new' ? 'secondary' : 'ghost'} asChild><a href="/guest/bookings/new" aria-current={activePath === '/guest/bookings/new' ? 'page' : undefined}>Book directly</a></Button>
     <Button variant={activePath.startsWith('/guest/my-bookings') ? 'secondary' : 'ghost'} asChild><a href="/guest/my-bookings" aria-current={activePath.startsWith('/guest/my-bookings') ? 'page' : undefined}>My Bookings</a></Button>
   </nav>;

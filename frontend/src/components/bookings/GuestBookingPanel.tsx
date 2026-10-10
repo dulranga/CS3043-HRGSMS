@@ -1,21 +1,27 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/ui/form-field';
 import { AvailabilityPanel } from '@/components/rooms/AvailabilityPanel';
-import { AvailabilityApi, AvailabilityClient, AvailabilityModel, nights } from '@/lib/availability';
+import { AvailabilityApi, AvailabilityClient, AvailabilityModel, clearPendingSelection, nights, readPendingSelection } from '@/lib/availability';
 import { formatLkr } from '@/lib/money';
 import { provisionalBookingTotal } from '@/lib/staffBooking';
 import { GuestBookingApi, GuestBookingClient, GuestBookingModel, GuestBookingSession, GuestBookingState, canCreateGuestBooking } from '@/lib/guestBooking';
 
+const BOOKING_PATH = '/guest/bookings/new';
 const GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3';
 export const PAYMENT_MESSAGE = 'Online payment is not available. Arrange cash or verified bank-transfer payment with the hotel. No payment is taken when you confirm here.';
 type Actions = Pick<GuestBookingModel, 'requestQuote' | 'acknowledge' | 'confirm'>;
-function GuestBookingGate({ message = 'Sign in to your SkyNest guest account to book rooms directly.' }: { message?: string }) {
+function GuestBookingGate({ message = 'Sign in to your SkyNest guest account to book rooms directly.', signedIn = false }: { message?: string; signedIn?: boolean }) {
+  const hasSelection = readPendingSelection().length > 0;
   return <Card><CardHeader><CardTitle>Book directly with SkyNest</CardTitle></CardHeader><CardContent className="space-y-4">
-    <p role="status" className="text-sm">{message}</p><p className="text-sm text-muted-foreground">Your reservation belongs to your signed-in guest account.</p>
-    <Button variant="outline" asChild><a href="/rooms">Browse room availability</a></Button>
+    <p role="status" className="text-sm">{message}</p><p className="text-sm text-muted-foreground">Your reservation belongs to your signed-in guest account.{hasSelection ? ' Your room selection is kept and will be rechecked after you sign in.' : ''}</p>
+    <div className="flex flex-wrap gap-2">
+      {!signedIn && <Button asChild><a href={`/login?redirect=${encodeURIComponent(BOOKING_PATH)}`}>Log in</a></Button>}
+      {!signedIn && <Button variant="outline" asChild><a href={`/register?redirect=${encodeURIComponent(BOOKING_PATH)}`}>Create a guest account</a></Button>}
+      <Button variant="ghost" asChild><a href="/rooms">Browse room availability</a></Button>
+    </div>
   </CardContent></Card>;
 }
 export function GuestBookingPanel({ state, actions, disabled = false, branchName }: {
@@ -72,8 +78,8 @@ export function GuestBookingPanel({ state, actions, disabled = false, branchName
     </CardContent></Card>}
   </section>;
 }
-export function GuestBookingScreen({ session, client, availabilityClient }: {
-  session: GuestBookingSession | null; client?: GuestBookingClient; availabilityClient?: AvailabilityClient;
+export function GuestBookingScreen({ session, client, availabilityClient, signedIn = false }: {
+  session: GuestBookingSession | null; client?: GuestBookingClient; availabilityClient?: AvailabilityClient; signedIn?: boolean;
 }) {
   const allowed = canCreateGuestBooking(session);
   const api = useMemo(() => client ?? new GuestBookingApi(session), [session, client]);
@@ -81,16 +87,46 @@ export function GuestBookingScreen({ session, client, availabilityClient }: {
   const model = useMemo(() => new GuestBookingModel(session, api), [session, api]);
   const searchState = useSyncExternalStore(availability.subscribe, availability.getSnapshot, availability.getSnapshot);
   const state = useSyncExternalStore(model.subscribe, model.getSnapshot, model.getSnapshot);
+  // Rooms already chosen on /rooms skip straight to review; the search form
+  // stays available behind "Add or change rooms".
+  const [carried, setCarried] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const hideSearch = carried && !searchOpen && searchState.selected.length > 0;
   useEffect(() => {
     if (!allowed) return;
     const sync = () => model.setLines(availability.getSnapshot().selected), unsubscribe = availability.subscribe(sync);
-    sync(); void availability.loadOptions();
+    sync();
+    void availability.loadOptions().then(async () => {
+      // Pick up rooms chosen on the public /rooms page, then verify them.
+      if (!availability.getSnapshot().options) return;
+      const pending = readPendingSelection();
+      if (!pending.length) return;
+      clearPendingSelection();
+      availability.restore(pending);
+      if (!availability.getSnapshot().selected.length) return;
+      setCarried(true);
+      await availability.recheck();
+      const selected = availability.getSnapshot().selected;
+      if (selected.length && selected.every(line => line.check === 'available')) {
+        model.setLines(selected);
+        await model.requestQuote();
+      } else {
+        setSearchOpen(true);
+        await availability.search();
+      }
+    });
     return () => { unsubscribe(); availability.cancelPending(); model.cancelPending(); };
   }, [allowed, availability, model]);
-  if (!allowed) return <GuestBookingGate />;
+  if (!allowed) return <GuestBookingGate signedIn={signedIn} message={signedIn ? 'Direct online booking is available to SkyNest guest accounts. Staff create bookings from the staff dashboard.' : undefined} />;
   return <div className="min-w-0 space-y-6 @container">
     {!state.created && !state.denied && <AvailabilityPanel state={searchState} actions={availability} locked={state.quoting || state.creating || state.uncertain}
-      allowImmediateCheckIn={false} title="Book directly with SkyNest" description="Choose a SkyNest branch and add each room with its own dates and guest count. Review one combined quote and reserve all rooms under one reference." />}
+      allowImmediateCheckIn={false} hideSearch={hideSearch}
+      title={hideSearch ? 'Review your reservation' : 'Book directly with SkyNest'}
+      description={hideSearch
+        ? 'These are the rooms you chose. We checked they are still available; review the quote below and confirm.'
+        : 'Choose a SkyNest branch and add each room with its own dates and guest count. Review one combined quote and reserve all rooms under one reference.'}
+      selectionAction={hideSearch && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={state.quoting || state.creating || state.uncertain}
+        onClick={() => { setSearchOpen(true); void availability.search(); }}>Add or change rooms</Button>} />}
     <GuestBookingPanel state={state} disabled={searchState.rechecking} branchName={searchState.options?.branches.find(b => b.branchId === state.quote?.branchId)?.name}
       actions={{ acknowledge: model.acknowledge.bind(model), requestQuote: async () => {
         if (availability.getSnapshot().rechecking) return; model.setLines(availability.getSnapshot().selected); await model.requestQuote();
