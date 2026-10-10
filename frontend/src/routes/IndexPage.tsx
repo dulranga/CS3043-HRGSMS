@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Globe,
+  Hotel,
   Shield,
   Building2,
   BedDouble,
@@ -17,6 +17,7 @@ import { SearchWidget } from "@/components/project/SearchWidget";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { fetchShowcase, ShowcaseError, type Showcase } from "@/lib/showcase";
 
 /* ------------------------------------------------------------------ */
@@ -83,7 +84,6 @@ function useShowcase() {
 export default function IndexPage() {
   const { user } = useAuth();
   const isGuest = user?.kind === "GUEST";
-  const isStaff = user?.kind === "STAFF";
   const { showcase, loading, error, reload } = useShowcase();
   const branches = showcase
     ? [
@@ -99,77 +99,10 @@ export default function IndexPage() {
     { icon: BedDouble, value: showcase?.stats.roomCount, label: "Rooms" },
     { icon: LayoutGrid, value: showcase?.stats.roomTypeCount, label: "Room Types" },
   ];
-  const navLink = "hover:text-foreground transition-colors duration-150";
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
-      {/* ── Navigation ── */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]">
-              <Globe className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-display text-2xl font-bold tracking-tight">
-              SkyNest
-            </span>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/80">
-            <a href="#properties" className={navLink}>
-              Stays
-            </a>
-            <a href="#features" className={navLink}>
-              Features
-            </a>
-            <Link to="/rooms" className={navLink}>
-              Availability
-            </Link>
-            {isGuest && (
-              <Link to="/guest/my-bookings" className={navLink}>
-                My bookings
-              </Link>
-            )}
-            {isStaff && (
-              <Link to="/dashboard" className={navLink}>
-                Dashboard
-              </Link>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {user ? (
-              <Button
-                asChild
-                size="sm"
-                className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-              >
-                <Link to={isStaff ? "/dashboard" : "/account"}>
-                  {isStaff ? "Open dashboard" : "My account"}
-                </Link>
-              </Button>
-            ) : (
-              <>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-                >
-                  <Link to="/login">Log in</Link>
-                </Button>
-                <Button
-                  asChild
-                  size="sm"
-                  className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-                >
-                  <Link to="/register">Sign up</Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
+      <PublicHeader activePath="/" />
 
       {/* ── Hero ── */}
       <header className="relative overflow-hidden">
@@ -398,9 +331,9 @@ export default function IndexPage() {
             <div>
               <Link to="/" className="flex items-center gap-2.5 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-md">
-                  <Globe className="w-4 h-4 text-primary-foreground" />
+                  <Hotel className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-display text-xl font-bold tracking-tight">
+                <span className="font-display text-xl font-semibold tracking-tight">
                   SkyNest
                 </span>
               </Link>

@@ -1,21 +1,66 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { ArrowRight, CalendarDays, Clock, Radio, RefreshCw } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { formatLkr } from '@/lib/money';
 import {
-  BookingRoomLine, LineSummary, StaffBookingDetail, StaffBookingReadApi, StaffBookingReadClient,
+  BookingChannel, BookingRoomLine, LineSummary, RoomLineStatus, StaffBookingDetail, StaffBookingListItem, StaffBookingReadApi, StaffBookingReadClient,
   StaffBookingReadModel, StaffBookingReadSession, StaffBookingReadState, canReadStaffBookings,
-  hotelTime, progressLabel, summarizeLines,
+  hotelTime, summarizeLines,
 } from '@/lib/staffBookingRead';
 import { nights } from '@/lib/availability';
+import { formatHotelDateTime, formatStayRange } from '@/lib/dateFormat';
 
 const GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3';
+const STATUS_LABEL: Record<RoomLineStatus, string> = { BOOKED: 'Booked', CHECKED_IN: 'Checked in', CHECKED_OUT: 'Checked out', CANCELLED: 'Cancelled', NO_SHOW: 'No-show' };
+const STATUS_VARIANT: Record<RoomLineStatus, BadgeProps['variant']> = { BOOKED: 'secondary', CHECKED_IN: 'default', CHECKED_OUT: 'outline', CANCELLED: 'muted', NO_SHOW: 'muted' };
+const CHANNEL_LABEL: Record<BookingChannel, string> = { DIRECT_ONLINE: 'Online', FRONT_DESK: 'Front desk', PHONE: 'Phone', EMAIL: 'Email' };
+function statusCounts(summary: LineSummary): [RoomLineStatus, number][] {
+  const counts: [RoomLineStatus, number][] = [['BOOKED', summary.booked], ['CHECKED_IN', summary.checkedIn], ['CHECKED_OUT', summary.checkedOut], ['CANCELLED', summary.cancelled], ['NO_SHOW', summary.noShow]];
+  return counts.filter(([, n]) => n > 0);
+}
+
 export function BookingLineSummary({ summary }: { summary: LineSummary }) {
-  return <div className="space-y-2 text-sm">
-    <Badge variant="secondary">{progressLabel(summary)}</Badge>
-    <p>{summary.total} room lines · {summary.booked} BOOKED · {summary.checkedIn} CHECKED_IN · {summary.checkedOut} CHECKED_OUT · {summary.cancelled} CANCELLED · {summary.noShow} NO_SHOW</p>
+  const counts = statusCounts(summary);
+  return <div className="flex flex-wrap items-center gap-2 text-sm">
+    <span className="font-medium">{summary.total} {summary.total === 1 ? 'room' : 'rooms'}</span>
+    {counts.map(([status, n]) => <Badge key={status} variant={STATUS_VARIANT[status]}>{n} {STATUS_LABEL[status]}</Badge>)}
   </div>;
+}
+function BookingStatusBadge({ summary }: { summary: LineSummary }) {
+  const counts = statusCounts(summary);
+  if (counts.length !== 1) return <Badge variant="outline">Mixed</Badge>;
+  const [status] = counts[0];
+  return <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>;
+}
+function BookingListCard({ booking, onOpen }: { booking: StaffBookingListItem; onOpen(): void }) {
+  const { lineSummary: summary } = booking;
+  return <Card className="flex min-w-0 flex-col">
+    <CardHeader className="space-y-1 pb-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 break-words font-display text-lg font-semibold leading-tight tracking-tight">{booking.guest.fullName}</p>
+        <BookingStatusBadge summary={summary} />
+      </div>
+      <CardTitle className="truncate font-mono text-xs font-normal tracking-normal text-muted-foreground" title={booking.bookingRef}>{booking.bookingRef}</CardTitle>
+    </CardHeader>
+    <CardContent className="flex-1 space-y-4 text-sm">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-background/60 p-3">
+        <div className="col-span-2 space-y-0.5"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="size-3.5" aria-hidden="true" />Stay</dt>
+          <dd className="font-medium">{formatStayRange(summary.firstStayDate, summary.lastStayDate)}</dd></div>
+        <div className="space-y-0.5"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><Radio className="size-3.5" aria-hidden="true" />Channel</dt>
+          <dd className="font-medium">{CHANNEL_LABEL[booking.bookingChannel]}</dd></div>
+        <div className="space-y-0.5"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><Clock className="size-3.5" aria-hidden="true" />Created</dt>
+          <dd className="font-medium">{formatHotelDateTime(booking.createdAt)}</dd></div>
+      </dl>
+      <BookingLineSummary summary={summary} />
+    </CardContent>
+    <CardFooter>
+      <Button variant="outline" className="w-full" aria-label={`View booking ${booking.bookingRef}`} onClick={onOpen}>
+        View all room lines<ArrowRight aria-hidden="true" />
+      </Button>
+    </CardFooter>
+  </Card>;
 }
 function RoomLineHistory({ line }: { line: BookingRoomLine }) {
   const current = line.assignments.find(a => a.current);
@@ -86,20 +131,14 @@ export function StaffBookingReadPanel({ state, actions }: { state: StaffBookingR
       {state.detailFailure && <Card className="border-destructive"><CardContent className="p-4"><p role="alert" className="text-sm text-destructive">{state.detailFailure.message}</p></CardContent></Card>}
       {state.detail && <StaffBookingDetailPanel booking={state.detail} />}
     </> : <>
-      <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={state.loadingList} onClick={() => void actions.loadList()}>Reload bookings</Button>
-        {state.page && <p className="text-sm">{state.page.items.length ? `Bookings ${state.offset + 1}–${state.offset + state.page.items.length}` : 'No bookings on this page'} · page size {state.limit}</p>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {state.page ? <p className="text-sm text-muted-foreground">{state.page.items.length ? `Bookings ${state.offset + 1}–${state.offset + state.page.items.length}` : 'No bookings on this page'} · page size {state.limit} · times in Asia/Colombo</p> : <span />}
+        <Button variant="outline" size="sm" disabled={state.loadingList} onClick={() => void actions.loadList()}><RefreshCw aria-hidden="true" />Reload bookings</Button></div>
       {state.loadingList && <p role="status">Loading branch bookings…</p>}
       {state.listFailure && <Card className="border-destructive"><CardContent className="p-4"><p role="alert" className="text-sm text-destructive">{state.listFailure.message}</p></CardContent></Card>}
       {state.page && !state.page.items.length && <Card><CardContent className="space-y-2 p-4"><p role="status">{state.offset === 0 ? 'No bookings found in your assigned branch.' : 'No more bookings on this page. Return to the previous page.'}</p></CardContent></Card>}
-      <div className={GRID}>{state.page?.items.map(booking => <Card key={booking.bookingId} className="min-w-0">
-        <CardHeader><CardTitle className="break-words text-xl">{booking.bookingRef}</CardTitle></CardHeader>
-        <CardContent className="space-y-3 text-sm"><p className="break-words font-medium">{booking.guest.fullName}</p><BookingLineSummary summary={booking.lineSummary} />
-          <p>Stay bounds: {booking.lineSummary.firstStayDate} to {booking.lineSummary.lastStayDate}</p>
-          <p>Channel: {booking.bookingChannel}</p><p>Created: {hotelTime(booking.createdAt)} (Asia/Colombo)</p>
-          <Button className="h-auto min-h-11 whitespace-normal" aria-label={`View booking ${booking.bookingRef}`} onClick={() => void actions.open(booking.bookingId)}>View all room lines</Button>
-        </CardContent>
-      </Card>)}</div>
-      <div className="flex flex-wrap gap-2" aria-label="Booking pages">
+      <div className={GRID}>{state.page?.items.map(booking => <BookingListCard key={booking.bookingId} booking={booking} onOpen={() => void actions.open(booking.bookingId)} />)}</div>
+      <div className="flex flex-wrap justify-end gap-2" aria-label="Booking pages">
         <Button variant="outline" disabled={state.loadingList || state.offset === 0} onClick={() => void actions.previous()}>Previous page</Button>
         <Button variant="outline" disabled={state.loadingList || state.page?.pagination.returned !== state.limit} onClick={() => void actions.next()}>Next page</Button>
       </div>

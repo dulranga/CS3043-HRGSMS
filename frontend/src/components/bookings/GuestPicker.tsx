@@ -1,10 +1,13 @@
-import { FormEvent, InputHTMLAttributes, useState } from 'react';
-import { CircleAlert, LoaderCircle, Search, UserPlus } from 'lucide-react';
+import { FormEvent, InputHTMLAttributes, useEffect, useId, useRef, useState } from 'react';
+import { ChevronsUpDown, CircleAlert, LoaderCircle, Search, UserPlus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Command, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
   GuestApiError, createGuest, searchGuests,
@@ -24,23 +27,53 @@ const defaultClient: GuestPickerClient = { search: searchGuests, create: createG
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
 const emptyForm = { fullName: '', email: '', phone: '', nic: '' };
+const SEARCH_DELAY_MS = 300;
 
 export function GuestPicker({ value, selectedName, onSelect, disabled = false, client = defaultClient, initialMode = 'search' }: {
   value: string; selectedName: string;
   onSelect(guestId: string, guestName: string): void;
   disabled?: boolean; client?: GuestPickerClient; initialMode?: 'search' | 'new';
 }) {
+  const comboboxId = useId();
   const [mode, setMode] = useState<'search' | 'new'>(initialMode);
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [nic, setNic] = useState('');
+  const [nicSearched, setNicSearched] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<GuestProfile[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [creating, setCreating] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [duplicate, setDuplicate] = useState<{ candidates: GuestCandidate[]; nicConflict: boolean } | null>(null);
+  const requestRef = useRef(0);
+
+  async function runSearch(input: GuestSearchInput) {
+    const request = ++requestRef.current;
+    setError(null); setSearching(true);
+    try {
+      const result = await client.search(input);
+      if (request === requestRef.current) setResults(result.guests);
+    } catch (e) {
+      if (request !== requestRef.current) return;
+      setResults([]);
+      setError(e instanceof GuestApiError ? e.message : 'Search failed. Please try again.');
+    } finally { if (request === requestRef.current) setSearching(false); }
+  }
+
+  // Search-as-you-type: debounce typed queries so each keystroke does not hit the guest API.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      if (!nicSearched) { requestRef.current++; setResults([]); setSearching(false); setError(null); }
+      return;
+    }
+    setNicSearched(false);
+    const timer = setTimeout(() => void runSearch({ query: q }), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   if (value) {
     return <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-border bg-background/60 px-4 py-3">
@@ -55,24 +88,16 @@ export function GuestPicker({ value, selectedName, onSelect, disabled = false, c
 
   function choose(profile: { guestId: string; fullName: string }) {
     setDuplicate(null);
-    setError(null);
+    setError(null); setCreateError(null);
     onSelect(profile.guestId, profile.fullName);
   }
 
-  async function runSearch(event?: FormEvent) {
-    event?.preventDefault();
-    if (searching) return;
-    const q = query.trim(), n = nic.trim();
-    if (!q && !n) { setError('Enter a name, email, phone or full NIC.'); return; }
-    if (q && q.length < 2) { setError('Enter at least 2 characters.'); return; }
-    setError(null); setSearching(true); setSearched(true);
-    try {
-      const result = await client.search({ query: q || undefined, nic: n || undefined });
-      setResults(result.guests);
-    } catch (e) {
-      setResults([]);
-      setError(e instanceof GuestApiError ? e.message : 'Search failed. Please try again.');
-    } finally { setSearching(false); }
+  function runNicSearch(event: FormEvent) {
+    event.preventDefault();
+    const n = nic.trim();
+    if (!n || searching) return;
+    setQuery(''); setNicSearched(true); setOpen(true);
+    void runSearch({ nic: n });
   }
 
   async function submitCreate(confirm = false) {
@@ -83,7 +108,7 @@ export function GuestPicker({ value, selectedName, onSelect, disabled = false, c
     if (email && !EMAIL_PATTERN.test(email)) errors.email = 'Enter a valid email address.';
     if (phone && !PHONE_PATTERN.test(phone.replace(/[\s().-]/g, ''))) errors.phone = 'Enter 7-15 digits with an optional leading +.';
     if (!email && !phone && !errors.email && !errors.phone) errors.email = 'Enter an email address or a phone number.';
-    setFieldErrors(errors); setError(null);
+    setFieldErrors(errors); setCreateError(null);
     if (!confirm) setDuplicate(null);
     if (Object.keys(errors).length) return;
     setCreating(true);
@@ -95,7 +120,7 @@ export function GuestPicker({ value, selectedName, onSelect, disabled = false, c
     } catch (e) {
       if (e instanceof GuestApiError && e.code === 'VALIDATION_ERROR') setFieldErrors(e.fields ?? {});
       else if (e instanceof GuestApiError && (e.code === 'POSSIBLE_DUPLICATE' || e.code === 'GUEST_NIC_EXISTS')) setDuplicate({ candidates: e.candidates ?? [], nicConflict: e.code === 'GUEST_NIC_EXISTS' });
-      else setError(e instanceof GuestApiError ? e.message : 'Could not create the guest. Please try again.');
+      else setCreateError(e instanceof GuestApiError ? e.message : 'Could not create the guest. Please try again.');
     } finally { setCreating(false); }
   }
 
@@ -107,44 +132,78 @@ export function GuestPicker({ value, selectedName, onSelect, disabled = false, c
     {fieldErrors[key] && <p id={`guest-picker-${key}-error`} className="text-xs font-medium text-destructive">{fieldErrors[key]}</p>}
   </div>;
 
-  return <div className="space-y-4">
-    <div role="tablist" aria-label="Guest selection" className="inline-flex flex-wrap items-center gap-1 rounded-xl border-2 border-border bg-secondary/40 p-1">
-      <Button type="button" size="sm" variant={mode === 'search' ? 'default' : 'ghost'} disabled={disabled} onClick={() => setMode('search')}><Search aria-hidden="true" /> Search existing</Button>
-      <Button type="button" size="sm" variant={mode === 'new' ? 'default' : 'ghost'} disabled={disabled} onClick={() => setMode('new')}><UserPlus aria-hidden="true" /> New guest</Button>
-    </div>
+  function startCreate() {
+    const typed = query.trim();
+    if (typed && !form.fullName && !/[@\d]/.test(typed)) setForm(prev => ({ ...prev, fullName: typed }));
+    setOpen(false);
+    setMode('new');
+  }
 
-    {error && <Alert variant="destructive" role="alert"><CircleAlert aria-hidden="true" /><div><AlertTitle>Guest lookup failed</AlertTitle><AlertDescription>{error}</AlertDescription></div></Alert>}
+  const queryTooShort = query.trim().length < 2;
 
-    {mode === 'search' ? <>
-      <form noValidate className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end" onSubmit={runSearch}>
-        <div className="space-y-1.5 md:col-span-7"><Label htmlFor="guest-picker-query">Name, email or phone</Label>
-          <Input id="guest-picker-query" value={query} maxLength={100} disabled={disabled} placeholder="e.g. Kasun or kasun@example.com" onChange={event => setQuery(event.target.value)} /></div>
-        <div className="space-y-1.5 md:col-span-3"><Label htmlFor="guest-picker-nic">Full NIC (exact)</Label>
-          <Input id="guest-picker-nic" value={nic} maxLength={255} disabled={disabled} spellCheck={false} placeholder="Exact match only" onChange={event => setNic(event.target.value)} /></div>
-        <div className="md:col-span-2"><Button type="submit" className="w-full" disabled={disabled || searching}>
-          {searching ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Search aria-hidden="true" />}{searching ? 'Searching…' : 'Search'}</Button></div>
-      </form>
-      <div aria-live="polite">
-        {!searched && <p className="py-3 text-center text-sm text-muted-foreground">Search for the guest, or create a new profile if they are not yet registered.</p>}
-        {searched && !searching && results.length === 0 && <p className="py-3 text-center text-sm text-muted-foreground">No guest profiles matched. Check the spelling, or create a new guest.</p>}
-        {results.length > 0 && <ul className="divide-y divide-border rounded-xl border-2 border-border">
-          {results.map(guest => <li key={guest.guestId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 truncate text-sm font-medium">{guest.fullName}{!guest.active && <Badge variant="destructive">Deactivated</Badge>}</p>
-              <p className="truncate text-xs text-muted-foreground">{[guest.email || guest.phone || '—', guest.maskedNic].filter(Boolean).join(' · ')}</p>
-            </div>
-            <Button type="button" size="sm" variant="outline" disabled={disabled || !guest.active} onClick={() => choose(guest)}>Select</Button>
-          </li>)}
-        </ul>}
+  return <Tabs value={mode} onValueChange={value => setMode(value as 'search' | 'new')} className="space-y-4">
+    <TabsList aria-label="Guest selection" className="grid w-full grid-cols-2 sm:inline-grid sm:w-auto">
+      <TabsTrigger value="search" disabled={disabled}><Search aria-hidden="true" /> Search existing</TabsTrigger>
+      <TabsTrigger value="new" disabled={disabled}><UserPlus aria-hidden="true" /> New guest</TabsTrigger>
+    </TabsList>
+
+    <TabsContent value="search" className="space-y-4">
+      <div className="space-y-1.5">
+        <Label htmlFor={comboboxId}>Name, email or phone</Label>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button id={comboboxId} type="button" variant="outline" role="combobox" aria-expanded={open} disabled={disabled}
+              className="h-11 w-full justify-between font-normal">
+              <span className="flex min-w-0 items-center gap-2 text-muted-foreground"><Search aria-hidden="true" /><span className="truncate">{query.trim() || 'Search guests by name, email or phone…'}</span></span>
+              <ChevronsUpDown className="opacity-50" aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-72 p-0">
+            <Command shouldFilter={false}>
+              <CommandInput value={query} onValueChange={setQuery} maxLength={100} placeholder="e.g. Kasun or kasun@example.com" />
+              <CommandList aria-live="polite">
+                {searching ? <p role="status" className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> Searching guests…</p>
+                  : error ? <p role="alert" className="px-4 py-6 text-center text-sm text-destructive">{error}</p>
+                  : results.length === 0 ? <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    {queryTooShort && !nicSearched ? 'Type at least 2 characters to search guest profiles.' : 'No guest profiles matched. Check the spelling, or create a new guest.'}</p>
+                  : <CommandGroup heading={nicSearched && queryTooShort ? 'NIC match' : `${results.length} matching guest${results.length === 1 ? '' : 's'}`}>
+                    {results.map(guest => <CommandItem key={guest.guestId} value={guest.guestId} disabled={!guest.active} onSelect={() => { choose(guest); setOpen(false); }}>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate font-medium">{guest.fullName}</span>
+                        <span className="truncate text-xs text-muted-foreground">{[guest.email || guest.phone || '—', guest.maskedNic].filter(Boolean).join(' · ')}</span>
+                      </span>
+                      {!guest.active && <Badge variant="destructive" className="shrink-0">Deactivated</Badge>}
+                    </CommandItem>)}
+                  </CommandGroup>}
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem value="__create-guest" onSelect={startCreate}><UserPlus aria-hidden="true" /> Create a new guest profile</CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
-    </> : <form noValidate className="grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={event => { event.preventDefault(); void submitCreate(); }}>
-      <div className="md:col-span-2">{field('fullName', 'Full name', { maxLength: 255, autoComplete: 'name' })}</div>
-      {field('email', 'Email (or phone)', { type: 'email', maxLength: 255, autoComplete: 'email' })}
-      {field('phone', 'Phone (or email)', { type: 'tel', maxLength: 32, autoComplete: 'tel' })}
-      <div className="md:col-span-2">{field('nic', 'Full NIC (optional)', { maxLength: 255, spellCheck: false, autoCapitalize: 'characters' })}</div>
-      <div className="md:col-span-2"><Button type="submit" disabled={disabled || creating}>
-        {creating ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <UserPlus aria-hidden="true" />}{creating ? 'Creating…' : 'Create guest'}</Button></div>
-    </form>}
+
+      <form noValidate className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={runNicSearch}>
+        <div className="flex-1 space-y-1.5"><Label htmlFor="guest-picker-nic">Full NIC (exact)</Label>
+          <Input id="guest-picker-nic" value={nic} maxLength={255} disabled={disabled} spellCheck={false} placeholder="Exact match only" onChange={event => setNic(event.target.value)} /></div>
+        <Button type="submit" variant="outline" disabled={disabled || searching || !nic.trim()}>
+          {searching && nicSearched ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Search aria-hidden="true" />}Find by NIC</Button>
+      </form>
+    </TabsContent>
+
+    <TabsContent value="new">
+      {createError && <Alert variant="destructive" role="alert" className="mb-4"><CircleAlert aria-hidden="true" /><div><AlertTitle>Could not create guest</AlertTitle><AlertDescription>{createError}</AlertDescription></div></Alert>}
+      <form noValidate className="grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={event => { event.preventDefault(); void submitCreate(); }}>
+        <div className="md:col-span-2">{field('fullName', 'Full name', { maxLength: 255, autoComplete: 'name' })}</div>
+        {field('email', 'Email (or phone)', { type: 'email', maxLength: 255, autoComplete: 'email' })}
+        {field('phone', 'Phone (or email)', { type: 'tel', maxLength: 32, autoComplete: 'tel' })}
+        <div className="md:col-span-2">{field('nic', 'Full NIC (optional)', { maxLength: 255, spellCheck: false, autoCapitalize: 'characters' })}</div>
+        <div className="md:col-span-2"><Button type="submit" disabled={disabled || creating}>
+          {creating ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <UserPlus aria-hidden="true" />}{creating ? 'Creating…' : 'Create guest'}</Button></div>
+      </form>
+    </TabsContent>
 
     {duplicate && <Alert variant={duplicate.nicConflict ? 'destructive' : 'default'} role="alert">
       {duplicate.nicConflict ? <CircleAlert aria-hidden="true" /> : <Search aria-hidden="true" />}
@@ -164,5 +223,5 @@ export function GuestPicker({ value, selectedName, onSelect, disabled = false, c
         </div>
       </div>
     </Alert>}
-  </div>;
+  </Tabs>;
 }

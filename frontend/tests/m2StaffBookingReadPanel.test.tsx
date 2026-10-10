@@ -9,7 +9,7 @@ const actions = { async loadList() {}, async open() {}, back() {}, async next() 
 test('booking list shows each multi-room reference once and clearly derives mixed line progress', () => {
   const markup = renderToStaticMarkup(<StaffBookingReadPanel state={{ ...initialStaffBookingReadState(), page: page() }} actions={actions} />);
   assert.equal((markup.match(/<h3[^>]*>SN-SAMPLE-MULTI<\/h3>/g) ?? []).length, 1);
-  for (const text of ['Mixed line states', '2 room lines', '1 BOOKED', '1 CHECKED_IN', 'View all room lines', 'page size 20', 'Asia/Colombo']) assert.ok(markup.includes(text), text);
+  for (const text of ['Mixed', '2 rooms', '1 Booked', '1 Checked in', 'Cancelled', 'Front desk', 'View all room lines', 'page size 20', 'Asia/Colombo']) assert.ok(markup.includes(text), text);
   assert.match(markup, /grid-cols-1/); assert.match(markup, /lg:grid-cols-3/);
 });
 test('detail renders every line plus old/current assignments, occupancy and rate/date revision evidence', () => {

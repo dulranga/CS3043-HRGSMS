@@ -1,15 +1,17 @@
 import { ReactNode, useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react';
-import { Check } from 'lucide-react';
+import { CalendarDays, Check, CircleCheck, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestPicker } from '@/components/bookings/GuestPicker';
 import { AvailabilityPanel } from '@/components/rooms/AvailabilityPanel';
 import { AvailabilityApi, AvailabilityClient, AvailabilityModel, AvailabilityState, nights } from '@/lib/availability';
 import { formatLkr } from '@/lib/money';
+import { formatHotelDateTime, formatStayDate, formatStayRange } from '@/lib/dateFormat';
 import {
   CreatedStaffBooking, StaffBookingApi, StaffBookingClient, StaffBookingModel, StaffBookingSession, StaffBookingState,
   StaffChannel, canCreateStaffBooking, provisionalBookingTotal,
@@ -25,6 +27,7 @@ const STAGES: { id: WizardStage; label: string }[] = [
   { id: 'guest', label: 'Guest details' },
   { id: 'review', label: 'Review and confirm' },
 ];
+const STAFF_CHANNELS: StaffChannel[] = ['FRONT_DESK', 'PHONE', 'EMAIL'];
 const channelLabel = (channel: StaffChannel) => channel === 'FRONT_DESK' ? 'Front desk' : channel === 'PHONE' ? 'Phone' : 'Email';
 const stepButton = 'h-auto min-h-11 whitespace-normal';
 
@@ -43,38 +46,88 @@ export function StaffBookingAlerts({ state }: { state: StaffBookingState }) {
   </>;
 }
 
+const FACTS = 'grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border-2 border-border bg-card p-4 md:grid-cols-4';
+const PANEL = 'space-y-3 rounded-xl border-2 border-border p-4';
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="min-w-0 space-y-0.5"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-sm font-medium">{children}</dd></div>;
+}
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="flex items-baseline justify-between gap-3"><dt className="text-muted-foreground">{label}</dt><dd className="shrink-0 font-medium tabular-nums">{children}</dd></div>;
+}
+function RoomLineCard({ line, capacity, rateLabel, rate, charge }: {
+  line: { roomNumber: string; roomTypeName: string; checkIn: string; checkOut: string; guestCount: number };
+  capacity?: number; rateLabel: string; rate: string; charge?: string;
+}) {
+  const count = nights(line);
+  return <Card className="min-w-0 shadow-none hover:shadow-none">
+    <CardHeader className="space-y-1 pb-3">
+      <div className="flex items-start justify-between gap-3">
+        <CardTitle className="break-words text-lg">Room {line.roomNumber}</CardTitle>
+        <Badge variant="secondary">{count} {count === 1 ? 'night' : 'nights'}</Badge>
+      </div>
+      <p className="text-sm text-muted-foreground">{line.roomTypeName}</p>
+    </CardHeader>
+    <CardContent className="space-y-3 text-sm">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-background/60 p-3">
+        <div className="col-span-2 space-y-0.5"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="size-3.5" aria-hidden="true" />Dates</dt>
+          <dd className="font-medium">{formatStayRange(line.checkIn, line.checkOut)}</dd></div>
+        <div className="space-y-0.5"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />Guests</dt>
+          <dd className="font-medium">{line.guestCount}{capacity ? ` of ${capacity}` : ''}</dd></div>
+        <div className="space-y-0.5"><dt className="text-xs text-muted-foreground">{rateLabel}</dt>
+          <dd className="font-medium tabular-nums">{formatLkr(rate)} / night</dd></div>
+      </dl>
+      {charge && <div className="flex items-baseline justify-between gap-3 border-t-2 border-border pt-3">
+        <span className="text-muted-foreground">Room charge</span><span className="font-semibold tabular-nums">{formatLkr(charge)}</span>
+      </div>}
+    </CardContent>
+  </Card>;
+}
+
 // Full-width terminal view — replaces the tabs once the booking exists so the
 // reference and every agreed line are impossible to miss.
 export function StaffBookingConfirmation({ created }: { created: CreatedStaffBooking }) {
   return <Card>
-    <CardHeader><CardTitle>Booking confirmed · {created.bookingRef}</CardTitle></CardHeader>
-    <CardContent className="space-y-4">
-      <Badge variant="secondary">{created.lines.length} BOOKED room lines · one DRAFT invoice</Badge>
-      <p className="text-sm">Invoice total: {formatLkr(created.invoice.total)}. This is a provisional DRAFT invoice; payment and check-in are separate operations.</p>
-      <div className={GRID}>{created.lines.map(line => <Card key={line.lineId} className="min-w-0 shadow-none">
-        <CardHeader><CardTitle className="break-words text-lg">Room {line.roomNumber} · {line.roomTypeName}</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm"><p>{line.checkIn} to {line.checkOut}</p><p>{line.guestCount} guests · {nights(line)} reserved nights</p><p>Agreed base rate: {formatLkr(line.rateSnapshot)} / night</p></CardContent>
-      </Card>)}</div>
-      <p className="text-sm">Keep booking reference {created.bookingRef} for subsequent staff operations.</p>
+    <CardHeader className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><CircleCheck className="size-5" aria-hidden="true" /></span>
+        <div className="min-w-0">
+          <CardTitle className="text-xl">Booking confirmed</CardTitle>
+          <p className="break-all font-mono text-sm text-muted-foreground">{created.bookingRef}</p>
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      <dl className={FACTS}>
+        <Fact label="Rooms booked">{created.lines.length}</Fact>
+        <Fact label="Channel">{channelLabel(created.bookingChannel)}</Fact>
+        <Fact label="Invoice status">Draft</Fact>
+        <Fact label="Invoice total">{formatLkr(created.invoice.total)}</Fact>
+      </dl>
+      <div className={GRID}>{created.lines.map(line => <RoomLineCard key={line.lineId} line={line} rateLabel="Agreed base rate" rate={line.rateSnapshot} />)}</div>
+      <p className="text-sm text-muted-foreground">Created one DRAFT invoice; it is provisional, and payment and check-in are separate operations. Keep booking reference {created.bookingRef} for subsequent staff operations.</p>
     </CardContent>
   </Card>;
 }
 
 // Stage 2 — the primary guest record and booking channel.
 export function StaffBookingGuestStep({ state, actions, disabled = false }: { state: StaffBookingState; actions: Actions; disabled?: boolean }) {
+  const channelId = useId();
   return <Card>
     <CardHeader><CardTitle className="text-xl">Primary guest and booking channel</CardTitle></CardHeader>
-    <CardContent className="space-y-4">
+    <CardContent className="space-y-6">
       <div className="space-y-2">
-        <p className="text-sm font-medium">Primary guest</p>
+        <h3 className="text-sm font-medium">Primary guest</h3>
+        <p className="text-sm text-muted-foreground">Search an existing guest profile or create one inline; the booking links to this guest record.</p>
         <GuestPicker value={state.guestId} selectedName={state.guestName} disabled={disabled}
           onSelect={(guestId, guestName) => actions.setGuest(guestId, guestName)} />
-        <p className="text-sm text-muted-foreground">Search an existing guest profile or create one inline; the booking links to this guest record.</p>
       </div>
-      <div role="group" aria-label="Staff booking channel" className="flex flex-wrap gap-2">
-        {(['FRONT_DESK', 'PHONE', 'EMAIL'] as const).map(channel => <Button key={channel} type="button" size="sm" disabled={disabled}
-          aria-pressed={state.channel === channel} variant={state.channel === channel ? 'default' : 'outline'}
-          onClick={() => actions.setChannel(channel)}>{channelLabel(channel)}</Button>)}
+      <div className="space-y-1.5 sm:max-w-xs">
+        <Label htmlFor={channelId}>Booking channel</Label>
+        <NativeSelect id={channelId} value={state.channel} disabled={disabled}
+          onChange={event => actions.setChannel(event.target.value as StaffChannel)}>
+          {STAFF_CHANNELS.map(channel => <NativeSelectOption key={channel} value={channel}>{channelLabel(channel)}</NativeSelectOption>)}
+        </NativeSelect>
       </div>
       <p className="text-sm text-muted-foreground">Continue to fetch a fresh combined quote for the selected rooms, then review every rate and the policy before confirming.</p>
     </CardContent>
@@ -86,11 +139,14 @@ export function StaffBookingGuestStep({ state, actions, disabled = false }: { st
 export function StaffBookingReviewStep({ state, actions, disabled = false }: { state: StaffBookingState; actions: Actions; disabled?: boolean }) {
   const ackId = useId();
   const quote = state.quote, totals = quote ? provisionalBookingTotal(quote) : null;
+  const policy = quote?.billingPolicy;
   return <section className="min-w-0 space-y-4" aria-label="Staff booking quote and review">
-    <Card><CardContent className="space-y-1 p-4 text-sm">
-      <p className="break-all">Primary guest: {state.guestName || state.guestId || 'Not set'}</p>
-      <p>Booking channel: {channelLabel(state.channel)}</p>
-    </CardContent></Card>
+    <dl className={FACTS}>
+      <Fact label="Primary guest"><span className="break-all">{state.guestName || state.guestId || 'Not set'}</span></Fact>
+      <Fact label="Booking channel">{channelLabel(state.channel)}</Fact>
+      <Fact label="Rooms">{state.lines.length}</Fact>
+      <Fact label="Guests">{quote ? quote.lines.reduce((sum, line) => sum + line.guestCount, 0) : '—'}</Fact>
+    </dl>
     {!quote && !state.quoting && <Card>
       <CardHeader><CardTitle className="text-xl">Get a fresh combined quote</CardTitle></CardHeader>
       <CardContent className="space-y-4">
@@ -99,32 +155,51 @@ export function StaffBookingReviewStep({ state, actions, disabled = false }: { s
       </CardContent>
     </Card>}
     {state.quoting && !quote && <Card><CardContent className="p-4"><p role="status" className="text-sm">Getting your combined quote…</p></CardContent></Card>}
-    {quote && totals && <Card>
-      <CardHeader><CardTitle className="text-xl">Review the provisional combined quote</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm">{quote.lines.length} room lines · {quote.lines.reduce((sum, line) => sum + line.guestCount, 0)} guests across lines</p>
-        <div className={GRID}>{quote.lines.map((line, index) => <Card key={`${line.roomId}-${line.checkIn}`} className="min-w-0 shadow-none">
-          <CardHeader><CardTitle className="break-words text-lg">Room {line.roomNumber} · {line.roomTypeName}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm"><p>{line.checkIn} to {line.checkOut}</p><p>{line.guestCount} guests · capacity {line.capacity} · {nights(line)} reserved nights</p>
-            <p>Quoted base rate: {formatLkr(line.baseDailyRate)} / night</p><p>Provisional room charge: {formatLkr(totals.roomAmounts[index])}</p>
-          </CardContent>
-        </Card>)}</div>
-        <div className="space-y-2 text-sm">
-          <p className="break-all">Selected policy: {quote.billingPolicy.billingPolicyId}</p>
-          <p>Effective from {quote.billingPolicy.effectiveFrom} · published {new Date(quote.billingPolicy.createdAt).toLocaleString('en-GB', { timeZone: 'Asia/Colombo' })} (Asia/Colombo)</p>
-          <p>Rooms: {formatLkr(totals.roomSubtotal)}</p><p>Discount: {formatLkr('0.00')} (none applied at creation)</p>
-          <p>Service charge ({quote.billingPolicy.serviceChargePercent}%): {formatLkr(totals.serviceCharge)}</p>
-          <p>Tax ({quote.billingPolicy.taxPercent}% on rooms plus service charge): {formatLkr(totals.tax)}</p>
-          <p className="text-lg font-semibold">Provisional combined total: {formatLkr(totals.total)}</p>
-          <p className="text-muted-foreground">Service usage and later flat fees are excluded. Confirmation rechecks every rate, room and the effective policy; the saved invoice is authoritative.</p>
-          <p>Policy terms: cancellation {formatLkr(quote.billingPolicy.cancellationFee)} · no-show {formatLkr(quote.billingPolicy.noShowFee)} · late checkout {formatLkr(quote.billingPolicy.lateCheckoutFee)} · no-show grace {quote.billingPolicy.noShowGraceDays} days.</p>
+    {quote && totals && policy && <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">Review the provisional combined quote</CardTitle>
+        <CardDescription>Confirmation rechecks every rate, room and the effective policy; the saved invoice is authoritative.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className={GRID}>{quote.lines.map((line, index) => <RoomLineCard key={`${line.roomId}-${line.checkIn}`} line={line} capacity={line.capacity}
+          rateLabel="Quoted base rate" rate={line.baseDailyRate} charge={totals.roomAmounts[index]} />)}</div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section className={PANEL} aria-label="Price breakdown">
+            <h3 className="font-display text-base font-semibold tracking-tight">Price breakdown</h3>
+            <dl className="space-y-2 text-sm">
+              <Row label="Rooms">{formatLkr(totals.roomSubtotal)}</Row>
+              <Row label="Discount (none applied at creation)">{formatLkr('0.00')}</Row>
+              <Row label={`Service charge (${policy.serviceChargePercent}%)`}>{formatLkr(totals.serviceCharge)}</Row>
+              <Row label={`Tax (${policy.taxPercent}% on rooms plus service charge)`}>{formatLkr(totals.tax)}</Row>
+            </dl>
+            <div className="flex items-baseline justify-between gap-3 border-t-2 border-border pt-3">
+              <span className="text-sm font-medium">Provisional combined total</span>
+              <span className="font-display text-xl font-semibold tabular-nums tracking-tight">{formatLkr(totals.total)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Service usage and later flat fees are excluded.</p>
+          </section>
+
+          <section className={PANEL} aria-label="Billing policy">
+            <h3 className="font-display text-base font-semibold tracking-tight">Billing policy</h3>
+            <dl className="space-y-2 text-sm">
+              <Row label="Cancellation fee">{formatLkr(policy.cancellationFee)}</Row>
+              <Row label="No-show fee">{formatLkr(policy.noShowFee)}</Row>
+              <Row label="Late checkout fee">{formatLkr(policy.lateCheckoutFee)}</Row>
+              <Row label="No-show grace">{policy.noShowGraceDays} days</Row>
+              <Row label="Effective from">{formatStayDate(policy.effectiveFrom)}</Row>
+              <Row label="Published (Asia/Colombo)">{formatHotelDateTime(policy.createdAt)}</Row>
+            </dl>
+            <p className="break-all font-mono text-xs text-muted-foreground">Selected policy: {policy.billingPolicyId}</p>
+          </section>
         </div>
-        <div className="space-y-3">
+
+        <div className={`${PANEL} bg-background/60`}>
           <div className="flex items-start gap-3">
             <Checkbox id={ackId} checked={state.acknowledged} disabled={disabled || state.quoting} onCheckedChange={() => actions.acknowledge()} />
             <Label htmlFor={ackId} className="cursor-pointer text-sm font-medium leading-normal">I have reviewed these room rates and policy</Label>
           </div>
-          <p className="text-sm text-muted-foreground">A changed catalogue or policy requires a fresh quote, review and another explicit confirmation.</p>
+          <p className="pl-7 text-xs text-muted-foreground">A changed catalogue or policy requires a fresh quote, review and another explicit confirmation.</p>
         </div>
       </CardContent>
     </Card>}

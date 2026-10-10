@@ -15,7 +15,7 @@ const state = { ...initialStaffBookingState(), lines: selected, guestId: id(25),
 
 test('quote review shows independent rates/dates, exact totals, selected policy and explicit acknowledgement', () => {
   const markup = renderToStaticMarkup(<StaffBookingWizard state={state} actions={actions} searchState={searchState} availability={availability} initialStage="review" />);
-  for (const value of ['Room 101', 'Room 102', '2027-06-01 to 2027-06-04', '2027-06-02 to 2027-06-06', 'LKR 10,000.50', 'LKR 18,000.00', 'LKR 125,665.85', 'Service charge (10.00%)', 'Tax (12.00%', 'Selected policy', 'Asia/Colombo', 'I have reviewed']) assert.ok(markup.includes(value), value);
+  for (const value of ['Room 101', 'Room 102', '1 Jun – 4 Jun 2027', '2 Jun – 6 Jun 2027', 'LKR 10,000.50', 'LKR 18,000.00', 'LKR 125,665.85', 'Service charge (10.00%)', 'Tax (12.00%', 'Selected policy', 'Asia/Colombo', 'I have reviewed']) assert.ok(markup.includes(value), value);
   // The stage actions are pinned to the bottom of the scroll pane.
   assert.match(markup, /sticky bottom-0/);
   // Policy acknowledgement is a checkbox, not a button.
