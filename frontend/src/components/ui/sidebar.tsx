@@ -220,19 +220,24 @@ export function SidebarMenuItem({ className, ...props }: React.HTMLAttributes<HT
 export interface SidebarMenuButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isActive?: boolean;
   asChild?: boolean;
+  /** `primary` renders the button as an always-highlighted call to action. */
+  variant?: "default" | "primary";
 }
 
-export function SidebarMenuButton({ className, isActive, asChild = false, ...props }: SidebarMenuButtonProps) {
+export function SidebarMenuButton({ className, isActive, asChild = false, variant = "default", ...props }: SidebarMenuButtonProps) {
   const Comp = asChild ? Slot : "button";
   return (
     <Comp
       data-slot="sidebar-menu-button"
       data-active={isActive}
+      data-variant={variant}
       className={cn(
         "flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] active:scale-[0.98]",
-        isActive
-          ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md"
-          : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]",
+        variant === "primary"
+          ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md hover:-translate-y-0.5 hover:shadow-lg"
+          : isActive
+            ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md"
+            : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]",
         className
       )}
       {...props}

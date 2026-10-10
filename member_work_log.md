@@ -4,6 +4,17 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 10 October 2026 — sidebar pins each role's most-frequent action
+
+- At the owner's request, the staff sidebar now surfaces and highlights each role's single most-frequent day-to-day action at the top instead of only Front Desk's "New Reservation". Added `PRIMARY_ACTION_PATHS` + `primaryActionPath(role)` to `frontend/src/lib/staffNavigation.ts`; the pinned path is still checked with `canViewStaffPage`, so a stale map entry can never expose a link the role cannot open (guests get no pinned action).
+- Confirmed per-role mapping: FRONT_DESK → New Reservation (`/dashboard/bookings/new`), SERVICE_STAFF → Service Usage (`/dashboard/service-usage`), BRANCH_MANAGER → Room Administration (`/dashboard/admin/rooms`), CHAIN_MANAGER → Reports & CSV (`/dashboard/admin/reports`), SYSTEM_ADMINISTRATOR → User Accounts (`/dashboard/admin/users`), AUDITOR → Audit Log (`/dashboard/admin/audit`).
+- `frontend/src/components/layout/AppShell.tsx`: `StaffNavigation` renders a "Quick Action" group first and pulls the pinned item out of its category group so it appears once, pinned above (owner chose top-only over duplication). Remaining groups keep their order and permission filtering.
+- `frontend/src/components/ui/sidebar.tsx`: extended the existing shadcn `SidebarMenuButton` primitive with an optional `variant="primary"` (kept the default/active behaviour unchanged) rather than handbuilding a control, per the component rule. The highlighted state reuses the locked Mono `--sidebar-primary` token with `shadow-md` and the design system's 150ms hover lift.
+- No database/SQL or authorization changes; discovery-only navigation filtering is unchanged. No lecture concepts applied.
+- Verification: `node --import tsx --test tests/staffNavigation.test.ts` **2/2** (new test asserts every role's pinned path is one it may view); `npm run test:frontend` **239/239**; `npx tsc --noEmit` and `npx vite build` **passed** (only the pre-existing >500 kB chunk-size warning). No task checkbox changed (not a named subtask). No Git publication actions.
+- Proposed commit: `feat(nav): pin and highlight each role's most-frequent action in the sidebar`.
+- Proposed PR title: `Pin the most-frequent action per role in the sidebar`. Description: `Add a permission-validated per-role primary action pinned and highlighted at the top of the staff sidebar, replacing Front Desk-only access to New Reservation with a role-aware quick action for all six staff roles. Extend the shadcn SidebarMenuButton with a primary variant and keep the pinned link out of its original group. Verified with the navigation regressions, the full 239-test frontend suite and the production build.`
+
 ### 10 October 2026 — merge `dev` into `dulranga`: resolve `/dashboard` refactor conflicts
 
 - Merged `dev` (PRs #41/#42) into `dulranga`. Four files conflicted because both branches edited the staff navigation after the `/dashboard` refactor: `frontend/src/components/layout/AppShell.tsx`, `frontend/src/lib/staffNavigation.ts`, `frontend/src/routes/DashboardPage.tsx`, `frontend/tests/staffNavigation.test.ts`.

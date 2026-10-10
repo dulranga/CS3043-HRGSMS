@@ -5,7 +5,7 @@ import { SessionPanel } from "@/components/auth/SessionPanel";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { homePathFor } from "@/lib/auth";
 import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
-import { canViewStaffPage } from "@/lib/staffNavigation";
+import { canViewStaffPage, primaryActionPath } from "@/lib/staffNavigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
   Sidebar,
@@ -69,12 +69,37 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
+const NAV_ITEMS_BY_PATH: Record<string, NavItem> = Object.fromEntries(
+  NAV_GROUPS.flatMap(group => group.items).map(item => [item.to, item]),
+);
+
 function StaffNavigation() {
   const { role } = useFeatureSessions();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const groups = NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(item => canViewStaffPage(role, item.to)) })).filter(group => group.items.length > 0);
+  const pinnedPath = primaryActionPath(role);
+  const pinnedItem = pinnedPath ? NAV_ITEMS_BY_PATH[pinnedPath] : undefined;
+  // The pinned action is pulled out of its category so it appears once, at the
+  // top; the remaining groups keep their original order.
+  const groups = NAV_GROUPS
+    .map(group => ({ ...group, items: group.items.filter(item => item.to !== pinnedPath && canViewStaffPage(role, item.to)) }))
+    .filter(group => group.items.length > 0);
   return (
     <nav aria-label="Staff navigation" className="space-y-4">
+      {pinnedItem && (
+        <SidebarGroup>
+          <SidebarGroupLabel>Quick Action</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild variant="primary" isActive={pathname === pinnedItem.to}>
+                <Link to={pinnedItem.to} aria-current={pathname === pinnedItem.to ? "page" : undefined}>
+                  <pinnedItem.icon className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{pinnedItem.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      )}
       {groups.map((group) => (
         <SidebarGroup key={group.label}>
           <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
