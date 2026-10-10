@@ -40,6 +40,10 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md): Mem
 
 ## Completion notes
 
+### 10 October 2026 — M3-S03 / M3-S18 manual-test repair
+
+Added the additive `m3_007_reconcile_room_history_condition.sql` migration after a real QA-102 CLEANING request exposed an existing history table missing `reason` and using a separate legacy enum despite recorded migration versions. The populated-history API regression and condition/lifecycle suites passed 16/16; backend build passed. Applied only this pending repair through the existing development migration runner, preserving history and leaving QA-102 READY for the user's retry. Manual condition/availability acceptance remains pending and task checkboxes are unchanged. See [repair notes and human Git handoff](../docs/qa/2026-10-10-room-condition-repair.md).
+
 When checking a row, add a brief evidence note here and the detailed entry under Member 3 in `member_work_log.md`. Implemented cores remain partial until their owner reviews and production authentication acceptance checks pass.
 
 ### M3-S01 evidence note - 29 September 2026

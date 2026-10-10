@@ -569,6 +569,14 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 3 — Kulunu
 
+### 10 October 2026 — manual-test room-condition failure repair (M3-S03 / M3-S18)
+
+- The Colombo Branch Manager's QA-102 CLEANING request returned a generic failure. Read-only checks confirmed QA-102 remained READY with no history event. Although all M3 migration versions were recorded, `public.room_status_history` retained the older `room_condition` enum and lacked `reason`; earlier `CREATE TABLE IF NOT EXISTS` statements had preserved that table. The installed condition function expected `room_condition_enum` and a reason column.
+- Added `m3_007_reconcile_room_history_condition.sql` without rewriting published migrations. It adds the nullable reason, converts historical condition labels into Member 2's existing enum, retains history IDs/actors/times and immutability, and restores the nullable initial old condition. Unsupported labels fail the transaction instead of discarding events; the old enum is retained for any other consumers.
+- Added an API regression reproducing the installed legacy shape with populated history: failure rolls back the room change, repair preserves all original event fields, a Branch Manager change records its reason/actor, repeated values add no event, history edits/deletes remain forbidden, active reservations reject OUT_OF_SERVICE, and repair reruns preserve events.
+- Verification: room-condition API 3/3, service 5/5 and booking-lifecycle integration 8/8 passed (16 total), including the complete numbered migration chain; `npm run build:backend` passed. Suites used direct database connections and isolated schemas. The scoped migration was the only pending file and was applied through the existing migration runner to the configured development database; follow-up reads confirmed both history columns use `room_condition_enum`, `reason` exists, existing history is preserved (0 preexisting rows), and QA-102 remains READY for the user's manual retry. No physical condition was changed on the user's behalf. Manual CLEANING/READY-only availability acceptance remains pending; no additional task checkboxes were changed.
+- Lecture concepts applied: explicit domain conversion through enum labels, preservation of foreign-key/append-only history, and transactional DDL/rollback. Human Git handoff: [repair notes](docs/qa/2026-10-10-room-condition-repair.md). No Git publication actions.
+
 ### 8 October 2026 — production mounting and migration-suite repairs
 
 - Mounted existing check-in, active-stay, service catalogue and room-condition APIs with verified role/branch context. Catalogue/usage UI now uses the authenticated role and same-origin cookie. Unexpected catalogue errors return a generic message.
