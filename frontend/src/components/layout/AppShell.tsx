@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, LayoutDashboard, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
+import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, Landmark, LayoutDashboard, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { homePathFor } from "@/lib/auth";
@@ -51,7 +51,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/guests", label: "Guests", icon: Contact },
       { to: "/admin/reports", label: "Reports & CSV", icon: FileBarChart },
-      { to: "/admin/operations", label: "Branches & Users", icon: Users },
+      { to: "/admin/branches", label: "Branches", icon: Landmark },
+      { to: "/admin/users", label: "User Accounts", icon: Users },
       { to: "/admin/config", label: "System Config", icon: Settings },
       { to: "/admin/audit", label: "Audit Log", icon: ClipboardList },
     ],

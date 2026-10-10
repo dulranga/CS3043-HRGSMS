@@ -19,7 +19,8 @@ import UIRoutePage from './routes/UIRoutePage';
 import DashboardPage from './routes/DashboardPage';
 import AdminConfigPage from './routes/AdminConfigPage';
 import AuditLogPage from './routes/AuditLogPage';
-import AdminOperationsPage from './routes/AdminOperationsPage';
+import BranchManagementPage from './routes/BranchManagementPage';
+import UserAccountsPage from './routes/UserAccountsPage';
 import ReportsPage from './routes/ReportsPage';
 import LoginPage from './routes/LoginPage';
 import RegisterPage from './routes/RegisterPage';
@@ -143,10 +144,16 @@ const auditLogRoute = createRoute({
   component: AuditLogPage,
 });
 
-const adminOperationsRoute = createRoute({
+const branchManagementRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/admin/operations',
-  component: AdminOperationsPage,
+  path: '/admin/branches',
+  component: BranchManagementPage,
+});
+
+const userAccountsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/users',
+  component: UserAccountsPage,
 });
 
 const reportsRoute = createRoute({
@@ -243,7 +250,8 @@ const routeTree = rootRoute.addChildren([
   dashboardRoute,
   adminConfigRoute,
   auditLogRoute,
-  adminOperationsRoute,
+  branchManagementRoute,
+  userAccountsRoute,
   reportsRoute,
   guestsRoute,
   accountRoute,
