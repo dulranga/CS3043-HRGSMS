@@ -30,4 +30,11 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/checkout'), false);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('CHAIN_MANAGER', '/dashboard/billing/payments'), false);
+  // Invoice detail is readable across branch and chain finance roles (dev #42),
+  // exposed to every role the backend authorizes for invoice.read.*.
+  assert.equal(canViewStaffPage(null, '/dashboard/billing/invoice'), false);
+  assert.equal(canViewStaffPage('SERVICE_STAFF', '/dashboard/billing/invoice'), true);
+  assert.equal(canViewStaffPage('BRANCH_MANAGER', '/dashboard/billing/invoice'), true);
+  assert.equal(canViewStaffPage('CHAIN_MANAGER', '/dashboard/billing/invoice'), true);
+  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/billing/invoice'), false);
 });
