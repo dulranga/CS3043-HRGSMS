@@ -223,18 +223,24 @@ export default function IndexPage() {
 
           <div className="flex items-center justify-center gap-4">
             <Button
+              asChild
               size="lg"
               className="rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] px-8"
             >
-              Book a Stay
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <Link to="/guest/bookings/new">
+                Book a Stay
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
             </Button>
             <Button
+              asChild
               variant="outline"
               size="lg"
               className="rounded-full border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] px-8"
             >
-              Explore Rooms
+              <Link to="/rooms">
+                Explore Rooms
+              </Link>
             </Button>
           </div>
         </div>
