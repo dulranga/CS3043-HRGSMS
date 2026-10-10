@@ -2,8 +2,7 @@
 
 Record actual project-task work here for all five members, including partial or blocked outcomes. Under the relevant member section, include the date and task ID, changes made, tests/build commands and results, decisions/handoffs, and remaining work. Do not claim a checklist item complete without acceptance evidence. Do not record secrets or real guest data. Keep durable confirmations in the current SRS/handoffs and this log; `memory.md` was removed and its archived snapshot is historical context only.
 
-## Member 1 — Dulranga
-
+## Member 1 — Dulranga 
 ### 10 October 2026 — M1-S14 sidebar assigned-branch display
 
 - At Imandi's request during manual Member 2 testing, extended the existing sidebar `SessionPanel` to show the assigned branch name beside the staff role. Resolves only the verified session's `branchId` through existing protected `GET /api/branches/:branchId` with same-origin credentials and checks the returned ID before displaying its name. Long names wrap and the full role/branch label remains available through the title attribute. Loading, absent assignment and failed metadata reads have explicit labels; guest identity has no staff-branch lookup.
