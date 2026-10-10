@@ -333,6 +333,14 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 2 — Imandi
 
+### 10 October 2026 — M2-S16 return from Rooms to staff dashboard
+
+- Added a shadcn outline `Back to dashboard` link above availability search on `/rooms`, using the existing TanStack route and verified staff navigation policy. Staff can return directly to `/dashboard`; guest and signed-out availability browsing remains public and shows no staff-only dashboard link. Reused existing page/container spacing and design tokens; no schema, API, authentication or permission contracts changed.
+- Verification: availability UI regression passed 15/15; session adapter/navigation regressions passed 3/3; `npm run build:frontend` passed. Temporary in-memory browser fixtures confirmed visible staff navigation, successful click through to the actual Dashboard component, and guest/signed-out search without the staff link. Screenshot under ignored `.scratch/rooms-dashboard-navigation-2026-10-10.jpg`; temporary fixtures removed. No database or Git publication actions; no SQL/lecture concepts or additional checkbox completion claims.
+- The manual test remains at the QA-102 dated-block creation step (20–22 October 2026, reason `QA M2 maintenance test`); user confirmation of block persistence is still pending.
+- Proposed commit: `feat(rooms): add staff dashboard return link`.
+- Proposed PR title: `Add a Dashboard return link to room availability`. Description: `Give signed-in staff a Back to dashboard action on the shared Rooms page using the existing route and navigation policy. Preserve public/guest availability browsing. Verified with 18 existing availability/session/navigation checks, the frontend build and browser staff/guest/signed-out navigation checks.`
+
 ### 9 October 2026 — M2-S15 native browser transport correction
 
 - Manual catalogue testing as Chain Manager exposed a persistent connection banner despite authenticated direct `GET /api/room-types?active=all` returning `{"data":[]}`. `RoomAdminApi` stored native `fetch` directly and called it with the API instance as receiver, causing browser failure before a request was sent. Wrapped the default transport to preserve native fetch invocation, matching the existing availability and booking clients; injected transports, cookies, role checks and API payloads remain intact.
