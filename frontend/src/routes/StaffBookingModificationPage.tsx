@@ -8,7 +8,7 @@ import { StaffBookingModificationScreen } from '@/components/bookings/StaffBooki
 export default function StaffBookingModificationPage() {
   const session = useFeatureSessions().staff, { bookingId = '' } = useParams({ strict: false }), navigate = useNavigate();
   return <StaffBookingLayout><PageContainer><BoundedContainer><StaffBookingModificationScreen session={session} bookingId={bookingId}
-    onBack={() => { void navigate({ to: '/bookings/$bookingId', params: { bookingId } }); }}
-    onCancellation={() => { void navigate({ to: '/cancellation' }); }} />
+    onBack={() => { void navigate({ to: '/dashboard/bookings/$bookingId', params: { bookingId } }); }}
+    onCancellation={() => { void navigate({ to: '/dashboard/cancellation' }); }} />
   </BoundedContainer></PageContainer></StaffBookingLayout>;
 }

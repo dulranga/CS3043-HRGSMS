@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { AppShell } from "@/components/layout/AppShell";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
@@ -77,7 +76,6 @@ export default function AdminConfigPage() {
   };
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -198,6 +196,5 @@ export default function AdminConfigPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

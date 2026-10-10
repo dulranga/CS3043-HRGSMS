@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import RootLayout from './components/RootLayout';
+import DashboardLayout from './components/layout/DashboardLayout';
 import IndexPage from './routes/IndexPage';
 import RoomsPage from './routes/RoomsPage';
 import StaffBookingCreatePage from './routes/StaffBookingCreatePage';
@@ -34,74 +35,20 @@ const rootRoute = createRootRoute({
   component: RootLayout,
 });
 
+// ── Public routes (no staff shell) ──────────────────────────────────────────
+
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: IndexPage,
 });
 
+// Public room availability. Anonymous visitors and guests browse here; staff
+// use the same screen under /dashboard/rooms.
 const roomsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/rooms',
   component: RoomsPage,
-});
-
-const roomAdministrationRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/rooms',
-  component: RoomAdministrationPage,
-});
-
-const staffBookingCreateRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/bookings/new',
-  component: StaffBookingCreatePage,
-});
-
-const staffBookingListRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/bookings',
-  component: StaffBookingRecordsPage,
-});
-const staffBookingDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/bookings/$bookingId',
-  component: StaffBookingRecordsPage,
-});
-const staffBookingModificationRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/bookings/$bookingId/edit',
-  component: StaffBookingModificationPage,
-});
-
-const checkInRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/check-in',
-  component: CheckInPage,
-});
-
-const activeStayRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/stays',
-  component: ActiveStayPage,
-});
-
-const checkoutRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/checkout',
-  component: CheckoutPage,
-});
-
-const cancellationRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/cancellation',
-  component: CancellationPage,
-});
-
-const noShowRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/no-show',
-  component: NoShowPage,
 });
 
 const guestBookingsRoute = createRoute({
@@ -124,48 +71,6 @@ const uiRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ui',
   component: UIRoutePage,
-});
-
-const dashboardRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/dashboard',
-  component: DashboardPage,
-});
-
-const adminConfigRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/config',
-  component: AdminConfigPage,
-});
-
-const auditLogRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/audit',
-  component: AuditLogPage,
-});
-
-const branchManagementRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/branches',
-  component: BranchManagementPage,
-});
-
-const userAccountsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/users',
-  component: UserAccountsPage,
-});
-
-const reportsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/reports',
-  component: ReportsPage,
-});
-
-const guestsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/guests',
-  component: GuestProfilesPage,
 });
 
 const accountRoute = createRoute({
@@ -204,28 +109,144 @@ const registerRoute = createRoute({
   component: RegisterPage,
 });
 
-const invoiceDetailRoute = createRoute({
+// ── Internal routes (single staff shell) ────────────────────────────────────
+// Every internal page lives under /dashboard so the AppShell sidebar, sticky
+// header and scroll pane are rendered once by DashboardLayout.
+
+const dashboardLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/billing/invoice',
-  component: InvoiceDetailPage,
+  path: '/dashboard',
+  component: DashboardLayout,
 });
 
-const paymentRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/billing/payments',
-  component: PaymentPage,
+const dashboardIndexRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: '/',
+  component: DashboardPage,
+});
+
+const dashboardRoomsRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'rooms',
+  component: RoomsPage,
+});
+
+const staffBookingCreateRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'bookings/new',
+  component: StaffBookingCreatePage,
+});
+
+const staffBookingListRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'bookings',
+  component: StaffBookingRecordsPage,
+});
+const staffBookingDetailRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'bookings/$bookingId',
+  component: StaffBookingRecordsPage,
+});
+const staffBookingModificationRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'bookings/$bookingId/edit',
+  component: StaffBookingModificationPage,
+});
+
+const checkInRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'check-in',
+  component: CheckInPage,
+});
+
+const activeStayRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'stays',
+  component: ActiveStayPage,
+});
+
+const checkoutRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'checkout',
+  component: CheckoutPage,
+});
+
+const cancellationRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'cancellation',
+  component: CancellationPage,
+});
+
+const noShowRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'no-show',
+  component: NoShowPage,
+});
+
+const roomAdministrationRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/rooms',
+  component: RoomAdministrationPage,
+});
+
+const adminConfigRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/config',
+  component: AdminConfigPage,
+});
+
+const auditLogRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/audit',
+  component: AuditLogPage,
+});
+
+const branchManagementRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/branches',
+  component: BranchManagementPage,
+});
+
+const userAccountsRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/users',
+  component: UserAccountsPage,
+});
+
+const reportsRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/reports',
+  component: ReportsPage,
+});
+
+const guestsRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'guests',
+  component: GuestProfilesPage,
 });
 
 const serviceCatalogueRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/services',
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'admin/services',
   component: ServiceCataloguePage,
 });
 
 const serviceUsageRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/service-usage',
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'service-usage',
   component: ServiceUsagePage,
+});
+
+const invoiceDetailRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'billing/invoice',
+  component: InvoiceDetailPage,
+});
+
+const paymentRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: 'billing/payments',
+  component: PaymentPage,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -233,32 +254,35 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   roomsRoute,
-  staffBookingCreateRoute,
-  staffBookingListRoute,
-  staffBookingDetailRoute,
-  staffBookingModificationRoute,
-  roomAdministrationRoute,
-  checkInRoute,
-  activeStayRoute,
-  checkoutRoute,
-  cancellationRoute,
-  noShowRoute,
   guestBookingsRoute,
   guestBookingDetailRoute,
   guestBookingCreateRoute,
   uiRoute,
-  dashboardRoute,
-  adminConfigRoute,
-  auditLogRoute,
-  branchManagementRoute,
-  userAccountsRoute,
-  reportsRoute,
-  guestsRoute,
   accountRoute,
-  serviceCatalogueRoute,
-  serviceUsageRoute,
-  invoiceDetailRoute,
-  paymentRoute,
+  dashboardLayoutRoute.addChildren([
+    dashboardIndexRoute,
+    dashboardRoomsRoute,
+    staffBookingCreateRoute,
+    staffBookingListRoute,
+    staffBookingDetailRoute,
+    staffBookingModificationRoute,
+    roomAdministrationRoute,
+    checkInRoute,
+    activeStayRoute,
+    checkoutRoute,
+    cancellationRoute,
+    noShowRoute,
+    guestsRoute,
+    adminConfigRoute,
+    auditLogRoute,
+    branchManagementRoute,
+    userAccountsRoute,
+    reportsRoute,
+    serviceCatalogueRoute,
+    serviceUsageRoute,
+    invoiceDetailRoute,
+    paymentRoute,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });

@@ -6,7 +6,6 @@ import {
   ActiveStayLoadFailure,
   ActiveStayPanel,
 } from "@/components/stay/ActiveStayPanel";
-import { AppShell } from "@/components/layout/AppShell";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
@@ -117,7 +116,6 @@ export default function ActiveStayPage() {
   const totals = summarizeStay(groups);
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -176,6 +174,5 @@ export default function ActiveStayPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

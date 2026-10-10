@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { NoShowPanel } from '@/components/billing/NoShowPanel';
-import { AppShell } from '@/components/layout/AppShell';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
@@ -144,7 +143,6 @@ export default function NoShowPage() {
   );
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -208,6 +206,5 @@ export default function NoShowPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

@@ -25,6 +25,10 @@ import {
   CardTitle,
   Input,
   Label,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@/components/ui";
 import {
   EMAIL_PATTERN,
@@ -372,34 +376,19 @@ export default function RegisterPage() {
 
             <form noValidate onSubmit={handleSubmit} aria-busy={submitting}>
               <CardContent className="space-y-5">
-                <div
-                  role="group"
-                  aria-label="Account type"
-                  className="grid grid-cols-2 gap-1 rounded-xl border-2 border-border bg-secondary/40 p-1"
+                <Tabs
+                  value={mode}
+                  onValueChange={(value) => switchMode(value as Mode)}
+                  className="space-y-5"
                 >
-                  <Button
-                    type="button"
-                    aria-pressed={mode === "NEW"}
-                    variant={mode === "NEW" ? "default" : "ghost"}
-                    size="sm"
-                    className="rounded-lg"
-                    disabled={submitting}
-                    onClick={() => switchMode("NEW")}
-                  >
-                    New guest
-                  </Button>
-                  <Button
-                    type="button"
-                    aria-pressed={mode === "LINK"}
-                    variant={mode === "LINK" ? "default" : "ghost"}
-                    size="sm"
-                    className="rounded-lg"
-                    disabled={submitting}
-                    onClick={() => switchMode("LINK")}
-                  >
-                    I have a link code
-                  </Button>
-                </div>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="NEW" disabled={submitting}>
+                      New guest
+                    </TabsTrigger>
+                    <TabsTrigger value="LINK" disabled={submitting}>
+                      I have a link code
+                    </TabsTrigger>
+                  </TabsList>
 
                 {formAlert && (
                   <Alert variant={formAlert.variant}>
@@ -423,8 +412,7 @@ export default function RegisterPage() {
                   </Alert>
                 )}
 
-                {mode === "NEW" ? (
-                  <>
+                  <TabsContent value="NEW" className="space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="register-fullname" className={cn(fieldErrors.fullName && "text-destructive")}>
                         Full name
@@ -543,8 +531,8 @@ export default function RegisterPage() {
                         </p>
                       )}
                     </div>
-                  </>
-                ) : (
+                  </TabsContent>
+                  <TabsContent value="LINK" className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="register-linkcode" className={cn(fieldErrors.linkCode && "text-destructive")}>
                       Link code
@@ -577,7 +565,8 @@ export default function RegisterPage() {
                       </p>
                     )}
                   </div>
-                )}
+                  </TabsContent>
+                </Tabs>
 
                 <div className="space-y-2">
                   <Label htmlFor="register-username" className={cn(fieldErrors.username && "text-destructive")}>

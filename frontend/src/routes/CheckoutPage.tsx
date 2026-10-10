@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { CheckoutPanel } from '@/components/billing/CheckoutPanel';
-import { AppShell } from '@/components/layout/AppShell';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
@@ -142,7 +141,6 @@ export default function CheckoutPage() {
   );
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -215,6 +213,5 @@ export default function CheckoutPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }
