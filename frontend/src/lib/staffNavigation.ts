@@ -9,6 +9,7 @@ const PAGE_ROLES: Record<string, readonly StaffRole[]> = {
   '/admin/services': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'],
   '/admin/rooms': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'],
   '/guests': ['FRONT_DESK'],
+  '/billing/invoice': ['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'],
   '/admin/reports': ['BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR'],
   '/admin/operations': ['SYSTEM_ADMINISTRATOR', 'AUDITOR'],
   '/admin/config': ['SYSTEM_ADMINISTRATOR', 'AUDITOR'],

@@ -1425,6 +1425,12 @@ Related: M4-S11
 - Verification: frontend cancellation suite **6/6**, backend quote suite **5/5**, backend build and frontend production build pass (frontend build required sandbox filesystem escalation). Live read-only transaction verified accidental booking `SKY-01a12651ec6e7a55af371ae0927bec15`: both lines still BOOKED, whole cancellation eligible, LKR **10,000**, per-line LKR **5,000**. Manual cancellation confirmation/invoice/release checks remain pending; historical M4 acceptance claims were not expanded.
 - Lecture concepts applied: parameterized predicates and joins over normalized line/invoice/policy relations; all-line inspection rather than truncating related facts. Quotes remain read-only and existing write transactions retain atomic guards. Human Git handoff and remaining gaps: [cancellation quote repair](docs/qa/2026-10-10-cancellation-quote-repair.md).
 
+### 2026-10-10 — M4-S13 invoice navigation follow-up
+
+- Imandi requested normal dashboard/sidebar access to Invoice Detail during manual testing. Added a Billing group with an Invoice Detail link to the shared shadcn sidebar and a matching dashboard Available tools button. Both link to the existing `/billing/invoice` page and retain existing active-page styling and responsive shell behavior.
+- Added the route to shared staff navigation permissions after rechecking `invoiceService.verifyBookingAccess`: FRONT_DESK, SERVICE_STAFF and BRANCH_MANAGER can read within their branch; CHAIN_MANAGER, SYSTEM_ADMINISTRATOR and AUDITOR can read chain-wide. Server authorization remains responsible for each lookup; signed-out/online guest accounts receive no staff link.
+- Verification: existing `staffNavigation.test.ts` and `m4InvoiceUi.test.ts` pass **6/6**; frontend production build passes with the existing bundle-size warning. No new tests mirroring this small link addition, migrations or billing changes. Manual click-through is the next user check; no additional task checkboxes changed. [Human Git handoff](docs/qa/2026-10-10-invoice-navigation.md).
+
 ## Member 5 — Thusath
 
 ### 8 October 2026 — administration/reporting bug-fix audit
