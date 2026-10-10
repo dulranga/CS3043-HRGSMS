@@ -22,12 +22,12 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('BRANCH_MANAGER', '/dashboard/admin/rooms'), true);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/admin/rooms'), false);
   // Billing operation pages are exposed to the roles the backend authorizes.
-  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/checkout'), true);
-  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/cancellation'), true);
-  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/no-show'), true);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/checkout'), true);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/cancellation'), true);
+  assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/no-show'), true);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/billing/payments'), true);
-  assert.equal(canViewStaffPage('AUDITOR', '/dashboard/checkout'), false);
+  assert.equal(canViewStaffPage('AUDITOR', '/dashboard/billing/checkout'), false);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('CHAIN_MANAGER', '/dashboard/billing/payments'), false);
   // Invoice detail is readable across branch and chain finance roles (dev #42),

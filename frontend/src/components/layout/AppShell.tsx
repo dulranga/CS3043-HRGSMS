@@ -41,9 +41,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Billing",
     items: [
-      { to: "/dashboard/checkout", label: "Checkout", icon: DoorClosed },
-      { to: "/dashboard/cancellation", label: "Cancellation", icon: XCircle },
-      { to: "/dashboard/no-show", label: "No-Show", icon: CalendarX },
+      { to: "/dashboard/billing/checkout", label: "Checkout", icon: DoorClosed },
+      { to: "/dashboard/billing/cancellation", label: "Cancellation", icon: XCircle },
+      { to: "/dashboard/billing/no-show", label: "No-Show", icon: CalendarX },
       { to: "/dashboard/billing/invoice", label: "Invoice Detail", icon: Receipt },
       { to: "/dashboard/billing/payments", label: "Payments", icon: CreditCard },
     ],

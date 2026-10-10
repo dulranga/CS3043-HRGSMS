@@ -324,11 +324,13 @@ test('M4-S08: Payment and refund REST API with validation, staff authorization, 
     let p1Id;
     let autoRef;
     await t.test('5. Own-branch staff records valid partial payment with structured auto reference (201 Created)', async () => {
-      const res = await reqApi(`/api/bookings/${b1}/payments`, {
+      // Addressed by booking reference, not UUID: the API resolves it to the same booking.
+      const res = await reqApi(`/api/bookings/REF-ALICE-COLOMBO/payments`, {
         headers: { 'x-user-id': uColomboFD },
         body: { amount: 15000.0, method: 'CASH' },
       });
       assert.strictEqual(res.status, 201);
+      assert.strictEqual(res.data.booking_id, b1);
       assert.strictEqual(res.data.kind, 'PAYMENT');
       assert.strictEqual(res.data.amount, 15000.0);
       assert.strictEqual(res.data.previous_balance, 40425.0);

@@ -8,6 +8,6 @@ export default function StaffBookingModificationPage() {
   const session = useFeatureSessions().staff, { bookingId = '' } = useParams({ strict: false }), navigate = useNavigate();
   return <PageContainer><BoundedContainer><StaffBookingModificationScreen session={session} bookingId={bookingId}
     onBack={() => { void navigate({ to: '/dashboard/bookings/$bookingId', params: { bookingId } }); }}
-    onCancellation={() => { void navigate({ to: '/dashboard/cancellation' }); }} />
+    onCancellation={() => { void navigate({ to: '/dashboard/billing/cancellation' }); }} />
   </BoundedContainer></PageContainer>;
 }
