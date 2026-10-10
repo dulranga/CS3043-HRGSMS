@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, Landmark, LayoutDashboard, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
+import { BedDouble, Building2, CalendarCheck, CalendarX, ClipboardList, ConciergeBell, Contact, CreditCard, DoorClosed, DoorOpen, FileBarChart, Landmark, LayoutDashboard, Receipt, Settings, Utensils, Users, XCircle, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { homePathFor } from "@/lib/auth";
@@ -36,6 +36,16 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/bookings/new", label: "New Reservation", icon: CalendarCheck },
       { to: "/check-in", label: "Guest Check-In", icon: CalendarCheck },
       { to: "/stays", label: "Active Stays", icon: DoorOpen },
+    ],
+  },
+  {
+    label: "Billing",
+    items: [
+      { to: "/checkout", label: "Checkout", icon: DoorClosed },
+      { to: "/cancellation", label: "Cancellation", icon: XCircle },
+      { to: "/no-show", label: "No-Show", icon: CalendarX },
+      { to: "/billing/invoice", label: "Invoice Detail", icon: Receipt },
+      { to: "/billing/payments", label: "Payments", icon: CreditCard },
     ],
   },
   {

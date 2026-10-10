@@ -7,10 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { canViewStaffPage } from "@/lib/staffNavigation";
 
 const TOOLS = [
+  { path: "/rooms", label: "Rooms" },
   { path: "/bookings", label: "Reservations" },
   { path: "/bookings/new", label: "New reservation" },
   { path: "/check-in", label: "Guest check-in" },
   { path: "/stays", label: "Active stays" },
+  { path: "/checkout", label: "Checkout" },
+  { path: "/cancellation", label: "Cancellation" },
+  { path: "/no-show", label: "No-show" },
+  { path: "/billing/invoice", label: "Invoice detail" },
+  { path: "/billing/payments", label: "Payments" },
   { path: "/service-usage", label: "Service usage" },
   { path: "/admin/rooms", label: "Room administration" },
   { path: "/admin/services", label: "Service catalogue" },
