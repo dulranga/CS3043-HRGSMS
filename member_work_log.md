@@ -1418,6 +1418,13 @@ workflow requirements. Provides:
 Related: M4-S11
 ```
 
+### 2026-10-10 — M4-S11/S16 cancellation quote and receipt integration repair
+
+- During Imandi's manual reservation tests, an accidentally confirmed two-room booking could not obtain a usable cancellation quote: the page read `{ success, quote }` as the quote itself and displayed a fallback denial. Corrected frontend quote/receipt envelope decoding, preserving real eligibility, rejection reasons, fees and post-cancellation success feedback. Invalid envelopes fail explicitly rather than showing undefined fees or a valid confirmation.
+- Whole-booking quote service previously selected only the first line. It now inspects all lines, denies if any line is non-BOOKED, FINAL or at/past its own linked-policy cutoff, totals fees in integer cents and reports the earliest cutoff. The existing locked cancellation write remains the authority at confirmation; no migrations or reservation mutations were made.
+- Verification: frontend cancellation suite **6/6**, backend quote suite **5/5**, backend build and frontend production build pass (frontend build required sandbox filesystem escalation). Live read-only transaction verified accidental booking `SKY-01a12651ec6e7a55af371ae0927bec15`: both lines still BOOKED, whole cancellation eligible, LKR **10,000**, per-line LKR **5,000**. Manual cancellation confirmation/invoice/release checks remain pending; historical M4 acceptance claims were not expanded.
+- Lecture concepts applied: parameterized predicates and joins over normalized line/invoice/policy relations; all-line inspection rather than truncating related facts. Quotes remain read-only and existing write transactions retain atomic guards. Human Git handoff and remaining gaps: [cancellation quote repair](docs/qa/2026-10-10-cancellation-quote-repair.md).
+
 ## Member 5 — Thusath
 
 ### 8 October 2026 — administration/reporting bug-fix audit
