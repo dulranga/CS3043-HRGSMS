@@ -7,6 +7,7 @@ import {
   PaymentHistoryResponse,
 } from '../models/invoice';
 import { Payment } from '../models/payment';
+import { authorizeStaff, staffPrincipal } from '../authorization';
 
 export interface DbClient {
   query<T = any>(sql: string, values?: any[]): Promise<{ rows: T[] }>;
@@ -269,8 +270,12 @@ export async function verifyBookingAccess(
 
   if (offRes.rows.length > 0) {
     const officer = offRes.rows[0];
-    // Chain-wide roles have universal access
-    if (['CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'].includes(officer.role_name)) {
+    const decision = authorizeStaff(
+      staffPrincipal(actor.userId, officer.role_name, officer.branch_id),
+      ['invoice.read.branch', 'invoice.read.chain'],
+      booking.branch_id ?? undefined,
+    );
+    if (decision.allowed) {
       return {
         allowed: true,
         statusCode: 200,
@@ -279,18 +284,6 @@ export async function verifyBookingAccess(
         branchId: officer.branch_id,
       };
     }
-
-    // Branch-scoped roles (FRONT_DESK, BRANCH_MANAGER, SERVICE_STAFF)
-    if (booking.branch_id && booking.branch_id === officer.branch_id) {
-      return {
-        allowed: true,
-        statusCode: 200,
-        actorType: 'STAFF',
-        roleName: officer.role_name,
-        branchId: officer.branch_id,
-      };
-    }
-
     return {
       allowed: false,
       statusCode: 403,

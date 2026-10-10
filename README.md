@@ -125,6 +125,8 @@ npm run dev              # Start with tsx watch (auto-reload on file changes)
 npm run build            # Compile TypeScript to dist/
 npm run start            # Run compiled JavaScript (use after build)
 npm run migrate          # Apply pending SQL migrations using PG_URL
+npm run seed             # Seed additive demonstration data (idempotent; see below)
+npm run test:seed        # Verify the seed on an isolated schema, including idempotency
 npm run test:migrations  # Apply migrations to an isolated temp schema and assert
 ```
 
@@ -150,6 +152,16 @@ number (`m1` before `m2`) and then version.
   applies fixture migrations, asserts the resulting objects, checks re-runs are skipped and verifies
   a failing migration is rolled back and not recorded. Set `PG_TEST_URL` to target a disposable
   database in CI; otherwise `PG_URL` from `backend/.env` is used.
+
+### Seeding demonstration data
+
+`npm run seed` (or `node dist/seed/cli.js` after a build) loads the additive demonstration dataset for manual and UI testing: demonstration staff and one online guest, room types/amenities/rooms, a six-service catalogue, non-demo billing policy, dated room block and six bookings covering the full lifecycle (two-room different-rate, two-simultaneous-Single, checked-in, cancelled, no-show and DIRECT_ONLINE guest booking) with partial and settling payments plus service usage and one voided charge.
+
+- **Idempotent and additive:** the seed resolves or creates every entity by a stable natural key (`demo.*` usernames, `DEMO-*` booking references, `Demo *` catalogue names), drives the real SQL contracts (`sp_create_booking`, `sp_create_online_guest_booking`, check-in, service usage, `fn_record_payment`, checkout, cancellation, no-show) and never mutates or deletes non-demo rows. Re-running adds only missing work.
+- **Sign in** with `demo.chain`, `demo.frontdesk`, `demo.service`, `demo.branchmanager`, `demo.admin`, `demo.auditor`, `demo.frontdesk.kandy` or `demo.guest`; the password is `SkyNest#2026` (override with `DEMO_SEED_PASSWORD`).
+- **Isolated, repeatable runs:** `npm run seed -- --schema demo` applies the migration chain into a new `demo` schema and seeds it; add `--reset` to drop and rebuild that schema first. `--reset` requires `--schema` and never targets the shared `public` schema.
+- `npm run test:seed` verifies the Table 48 baseline and idempotency in a throwaway schema.
+- The shared development database currently has a drifted `room_status_history` (a pre-`reason` mock table using the old `room_condition` enum), so the audited `fn_set_room_condition` and therefore the checkout transaction cannot run there. The seed detects this, applies guarded initial conditions directly and skips only the checkout/FINAL-invoice demonstration; use an isolated schema (or a clean database) for a FINAL invoice.
 
 For the Member 2 room catalogue migration, run `npm run test:m2-catalogue --workspace backend` from the repository root with `backend/.env` configured. The test applies `backend/migrations/m2_001_room_catalogue.sql` inside an isolated PostgreSQL schema and rolls it back. The shared ordered migration runner is tracked under M1-S02; this test does not install catalogue tables into the application schema.
 

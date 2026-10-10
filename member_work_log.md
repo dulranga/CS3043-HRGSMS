@@ -66,7 +66,7 @@ Record actual project-task work here for all five members, including partial or 
 
 ### 3 October 2026 — M1-S07 (non-financial system_config)
 
-- Added `backend/migrations/m1_006_create_system_config.sql`. It drops the legacy `0000` placeholder `system_config` (no actor, no audit, financial keys `tax_rate`, `cancellation_fee_rate` etc. now superseded by `billing_policy`) and rebuilds the Table 40 shape: `config_key varchar(255)` sole PK, `config_value text` (non-blank, ≤ 65,535 chars), `effective_from date`, required `updated_by` restricted FK → `user_account.user_id`, `updated_at timestamptz`. CHECKs enforce lowercase snake_case keys and reject financial/secret-like key terms (tax, fee, rate, discount, charge, price, amount, percent, billing, cancellation, no_show, late_checkout, grace, refund, payment, invoice, password, secret, token) as whole `_`-separated words.
+- Added `backend/migrations/m1_006_create_system_config.sql`. It drops the legacy `0000` placeholder `system_config` (no actor, no audit, financial keys `tax_rate`, `cancellation_fee_rate` etc. now superseded by `billing_policy`) and rebuilds the Table 40 shape: `config_key varchar(255)` sole PK, `config_value text` (non-blank, ≤ 65,535 chars), `effective_from date`, required `updated_by` restricted FK → `user_account.user_id`, `updated_at timestamptz`. CHECKs enforce lowercase snake*case keys and reject financial/secret-like key terms (tax, fee, rate, discount, charge, price, amount, percent, billing, cancellation, no_show, late_checkout, grace, refund, payment, invoice, password, secret, token) as whole `*`-separated words.
 - Decision (Dulranga, 3 October 2026): no keys are seeded. Allowed keys come from the version-controlled `system_config_key_registry()` function (key + optional value regex), which ships empty; approved keys are added later by a reviewed migration using `CREATE OR REPLACE FUNCTION`. The existing `adminController.ts` was left unchanged at Dulranga's direction.
 - A BEFORE INSERT/UPDATE trigger allows only an active SYSTEM_ADMINISTRATOR officer (SRS §6.1.4 working mapping, TBD-15) else SQLSTATE 42501; rejects key renames, unregistered keys and pattern-mismatched values (23514); and overwrites `updated_at` with `clock_timestamp()` and `effective_from` with the Asia/Colombo activation date, so no future scheduling is possible. An AFTER trigger writes a CREATE/UPDATE `audit_log` row in the same transaction with the raw old/new values (raw text keeps a maximum-length value within the audit cap) and `changed_at = updated_at`. DELETE/TRUNCATE raise 55000. There is no per-key version history; audit_log is the old-value evidence.
 - Added `backend/src/systemConfig.ts` (`validateSystemConfigInput`, `setSystemConfig` single-statement upsert, `getSystemConfig`, `listSystemConfig`) and `backend/tests/m1SystemConfig.test.ts` with `test:m1-system-config`: validation unit test; clean-schema test (applies `0000` then m1_001→m1_006: column/PK inventory, legacy financial rows removed, empty registry rejects even an admin, test-only registry, every other role/disabled account/disabled officer/guest/system/unknown/null actor denied with no row or audit, CREATE/UPDATE audit with old value, caller-supplied future date overwritten, unauthorized and invalid updates leave value and audit unchanged, financial key rejected even when registered, 65,535-char value audited, savepoint rollback removes change and audit together (FR-080), delete/truncate denial, restricted actor deletion); two-session test where the second update blocks on the row lock and the audit chain is 30→45→60 with no lost update.
@@ -332,6 +332,15 @@ Record actual project-task work here for all five members, including partial or 
 - Lecture concepts used: parameterized queries, transaction atomicity and rollback to keep diagnostic writes from persisting. No automatic write retry was introduced, preserving the existing registration/audit transaction boundary.
 
 ## Member 2 — Imandi
+
+### 10 October 2026 — resolve Imandi/dev pull-request conflicts
+
+- Verified the remote tips match local `Imandi` (`080739b`) and `origin/dev` (`7eb0edf`), then merged `origin/dev` with `--no-commit --no-ff`. Resolved the two content conflicts in `AppShell.tsx` and `staffNavigation.ts`: preserve Invoice Detail in the shared shadcn sidebar/dashboard while retaining dev's session redirects, separate branch/user administration pages and generated server permission matrix. Invoice discovery requires `invoice.read.branch` or `invoice.read.chain`; SYSTEM_ADMINISTRATOR receives no invoice link under dev's current grants. The branch's cancellation quote/envelope and room-history migration repairs remain intact.
+- The full backend suite exposed an integration issue in dev: cancellation/no-show middleware mounted at `/api` also rejected unrelated Service Staff room-condition requests. Injected those guards into the matching cancellation/no-show routes instead. Extended the real-session production-app regression to verify Service Staff remains denied cancellation/no-show, can reach condition validation, and Chain Manager can read services but cannot edit physical condition. No role grants, SQL, migrations or task acceptance statuses changed.
+- Verification: all **238 frontend tests** and both production builds pass (frontend Vite build required filesystem sandbox escalation and retains its existing bundle-size warning). Initial complete backend run passed **211/212**, including full-chain migrations, room-history repair and idempotent demo seed; its sole production-app routing failure is now fixed. Reran the five affected authorization/production-app/cancellation/no-show test files: **42/42 pass**. Final conflict-marker, unmerged-path and staged/working whitespace checks are clean. Existing owner-specific Appendix C and manual feature acceptance gaps remain unchanged; no new SQL/lecture concepts were introduced.
+- All merge changes are staged; the merge is intentionally uncommitted. No branch, commit, push or pull request was created. The human must conclude the merge and push Imandi before GitHub can use the resolution.
+- Proposed commit: `Merge dev into Imandi and resolve navigation conflicts`.
+- Proposed PR title: `Integrate Imandi repairs with dev navigation and authorization`. Description: `Preserve room-condition and cancellation repairs and Invoice Detail navigation while integrating dev's permission-based sidebar and separate administration pages. Scope cancellation/no-show middleware to its own endpoints so permitted staff workflows remain reachable. Verified with 238 frontend tests, 42 affected backend checks after fixing the one full-suite integration failure, both production builds and clean conflict/whitespace checks.`
 
 ### 10 October 2026 — M2-S16 return from Rooms to staff dashboard
 
@@ -776,6 +785,7 @@ Record actual project-task work here for all five members, including partial or 
 - Authenticated guest cancellation UI and full owner acceptance remain handoffs. Lecture concepts: independent financial aggregates, transaction/lock consistency and schema isolation. Details: [QA audit](docs/qa/2026-10-08-bug-fix-audit.md).
 
 ### 30 September 2026 — M4-S02 (Invoice and Invoice_Line Schema)
+
 - Created PostgreSQL migrations for `invoice` and `invoice_line` tables in `backend/migrations/m4_001_invoice_and_lines.sql`.
 - Added constraints to enforce exactly one invoice per booking (`invoice_booking_id_unique`).
 - Implemented `DRAFT`/`FINAL` transition rules: unassigned `invoice_number` and `issued_at` during DRAFT, requiring them at FINAL.
@@ -785,6 +795,7 @@ Record actual project-task work here for all five members, including partial or 
 - Provided PL/pgSQL validation script `backend/tests/m4_s02_schema_test.sql` covering invalid line configurations, cross-booking updates, missing FKs, duplicate rows, and FINAL immutability.
 
 ### 01 October 2026 — M4-S03 (Payment and Refund Schema)
+
 - Created PostgreSQL migration for `payment` in `backend/migrations/m4_002_payment.sql`:
   - Created enums `payment_kind_enum` ('PAYMENT', 'REFUND'), `payment_status_enum` ('SUCCESSFUL', 'FAILED', 'REVERSED'), and `payment_method_enum` ('CASH', 'BANK_TRANSFER') per SRS Table 40, §4.7.3, and §6.1.4.
   - Created `payment` table with UUIDv7 PK (`uuid_extract_version = 7`), `booking_id` FK to `booking(booking_id)` ON UPDATE/DELETE RESTRICT, `recorded_by` FK to `user_account(user_id)` ON UPDATE/DELETE RESTRICT.
@@ -808,6 +819,7 @@ Record actual project-task work here for all five members, including partial or 
   - Immutability and financial audit preservation using BEFORE/AFTER triggers to reject deletions/arbitrary mutations and write immutable audit trail records (`03_Advanced_SQL.md`).
 
 ### 01 October 2026 — M4-S04 (Deterministic Room Charges, Calculation Order, and Rounding Engine)
+
 - Created mock migration `backend/migrations/m3_001_service_usage_mock.sql` satisfying the M3-S04 schema dependency (`service` and `service_usage` per Table 40 and §6.1.4).
 - Created PostgreSQL migration `backend/migrations/m4_003_billing_calculation.sql`:
   - `fn_billable_nights(stay_start_date, stay_end_date)`: returns reserved nights (`stay_end_date - stay_start_date`), enforcing `stay_end_date > stay_start_date`. Early departure retains reserved nights.
@@ -849,6 +861,7 @@ Record actual project-task work here for all five members, including partial or 
   - Transactional isolation and deterministic calculation avoiding update anomalies (`04_Normalization_Lab_5.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
 
 ### 01 October 2026 — M4-S05 (Audited DRAFT Invoice Lifecycle, Balance Calculation, and Single FINAL Issuance)
+
 - Created PostgreSQL migration `backend/migrations/m4_004_invoice_lifecycle.sql`:
   - Partial unique index `idx_invoice_number_unique` on `invoice (invoice_number) WHERE invoice_number IS NOT NULL` ensuring distinct invoice numbers for FINAL invoices while permitting NULL for DRAFTs.
   - Sequence `invoice_number_seq` and generator function `fn_generate_invoice_number()` producing sequential, structured invoice numbers (`INV-YYYYMMDD-XXXXX`).
@@ -884,6 +897,7 @@ Record actual project-task work here for all five members, including partial or 
   - Transaction atomicity and rollback semantics (`05_Storage_Indexing_Query_Processing_Transactions.md`).
 
 ### 03 October 2026 — M4-S06 (Invoice Detail & Payment History Read API with Scoped Access)
+
 - Created PostgreSQL migration `backend/migrations/m4_005_invoice_query_indexes.sql`:
   - Created B-tree index `idx_invoice_line_invoice_id` on `invoice_line(invoice_id)` to optimize joins and line retrieval by invoice.
   - Created composite B-tree index `idx_payment_booking_kind_status` on `payment(booking_id, kind, status)` to accelerate payment history and net-balance aggregation queries per lecture 5 indexing recommendations.
@@ -922,6 +936,7 @@ Record actual project-task work here for all five members, including partial or 
   - Least privilege access control and ownership-based authorization enforcing branch and guest tenancy boundaries (`03_Advanced_SQL.md`, `05_Storage_Indexing_Query_Processing_Transactions.md`).
 
 ### 03 October 2026 — M4-S07 (Locked Payment and Refund Posting Engine)
+
 - Created PostgreSQL migration `backend/migrations/m4_006_payment_posting.sql`:
   - `fn_outstanding_balance(p_booking_id)`: returns signed invoice-line total minus net payments (`successful_payments - successful_refunds`), supporting both `uuid` and `text` signatures per SRS Table 45.
   - `fn_record_payment`: acquires row-level locks in deterministic hierarchy (`booking` followed by `invoice`) to eliminate deadlocks and race conditions, re-evaluates authoritative balance under lock, enforces that PAYMENTs cannot exceed positive balance, and REFUNDs cannot exceed existing credit (`v_current_balance < 0`). Rejects payments/refunds against FINAL invoices, logs audit records, and returns itemized payment record with previous/new balance and explicit credit flags.
@@ -954,6 +969,7 @@ Record actual project-task work here for all five members, including partial or 
   - Domain constraints and exact fixed-point `numeric(14,2)` arithmetic for monetary balance reconciliation (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
 
 ### 03 October 2026 — M4-S08 (Payment and Refund REST API with Validation, Authorization, and Safe Error Mapping)
+
 - Exposed payment, refund, and payment reversal REST endpoints under `/api`:
   - `POST /api/bookings/:bookingId/payments`: records a payment or refund against a booking with staff authorization, positive balance validation, and safe error mapping.
   - `POST /api/bookings/:bookingId/refunds`: convenience endpoint for staff-approved manual refunds against credit balances.
@@ -994,6 +1010,7 @@ Record actual project-task work here for all five members, including partial or 
   - Data integrity and scale validation (`numeric(14,2)`) before and during database transactional execution (`02_Intermediate_SQL.md`).
 
 ### 03 October 2026 — M4-S09 (One-Line Checkout Transaction Engine)
+
 - Created mock migration `backend/migrations/m3_002_room_status_history_mock.sql` satisfying external dependency Member 3 M3-S18:
   - Table `room_status_history` per SRS Table 40 (`room_history_id`, `room_id`, `old_status`, `new_status`, `changed_at`, `changed_by`, `reason`) with UUIDv7 PK, immutability trigger `trg_enforce_room_status_history_immutability`, and B-tree index `idx_room_status_history_room_id`.
   - Stored function `fn_set_room_condition(p_room_id, p_new_condition, p_changed_by, p_reason)` updating room operational status and appending history only on actual condition changes, with guard rejecting `OUT_OF_SERVICE` transitions when active `BOOKED` or `CHECKED_IN` lines exist (DBR-037).
@@ -1039,6 +1056,7 @@ Record actual project-task work here for all five members, including partial or 
   - Exact financial balance gate preventing early departure without settlement (`01_Introduction_to_SQL.md`, `02_Intermediate_SQL.md`).
 
 ### 04 October 2026 — M4-S10 (Line-Specific Checkout REST API with Branch & Role Guards)
+
 - Implemented line-specific checkout REST API endpoints in `backend/src/controllers/checkoutController.ts`, `backend/src/routes/checkoutRoutes.ts`, and mounted them in `backend/src/index.ts`:
   - `POST /api/bookings/:bookingId/lines/:lineId/checkout`: executes atomic one-line checkout for the target room line.
   - `POST /api/bookings/:bookingId/checkout`: supports line checkout with `lineId` / `bookingRoomLineId` provided in the request body.
@@ -1091,7 +1109,9 @@ Record actual project-task work here for all five members, including partial or 
     - `npm run build --workspace backend`
     - `npm run build --workspace frontend`
   - `git diff --check` passed with 0 errors.
+
 ### 04 October 2026 — M4-S11 (Per-Line & Whole-Booking Cancellation Engine and REST API)
+
 - Implemented PostgreSQL migration `backend/migrations/m4_008_cancellation_transaction.sql`:
   - `fn_cancel_room_line(p_booking_id, p_line_id, p_actor_id, p_reason, p_cancel_time)`:
     - Row-level pessimistic locking in hierarchy (`booking` → `invoice` → `booking_room_line` → `booking_room_assignment`).
@@ -1157,6 +1177,7 @@ Record actual project-task work here for all five members, including partial or 
   - Authorization and tenant isolation preserving online guest self-service ownership vs. internal staff boundaries (`03_Advanced_SQL.md`).
 
 ### 05 October 2026 — M4-S12 (Per-Line No-Show Transition with Cutoff, History, and Linked Policy Fee)
+
 - Created PostgreSQL migration `backend/migrations/m4_009_no_show_transaction.sql`:
   - `fn_mark_no_show_room_line(p_booking_id, p_line_id, p_actor_id, p_reason, p_mark_time)`:
     - Pessimistic locking hierarchy: acquires `FOR UPDATE` row locks in consistent order (`booking` → `invoice` → `booking_room_line` → `booking_room_assignment`) to guarantee deadlock freedom and strict serializability.
@@ -1253,6 +1274,7 @@ Record actual project-task work here for all five members, including partial or 
 **Status:** ✅ Completed
 
 **Implementation Details:**
+
 - **ViewModel (`paymentViewModel.ts`)**: Built a robust view model extending the API definitions. Included `buildPaymentHistoryView` with full balance summary logic (net payments, unrefunded credits, outstanding balance, exact LKR formatting using `money.ts`), `validatePaymentDraft`, and `applyPaymentReceipt` for optimistic UI updates.
 - **PaymentPanel (`PaymentPanel.tsx`)**: Created the main UI component using Shadcn primitives (Cards, Badges, Buttons). Split into three functional blocks: `BalanceSummaryCard` (showing exact totals and credit states), `PaymentEntryForm` (with toggles for Payment/Refund modes and "Record Failed Attempt"), and `PaymentHistoryPanel` (showing a ledger of payments with per-row reversal controls).
 - **PaymentPage (`PaymentPage.tsx`)**: Integrated the payment panel with a booking lookup field. Mapped the page to the TanStack router at `/billing/payments`.
@@ -1260,6 +1282,7 @@ Record actual project-task work here for all five members, including partial or 
 - **Build Checks**: Rebuilt the frontend successfully with no TypeScript errors. Full stack build passes.
 
 **Acceptance Verification:**
+
 - Partial-payment entry: ✅ Implemented with validation guarding against overpayments.
 - Signed balance/credit display: ✅ Displayed natively in the `BalanceSummaryCard`.
 - Staff-only manual refund/failure states: ✅ Implemented Refund mode and FAILED state toggle for attempts.
@@ -1267,10 +1290,11 @@ Record actual project-task work here for all five members, including partial or 
 - Frontend build passes: ✅ Tested via `npm run build:frontend`.
 
 **Git Handoff Text:**
+
 ```text
 feat(billing): M4-S14 implement staff payment UI with balance summary
 
-Builds the PaymentPage route for staff to view and modify booking payment ledgers. 
+Builds the PaymentPage route for staff to view and modify booking payment ledgers.
 Includes:
 - Exact LKR exact precision balance summary formatting
 - Payment/Refund entry forms with validation against credit/outstanding limits
@@ -1286,6 +1310,7 @@ Related: M4-S08, M4-S13
 **Status:** ✅ Completed
 
 **Implementation Details:**
+
 - **ViewModel (`checkoutViewModel.ts`)**: Created the checkout view model wrapping the `POST` checkout API response. Added rigorous error code parsing to surface clear messages for balance gate failures, invalid line states, and authorization blocks.
 - **CheckoutPanel (`CheckoutPanel.tsx`)**: Built the primary checkout component.
   - Implemented the exact-zero balance guard by leveraging `invoice.summary.isSettled` and `invoice.status`.
@@ -1297,12 +1322,14 @@ Related: M4-S08, M4-S13
 - **Build Checks**: Rebuilt the frontend and backend successfully.
 
 **Acceptance Verification:**
+
 - Consolidated exact-zero balance guard: ✅ Verified. Checks `invoice.summary.isSettled` to prevent checkout.
 - DRAFT provisional statement/FINAL state: ✅ UI indicates `DRAFT` or `FINAL` statement status in the UI block.
 - Remaining-room, positive-balance, credit display safely: ✅ Yes, using shared view models from `activeStayViewModel` and `invoiceViewModel`.
 - Frontend build passes: ✅ Tested via `npm run build:frontend`.
 
 **Git Handoff Text:**
+
 ```text
 feat(checkout): M4-S15 implement staff per-line checkout UI
 
@@ -1322,6 +1349,7 @@ Related: M4-S10, M4-S13
 **Status:** ✅ Completed
 
 **Implementation Details:**
+
 - **ViewModel (`cancellationViewModel.ts`)**: Created view models for both `/cancellation-quote` and `/cancel` REST endpoints. Added user-friendly parsing for cancellation errors like `CANCELLATION_DEADLINE_PASSED` and `NOT_ALL_LINES_ELIGIBLE`.
 - **CancellationPanel (`CancellationPanel.tsx`)**: Built the user interface to orchestrate the cancellation quotes.
   - Implemented dynamic inline quote expansion allowing staff to review flat fees and cutoff deadlines before confirming cancellation.
@@ -1332,12 +1360,14 @@ Related: M4-S10, M4-S13
 - **Build Checks**: Rebuilt frontend components to assert no UI or TypeScript breaks.
 
 **Acceptance Verification:**
+
 - Policy eligibility, fee display and confirmation: ✅ Verified via the quote inspection logic rendered inside `CancellationQuoteBox`.
 - Unaffected lines preserved: ✅ Verified. ActiveStay view models list only `BOOKED` for eligibility.
 - Denied/cancelled states pass: ✅ Rejections handled visually with a specific red inline warning block showing the `rejection_reason`.
 - Frontend build passes: ✅ Verified.
 
 **Git Handoff Text:**
+
 ```text
 feat(cancellation): M4-S16 implement staff cancellation UI
 
@@ -1357,6 +1387,7 @@ Related: M4-S11
 **Status:** ✅ Completed
 
 **Implementation Details:**
+
 - **ViewModel (`noShowViewModel.ts`)**: Created view models mapping the `/no-show-quote` and `/no-show` REST endpoints. Integrated logic to translate backend error codes (e.g., `EARLY_NO_SHOW_NOT_ALLOWED`) into intuitive UI messages.
 - **NoShowPanel (`NoShowPanel.tsx`)**: Built the primary no-show management UI.
   - Added a "Check Cutoff" mechanism for staff to view exact deadlines and flat fees dynamically via the quote endpoint before committing a no-show.
@@ -1367,12 +1398,14 @@ Related: M4-S11
 - **Build Checks**: Rebuilt frontend components seamlessly.
 
 **Acceptance Verification:**
+
 - Cutoff feedback and confirmation: ✅ Verified. The quote inspection block displays `cutoff_deadline` clearly and blocks the action if it's too early, exposing `rejection_reason`.
 - Surviving lines unaffected: ✅ Active stay merging preserves other statuses safely.
 - Early/repeated transition states handled: ✅ The rejection handling (`quote.is_eligible === false`) displays early attempt feedback.
 - Frontend build passes: ✅ Verified.
 
 **Git Handoff Text:**
+
 ```text
 feat(no-show): M4-S17 implement staff no-show UI
 
@@ -1392,6 +1425,7 @@ Related: M4-S12
 **Status:** ✅ Completed
 
 **Implementation Details:**
+
 - **GuestBookingsPage (`GuestBookingsPage.tsx`)**: Built a simulated online guest "My Bookings" UI at `/guest/my-bookings` to provide a dedicated view for M4-S11's cancellation logic.
   - Provided a simulator form to explicitly pass a `x-user-id` (Guest Account UUID) to bypass the unbuilt M1-S08 identity system.
   - Implemented logic orchestrating `GET /api/bookings/:bookingId` directly using the `x-user-id` to verify cross-account blocking by the backend logic.
@@ -1400,11 +1434,13 @@ Related: M4-S12
 - **Build Checks**: Rebuilt the frontend safely to confirm component integrity.
 
 **Acceptance Verification:**
+
 - Cross-account denial: ✅ Verified. Supplying an incorrect `x-user-id` results in a direct rejection mapped correctly to the UI.
 - Policy messages: ✅ The UI dynamically handles and shows `cancellation_fee` and explicit `rejection_reason` details inside the inline feedback card.
 - Frontend build passes: ✅ Verified.
 
 **Git Handoff Text:**
+
 ```text
 feat(guest-booking): M4-S18 implement online guest cancellation UI
 

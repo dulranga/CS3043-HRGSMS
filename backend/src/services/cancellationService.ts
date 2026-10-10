@@ -7,6 +7,7 @@ import {
   CancelWholeBookingResult,
   CancellationQuote,
 } from '../models/cancellation.js';
+import { authorizeStaff, staffPrincipal } from '../authorization';
 
 export interface DbClient {
   query<T = any>(sql: string, params?: any[]): Promise<{ rows: T[]; rowCount?: number | null }>;
@@ -154,30 +155,38 @@ export async function verifyCancellationAccess(
   const officer = officerRes.rows[0];
   const role = officer.role_name;
 
-  if (role === 'SERVICE_STAFF') {
-    return {
-      allowed: false,
-      statusCode: 403,
-      reason: 'Forbidden: Service staff are not authorized to cancel reservations',
-    };
-  }
-
-  if (role === 'AUDITOR') {
-    return {
-      allowed: false,
-      statusCode: 403,
-      reason: 'Forbidden: Auditors have read-only access and cannot cancel reservations',
-    };
-  }
-
-  if (role === 'FRONT_DESK' || role === 'BRANCH_MANAGER') {
-    if (booking.branch_id && booking.branch_id !== officer.branch_id) {
+  const decision = authorizeStaff(
+    staffPrincipal(actor.userId, role, officer.branch_id),
+    'booking.cancel',
+    booking.branch_id ?? undefined,
+  );
+  if (!decision.allowed) {
+    if (decision.code === 'CROSS_BRANCH_FORBIDDEN') {
       return {
         allowed: false,
         statusCode: 403,
-        reason: `Forbidden: Branch staff cannot cancel bookings for another branch`,
+        reason: 'Forbidden: Branch staff cannot cancel bookings for another branch',
       };
     }
+    if (role === 'SERVICE_STAFF') {
+      return {
+        allowed: false,
+        statusCode: 403,
+        reason: 'Forbidden: Service staff are not authorized to cancel reservations',
+      };
+    }
+    if (role === 'AUDITOR') {
+      return {
+        allowed: false,
+        statusCode: 403,
+        reason: 'Forbidden: Auditors have read-only access and cannot cancel reservations',
+      };
+    }
+    return {
+      allowed: false,
+      statusCode: 403,
+      reason: 'Forbidden: Actor profile is not an authorized staff account or registered guest account',
+    };
   }
 
   return {

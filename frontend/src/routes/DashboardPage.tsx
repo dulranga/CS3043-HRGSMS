@@ -16,7 +16,8 @@ const TOOLS = [
   { path: "/admin/services", label: "Service catalogue" },
   { path: "/billing/invoice", label: "Invoice Detail" },
   { path: "/admin/reports", label: "Reports and CSV" },
-  { path: "/admin/operations", label: "Branches and staff accounts" },
+  { path: "/admin/branches", label: "Branches" },
+  { path: "/admin/users", label: "User accounts" },
   { path: "/admin/config", label: "System configuration" },
   { path: "/admin/audit", label: "Audit log" },
 ];

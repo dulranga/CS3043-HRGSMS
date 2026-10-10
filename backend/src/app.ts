@@ -108,11 +108,14 @@ export function createApplication(env: NodeJS.ProcessEnv = process.env): Applica
   ));
   app.use('/api', availabilityRoutes);
   // Member 4's cancellation and no-show engines and Member 3's service-usage
-  // router enforce their own role, branch and ownership rules from the verified
-  // session principal (req.user), so here they only require an authenticated
-  // actor; no header or client-supplied identity reaches them in production.
-  app.use('/api', authorization.authenticated, createCancellationRouter());
-  app.use('/api', authorization.authenticated, createNoShowRouter());
+  // router enforce branch and ownership rules from the verified session
+  // principal (req.user). Cancellation and no-show are mounted behind the same
+  // shared role-grant middleware as every other protected route, so the matrix
+  // alone decides who may reach them; the services keep the resource-derived
+  // branch/ownership check. No header or client-supplied identity reaches them
+  // in production.
+  app.use('/api', createCancellationRouter(undefined, authorization.guestOrStaff('booking.cancel')));
+  app.use('/api', createNoShowRouter(undefined, authorization.staff('booking.no_show')));
   app.use('/api', authorization.authenticated, serviceUsageRoutes);
   const staffBookingContext = { branchId: sessionBranchId, actorId: sessionUserId };
   app.use('/api', createBookingCreateRouter({ requireFrontDesk: authorization.staff('booking.manage') }, staffBookingContext));
@@ -122,10 +125,10 @@ export function createApplication(env: NodeJS.ProcessEnv = process.env): Applica
     requireReservationMoveStaff: authorization.staff(['booking.manage', 'discount.apply']),
   }, staffBookingContext));
   app.use('/api/guest', createOnlineGuestBookingRouter({ requireOnlineGuest: authorization.guest }, { authenticatedUserId: sessionUserId }));
-  app.use('/api', createCheckInRouter(authorization.staff('booking.manage')));
+  app.use('/api', createCheckInRouter(authorization.staff('booking.check_in')));
   app.use('/api', createActiveStayRouter(authorization.staff(['room.read', 'invoice.read.chain'])));
   app.use('/api/services', createServiceRouter({ requireRead: authorization.authenticated, requireChainManager: authorization.staff('catalogue.write') }));
-  app.use('/api', createRoomConditionRouter(authorization.staff(['room.condition.write', 'room.write'])));
+  app.use('/api', createRoomConditionRouter(authorization.staff('room.condition.write')));
 
   return app;
 }

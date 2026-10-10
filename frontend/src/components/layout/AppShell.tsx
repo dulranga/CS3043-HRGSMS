@@ -1,10 +1,9 @@
-import { ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, LayoutDashboard, ReceiptText, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
+import { ReactNode, useEffect } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, Landmark, LayoutDashboard, ReceiptText, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { homePathFor } from "@/lib/auth";
 import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
 import { canViewStaffPage } from "@/lib/staffNavigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -58,7 +57,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/guests", label: "Guests", icon: Contact },
       { to: "/admin/reports", label: "Reports & CSV", icon: FileBarChart },
-      { to: "/admin/operations", label: "Branches & Users", icon: Users },
+      { to: "/admin/branches", label: "Branches", icon: Landmark },
+      { to: "/admin/users", label: "User Accounts", icon: Users },
       { to: "/admin/config", label: "System Config", icon: Settings },
       { to: "/admin/audit", label: "Audit Log", icon: ClipboardList },
     ],
@@ -102,7 +102,22 @@ interface AppShellProps {
 
 export function AppShell({ sidebar, children }: AppShellProps) {
   const { status, user } = useAuth();
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: state => state.location.pathname });
+  const isSignedInStaff = status === 'authenticated' && user?.kind === 'STAFF';
+
+  // Staff pages are members-only. Instead of rendering an inline "sign-in
+  // required" notice, send unauthenticated visitors straight to sign-in and
+  // signed-in guests back to their own home page.
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!user) {
+      void navigate({ to: '/login', search: { redirect: pathname }, replace: true });
+    } else if (user.kind !== 'STAFF') {
+      void navigate({ to: homePathFor(user), replace: true });
+    }
+  }, [status, user, pathname, navigate]);
+
   return (
     <SidebarProvider>
       <div className="min-h-[100dvh] flex bg-background text-foreground font-sans antialiased">
@@ -129,7 +144,7 @@ export function AppShell({ sidebar, children }: AppShellProps) {
             <div className="text-xs text-muted-foreground">Dashboard / Overview</div>
           </header>
           <div className="overflow-y-auto h-[calc(100dvh-3.5rem)]">
-            {status === 'loading' ? <p role="status" className="p-6 text-muted-foreground">Checking your session…</p> : user?.kind === 'STAFF' ? children : <div className="p-6"><Alert><AlertTitle>Staff sign-in required</AlertTitle><AlertDescription>Sign in with your staff account to use these tools.</AlertDescription><Button variant="outline" asChild className="mt-4"><a href={`/login?redirect=${encodeURIComponent(pathname)}`}>Sign in</a></Button></Alert></div>}
+            {isSignedInStaff ? children : <p role="status" className="p-6 text-muted-foreground">Checking your session…</p>}
           </div>
         </main>
       </div>

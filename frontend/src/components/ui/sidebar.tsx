@@ -229,8 +229,10 @@ export function SidebarMenuButton({ className, isActive, asChild = false, ...pro
       data-slot="sidebar-menu-button"
       data-active={isActive}
       className={cn(
-        "flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-sm active:scale-[0.98]",
-        isActive && "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md",
+        "flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] active:scale-[0.98]",
+        isActive
+          ? "bg-[var(--sidebar-primary)] text-[var(--sidebar-primary-foreground)] shadow-md"
+          : "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]",
         className
       )}
       {...props}

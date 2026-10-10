@@ -55,11 +55,11 @@ const guestPrincipal: AuthPrincipal = { userId: 'u-guest', username: 'guest', ki
 
 test('M1-S09 permission matrix matches the SRS §6.1.4 working mapping for every seeded role', () => {
   const expected: Record<StaffRole, string[]> = {
-    FRONT_DESK: ['room.read', 'service_usage.record', 'booking.manage', 'checkout.perform', 'payment.record', 'invoice.read.branch', 'guest.link.issue', 'guest.manage', 'branch.read'],
-    SERVICE_STAFF: ['room.read', 'room.condition.write', 'service_usage.record', 'branch.read'],
-    BRANCH_MANAGER: ['room.read', 'room.write', 'invoice.read.branch', 'discount.apply', 'report.read.branch', 'branch.read'],
-    CHAIN_MANAGER: ['catalogue.write', 'invoice.read.chain', 'report.read.chain', 'billing_policy.publish', 'branch.read'],
-    SYSTEM_ADMINISTRATOR: ['audit.read', 'branch.read', 'branch.write', 'account.read', 'account.write', 'config.read', 'config.write'],
+    FRONT_DESK: ['room.read', 'service_usage.record', 'booking.manage', 'booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'payment.record', 'invoice.read.branch', 'guest.link.issue', 'guest.manage', 'branch.read'],
+    SERVICE_STAFF: ['room.read', 'room.condition.write', 'service_usage.record', 'invoice.read.branch', 'branch.read'],
+    BRANCH_MANAGER: ['room.read', 'room.write', 'room.condition.write', 'booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'service_usage.void', 'invoice.read.branch', 'discount.apply', 'report.read.branch', 'branch.read'],
+    CHAIN_MANAGER: ['catalogue.write', 'booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'service_usage.void', 'invoice.read.chain', 'report.read.chain', 'billing_policy.publish', 'branch.read'],
+    SYSTEM_ADMINISTRATOR: ['booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'service_usage.void', 'audit.read', 'branch.read', 'branch.write', 'account.read', 'account.write', 'config.read', 'config.write'],
     AUDITOR: ['invoice.read.chain', 'report.read.chain', 'audit.read', 'branch.read', 'account.read', 'config.read'],
   };
   const permissions = Object.keys(PERMISSIONS) as Array<keyof typeof PERMISSIONS>;
@@ -69,10 +69,14 @@ test('M1-S09 permission matrix matches the SRS §6.1.4 working mapping for every
   }
   // Only CHAIN_MANAGER edits shared catalogues/prices; SYSTEM_ADMINISTRATOR has no financial permission.
   assert.deepEqual(PERMISSIONS['catalogue.write'].roles, ['CHAIN_MANAGER']);
-  for (const financial of ['payment.record', 'checkout.perform', 'discount.apply', 'billing_policy.publish', 'catalogue.write'] as const) {
+  for (const financial of ['payment.record', 'discount.apply', 'billing_policy.publish', 'catalogue.write'] as const) {
     assert.equal(roleHasPermission('SYSTEM_ADMINISTRATOR', financial), false, financial);
     assert.equal(roleHasPermission('AUDITOR', financial), false, financial);
   }
+  // Checkout is branch-scoped for desk/manager staff and chain-wide for chain
+  // managers and the administrator, matching the checkout service's rule.
+  assert.equal(roleHasPermission('SYSTEM_ADMINISTRATOR', 'checkout.perform'), true);
+  assert.equal(roleHasPermission('AUDITOR', 'checkout.perform'), false);
   assert.equal(roleHasPermission('GUEST', 'branch.read'), false);
   assert.equal(roleHasPermission(undefined, 'branch.read'), false);
   assert.equal(roleHasPermission('front_desk', 'payment.record'), false, 'role names are exact');
@@ -92,6 +96,13 @@ test('M1-S09 permission matrix matches the SRS §6.1.4 working mapping for every
     permission: 'room.write',
     scope: 'BRANCH',
     branchId: BRANCH_A,
+  });
+  // The same operation can be branch-scoped for one role and chain-wide for another.
+  assert.equal(authorizeStaff(staff('BRANCH_MANAGER'), 'checkout.perform', BRANCH_B).allowed, false);
+  assert.deepEqual(authorizeStaff(staff('CHAIN_MANAGER'), 'checkout.perform', BRANCH_B), {
+    allowed: true,
+    permission: 'checkout.perform',
+    scope: 'CHAIN',
   });
   const chainReport = authorizeStaff(staff('AUDITOR'), ['report.read.chain', 'report.read.branch'], BRANCH_B);
   assert.equal(chainReport.allowed && chainReport.scope, 'CHAIN');
@@ -217,6 +228,8 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
     app.get('/api/bookings/:bookingId/invoice', auth.authenticate, requireGuestOrStaff(['invoice.read.branch', 'invoice.read.chain']), ok);
     app.post('/api/bookings/:bookingId/payments', auth.authenticate, requireStaff('payment.record'), ok);
     app.post('/api/bookings/:bookingId/checkout', auth.authenticate, requireStaff('checkout.perform'), ok);
+    app.post('/api/bookings/:bookingId/cancel', auth.authenticate, requireGuestOrStaff('booking.cancel'), ok);
+    app.post('/api/bookings/:bookingId/no-show', auth.authenticate, requireStaff('booking.no_show'), ok);
     app.use('/api', createCatalogueRouter({
       requireRead: authorization.authenticated,
       requireChainManager: authorization.staff('catalogue.write'),
@@ -268,6 +281,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       ['GET', '/api/room-types'], ['POST', '/api/room-types'], ['GET', '/api/rooms'], ['POST', '/api/rooms'],
       ['GET', '/api/admin/branches'], ['GET', '/api/reports/occupancy'], ['GET', '/api/admin/not-mapped'],
       ['POST', '/api/bookings/x/payments'], ['GET', '/api/bookings/x/invoice'],
+      ['POST', '/api/bookings/x/cancel'], ['POST', '/api/bookings/x/no-show'],
     ]) {
       const result = await api(null, pathname, { method, headers: spoof, body: method === 'GET' ? undefined : {} });
       assert.equal(result.status, 401, `${method} ${pathname}`);
@@ -379,15 +393,22 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       assert.equal((await api(as, '/api/rooms')).status, 403, `${as} room read`);
     }
 
-    // Payments and checkout: FRONT_DESK only; the booking-branch check stays in Member 4's service.
+    // Payments: FRONT_DESK only. Checkout/cancel/no-show: branch staff
+    // (FRONT_DESK, BRANCH_MANAGER) own-branch and chain managers chain-wide,
+    // matching the checkout/cancellation/no-show services.
+    const branchOpsAllowed = new Set(['FRONT_DESK', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR']);
     for (const role of STAFF_ROLES) {
-      const expected = role === 'FRONT_DESK' ? 200 : 403;
-      assert.equal((await api(roleUser(role), '/api/bookings/x/payments', { method: 'POST', body: {} })).status, expected, `${role} payment`);
-      assert.equal((await api(roleUser(role), '/api/bookings/x/checkout', { method: 'POST', body: {} })).status, expected, `${role} checkout`);
+      assert.equal((await api(roleUser(role), '/api/bookings/x/payments', { method: 'POST', body: {} })).status, role === 'FRONT_DESK' ? 200 : 403, `${role} payment`);
+      assert.equal((await api(roleUser(role), '/api/bookings/x/checkout', { method: 'POST', body: {} })).status, branchOpsAllowed.has(role) ? 200 : 403, `${role} checkout`);
+      assert.equal((await api(roleUser(role), '/api/bookings/x/cancel', { method: 'POST', body: {} })).status, branchOpsAllowed.has(role) ? 200 : 403, `${role} cancel`);
+      assert.equal((await api(roleUser(role), '/api/bookings/x/no-show', { method: 'POST', body: {} })).status, branchOpsAllowed.has(role) ? 200 : 403, `${role} no-show`);
     }
     assert.equal((await api('guest.one', '/api/bookings/x/payments', { method: 'POST', body: {} })).status, 403);
+    assert.equal((await api('guest.one', '/api/bookings/x/checkout', { method: 'POST', body: {} })).status, 403);
+    assert.equal((await api('guest.one', '/api/bookings/x/cancel', { method: 'POST', body: {} })).status, 200, 'guests may request cancellation; ownership is checked downstream');
+    assert.equal((await api('guest.one', '/api/bookings/x/no-show', { method: 'POST', body: {} })).status, 403, 'guests may never mark a no-show');
     // Invoice reads: guests (ownership checked downstream) and finance/report readers.
-    const invoiceReaders = new Set(['FRONT_DESK', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR']);
+    const invoiceReaders = new Set(['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR']);
     for (const role of STAFF_ROLES) {
       assert.equal((await api(roleUser(role), '/api/bookings/x/invoice')).status, invoiceReaders.has(role) ? 200 : 403, `${role} invoice`);
     }
