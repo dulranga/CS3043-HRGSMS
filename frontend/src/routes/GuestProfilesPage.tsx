@@ -16,7 +16,6 @@ import {
   UserX,
   X,
 } from "lucide-react";
-import { AppShell } from "@/components/layout/AppShell";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -525,7 +524,6 @@ export default function GuestProfilesPage() {
 
   if (status === "loading") {
     return (
-      <AppShell>
         <PageContainer>
           <BoundedContainer>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -534,13 +532,11 @@ export default function GuestProfilesPage() {
             </p>
           </BoundedContainer>
         </PageContainer>
-      </AppShell>
     );
   }
 
   if (restricted) {
     return (
-      <AppShell>
         <PageContainer>
           <BoundedContainer>
             <Card className="max-w-2xl">
@@ -562,7 +558,7 @@ export default function GuestProfilesPage() {
               <CardContent>
                 {status === "anonymous" ? (
                   <Button asChild>
-                    <Link to="/login" search={{ redirect: "/guests" }}>
+                    <Link to="/login" search={{ redirect: "/dashboard/guests" }}>
                       Sign in
                     </Link>
                   </Button>
@@ -575,12 +571,10 @@ export default function GuestProfilesPage() {
             </Card>
           </BoundedContainer>
         </PageContainer>
-      </AppShell>
     );
   }
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <Tabs
@@ -1560,6 +1554,5 @@ export default function GuestProfilesPage() {
           </Tabs>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { BalanceSummaryCard, PaymentEntryForm, PaymentHistoryPanel } from '@/components/billing/PaymentPanel';
-import { AppShell } from '@/components/layout/AppShell';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
@@ -157,7 +156,6 @@ export default function PaymentPage() {
   );
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -239,6 +237,5 @@ export default function PaymentPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }
