@@ -628,6 +628,12 @@ Record actual project-task work here for all five members, including partial or 
 - Remaining handoffs recorded at that time: Member 1's M1-S02 ordered migration runner had to integrate this file; Member 1 still needed to implement the shared identity/system actor contract. Members 3/4 still owned service quantity and billing/payment enum/policy details, and the team needed evaluator review of the physical mapping. M2-S03 and later rows were open when this entry was written.
 - Lecture concepts applied: typed PK/FK referential integrity, normalized many-to-many `room_type_amenity`, exact `numeric` rates, and ACID rollback in isolated migration tests. Reservation transaction isolation remains for later M2-S06/M2-S10 work.
 
+### 11 October 2026 — M2-S16/S17 staff reservation room-type filter
+
+- Imandi requested room-type filtering in the updated New Reservation wizard. Made the shared AvailabilityPanel's existing Room type controls visible in its date-first staff variant, using the existing shadcn buttons, active-choice states and disabled behavior. Any type clears the filter; a catalogue choice supplies the existing `roomTypeId` search field when Show available rooms is submitted.
+- Preserved the three-stage wizard, fixed staff branch, date/guest fields, results-before-selection ordering, and public/guest full search. Updated only the existing rendering test's obsolete expectation that the date-first filter was hidden.
+- Verification: availability UI **18/18**, staff booking UI **21/21**, frontend production build passes with the existing bundle-size warning, and diff whitespace check passes. Rechecked SRS FR-023 (optional room type) and FR-034 (maximum capacity); no API/schema/billing contract changes or new task completion claims. Manual click-through is the next user check. [Proposed human Git handoff](docs/qa/2026-10-11-staff-room-type-filter.md).
+
 ## Member 3 — Kulunu
 
 ### 10 October 2026 — manual-test room-condition failure repair (M3-S03 / M3-S18)
