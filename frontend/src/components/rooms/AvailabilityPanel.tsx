@@ -97,7 +97,7 @@ export function AvailabilityPanel({
 }) {
   const { draft, options, results, selected, failure } = state;
   // `date-first` is the trimmed staff view: enter stay dates and guests, then
-  // see the rooms available for that period. It hides the branch/type chips and
+  // see the rooms available for that period. It hides the branch chips and
   // READY toggle, shows results before the selection and keeps the default
   // `full` rendering untouched for guests and the public availability screen.
   const compact = variant === "date-first";
@@ -416,50 +416,48 @@ export function AvailabilityPanel({
               Arrival is inclusive; departure is exclusive. A room can be
               selected for another stay starting on its previous departure date.
             </p>
-            {!compact && (
-              <div
-                className="space-y-2"
-                role="group"
-                aria-label="Room type filter"
-              >
-                <p className="text-sm font-medium">Room type</p>
-                <div className="flex flex-wrap gap-2">
+            <div
+              className="space-y-2"
+              role="group"
+              aria-label="Room type filter"
+            >
+              <p className="text-sm font-medium">Room type</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={disabled}
+                  variant={!draft.roomTypeId ? "default" : "outline"}
+                  aria-pressed={!draft.roomTypeId}
+                  onClick={() => set("roomTypeId", "")}
+                >
+                  Any type
+                </Button>
+                {options?.roomTypes.map((type) => (
                   <Button
+                    key={type.roomTypeId}
                     type="button"
                     size="sm"
+                    className="h-auto min-h-9 whitespace-normal text-left"
                     disabled={disabled}
-                    variant={!draft.roomTypeId ? "default" : "outline"}
-                    aria-pressed={!draft.roomTypeId}
-                    onClick={() => set("roomTypeId", "")}
+                    variant={
+                      draft.roomTypeId === type.roomTypeId
+                        ? "default"
+                        : "outline"
+                    }
+                    aria-pressed={draft.roomTypeId === type.roomTypeId}
+                    onClick={() => set("roomTypeId", type.roomTypeId)}
                   >
-                    Any type
+                    {type.name}
                   </Button>
-                  {options?.roomTypes.map((type) => (
-                    <Button
-                      key={type.roomTypeId}
-                      type="button"
-                      size="sm"
-                      className="h-auto min-h-9 whitespace-normal text-left"
-                      disabled={disabled}
-                      variant={
-                        draft.roomTypeId === type.roomTypeId
-                          ? "default"
-                          : "outline"
-                      }
-                      aria-pressed={draft.roomTypeId === type.roomTypeId}
-                      onClick={() => set("roomTypeId", type.roomTypeId)}
-                    >
-                      {type.name}
-                    </Button>
-                  ))}
-                </div>
-                {fields.roomTypeId && (
-                  <p className="text-sm text-destructive">
-                    {fields.roomTypeId}
-                  </p>
-                )}
+                ))}
               </div>
-            )}
+              {fields.roomTypeId && (
+                <p className="text-sm text-destructive">
+                  {fields.roomTypeId}
+                </p>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               {!compact && allowImmediateCheckIn && (
                 <Button
