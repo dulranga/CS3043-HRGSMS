@@ -27,10 +27,36 @@ export interface InvoiceWithLines {
   balance: BookingBalance;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface ActorContext {
   userId: string;
   role?: string;
   branchId?: string;
+}
+
+/**
+ * Resolves a booking identifier that may be either a UUID or the human-readable
+ * `booking.booking_ref` (FR-029) to the booking's UUID. Returns null when no
+ * booking matches so callers can answer with a safe not-found response.
+ *
+ * This mirrors the ref-or-UUID pattern already used by the checkout,
+ * cancellation and no-show services, so the invoice/payment read and write
+ * endpoints accept the same identifier the staff booking finder yields instead
+ * of forcing staff to copy a raw UUID.
+ */
+export async function resolveBookingId(
+  db: DbClient,
+  identifier: string,
+): Promise<string | null> {
+  const value = (identifier ?? '').trim();
+  if (!value) return null;
+  if (UUID_PATTERN.test(value)) return value.toLowerCase();
+  const res = await db.query<{ booking_id: string }>(
+    'SELECT booking_id FROM booking WHERE booking_ref = $1',
+    [value],
+  );
+  return res.rows[0]?.booking_id ?? null;
 }
 
 export interface AccessVerificationResult {

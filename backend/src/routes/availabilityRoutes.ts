@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { availabilityOptionsHandler, searchAvailabilityHandler } from '../controllers/availabilityController';
+import {
+  availabilityOptionsHandler,
+  availabilityShowcaseHandler,
+  searchAvailabilityHandler,
+} from '../controllers/availabilityController';
 
 const availabilityRoutes = Router();
 
@@ -7,5 +11,6 @@ const availabilityRoutes = Router();
 // Authentication is required later when a guest or staff member confirms a booking.
 availabilityRoutes.get('/availability', searchAvailabilityHandler);
 availabilityRoutes.get('/availability/options', availabilityOptionsHandler);
+availabilityRoutes.get('/availability/showcase', availabilityShowcaseHandler);
 
 export default availabilityRoutes;

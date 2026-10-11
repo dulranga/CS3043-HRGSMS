@@ -423,6 +423,23 @@ test('M4-S06: Invoice detail and payment history read API with branch scope and 
       assert.equal(resNotFound.data.error.code, 'INVOICE_NOT_FOUND');
     });
 
+    // =========================================================================
+    // Scenario 9: Booking reference resolves to the booking UUID
+    // =========================================================================
+    await t.test('Scenario 9: booking reference is accepted in place of a UUID', async () => {
+      const resInv = await reqApi(`/api/bookings/REF-ALICE-COLOMBO/invoice`, { 'x-user-id': uColomboFD });
+      assert.equal(resInv.status, 200);
+      assert.equal(resInv.data.booking_id, b1, 'Reference lookup returns the booking UUID');
+
+      const resPay = await reqApi(`/api/bookings/REF-BOB-KANDY/payments`, { 'x-user-id': uAuditor });
+      assert.equal(resPay.status, 200);
+      assert.equal(resPay.data.booking_id, b2);
+
+      const resMissing = await reqApi(`/api/bookings/REF-DOES-NOT-EXIST/invoice`, { 'x-user-id': uColomboFD });
+      assert.equal(resMissing.status, 404);
+      assert.equal(resMissing.data.error.code, 'BOOKING_NOT_FOUND');
+    });
+
   } finally {
     if (server) {
       await new Promise((resolve) => server.close(resolve));

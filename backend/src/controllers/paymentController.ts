@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { pool } from '../db.js';
 import { resolveActor } from './invoiceController.js';
-import { DbClient } from '../services/invoiceService.js';
+import { DbClient, resolveBookingId } from '../services/invoiceService.js';
 import {
   generatePaymentReference,
   recordPayment,
@@ -18,10 +18,19 @@ export function createPaymentControllers(db: DbClient = pool) {
    */
   const postPaymentHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-      const bookingId = Array.isArray(req.params.bookingId)
+      const bookingParam = Array.isArray(req.params.bookingId)
         ? req.params.bookingId[0]
         : req.params.bookingId;
       const actor = resolveActor(req);
+
+      // Accept a booking reference or UUID; the posting transaction uses the UUID.
+      const bookingId = await resolveBookingId(db, bookingParam);
+      if (!bookingId) {
+        res.status(404).json({
+          error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found' },
+        });
+        return;
+      }
 
       // 1. Staff Authorization Guard
       const access = await verifyStaffPaymentAccess(db, bookingId, actor);

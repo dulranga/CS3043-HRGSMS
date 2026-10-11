@@ -1,13 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 
+import { BookingFinder } from '@/components/bookings/BookingFinder';
+import { BillingFlowNav } from '@/components/billing/BillingFlowNav';
 import { CheckoutPanel } from '@/components/billing/CheckoutPanel';
-import { AppShell } from '@/components/layout/AppShell';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   BookingStaySummary,
   StayBookingGroup,
@@ -16,6 +16,7 @@ import {
   parseActiveStays,
   stayRequestPath,
 } from '@/lib/activeStayViewModel';
+import { billingFlowSearch, useBillingBooking } from '@/lib/billingFlow';
 import { describeCheckoutError, postCheckout } from '@/lib/checkoutViewModel';
 import {
   InvoiceDetailView,
@@ -25,17 +26,19 @@ import {
 } from '@/lib/invoiceViewModel';
 
 const API_BASE = '/api';
+const FLOW_PATH = '/dashboard/billing/checkout' as const;
 
 /**
  * M4-S15: Staff per-line checkout UI.
  *
- * Staff look up a booking by UUID. The page fetches both the active stay
- * (to find CHECKED_IN lines) and the invoice (to enforce the exact-zero
- * balance guard). Displays DRAFT/FINAL statement status and allows checking
- * out individual lines if the balance is exactly zero.
+ * Staff find a booking (carried through the billing flow as URL state) and the
+ * page fetches both the active stay (to find CHECKED_IN lines) and the invoice
+ * (to enforce the exact-zero balance guard). When the balance blocks checkout,
+ * the guard links straight to payments so clearing the balance is one click
+ * away instead of a dead end.
  */
 export default function CheckoutPage() {
-  const [bookingId, setBookingId] = useState('');
+  const { booking, label, select } = useBillingBooking(FLOW_PATH);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,10 +50,10 @@ export default function CheckoutPage() {
   const [checkoutErrorMsg, setCheckoutErrorMsg] = useState<string | null>(null);
   const [successReceipt, setSuccessReceipt] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    const trimmed = bookingId.trim();
+  const loadData = useCallback(async (identifier: string) => {
+    const trimmed = identifier.trim();
     if (!trimmed) {
-      setError('Enter a booking UUID to load checkout data.');
+      setError('Select or enter a booking to load checkout data.');
       setGroup(null);
       setInvoice(null);
       return;
@@ -111,7 +114,18 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false);
     }
-  }, [bookingId]);
+  }, []);
+
+  useEffect(() => {
+    if (booking) void loadData(booking);
+  }, [booking, loadData]);
+
+  const handleSelect = useCallback(
+    (identifier: string, nextLabel: string) => {
+      select(identifier, nextLabel);
+    },
+    [select],
+  );
 
   const handleCheckout = useCallback(
     async (lineId: string) => {
@@ -136,13 +150,15 @@ export default function CheckoutPage() {
       setProcessingLineId(null);
 
       // Reload to update status and invoice statement (DRAFT -> FINAL if terminal)
-      await loadData();
+      await loadData(group.bookingId);
     },
     [group, invoice, loadData],
   );
 
+  const flowSearch = billingFlowSearch(booking, label);
+  const hasBookedLines = group?.lines.some((line) => line.status === 'BOOKED') ?? false;
+
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -155,33 +171,21 @@ export default function CheckoutPage() {
               </p>
             </header>
 
+            <BillingFlowNav current={FLOW_PATH} booking={booking} label={label} />
+
             {/* Booking lookup */}
             <Card className="shadow-md" id="checkout-lookup-card">
               <CardHeader className="p-4 md:p-5">
                 <CardTitle className="text-lg tracking-tight">Find booking</CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-5 pt-0 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="checkout-booking-id">Booking UUID</Label>
-                    <Input
-                      id="checkout-booking-id"
-                      value={bookingId}
-                      placeholder="e.g. 01930000-0000-0000-0000-000000000001"
-                      onChange={(e) => setBookingId(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') loadData();
-                      }}
-                    />
-                  </div>
-                  <Button
-                    id="checkout-load-btn"
-                    onClick={loadData}
-                    disabled={loading}
-                  >
-                    {loading ? 'Loading…' : 'Load checkout data'}
-                  </Button>
-                </div>
+                <BookingFinder
+                  onSelect={handleSelect}
+                  selectedLabel={label ?? null}
+                  busy={loading}
+                  searchLabel="Search bookings by reference or guest name"
+                  allowReference={false}
+                />
               </CardContent>
             </Card>
 
@@ -210,11 +214,39 @@ export default function CheckoutPage() {
                 processingLineId={processingLineId}
                 errorLineId={checkoutErrorId}
                 errorMsg={checkoutErrorMsg}
+                balanceAction={
+                  <>
+                    <Button asChild size="sm" variant="default">
+                      <Link to="/dashboard/billing/payments" search={flowSearch}>
+                        {invoice.summary.isCredit ? 'Refund the credit' : 'Record a payment'}
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/dashboard/billing/invoice" search={flowSearch}>
+                        View invoice
+                      </Link>
+                    </Button>
+                  </>
+                }
+                emptyAction={
+                  hasBookedLines ? (
+                    <Button asChild size="sm" variant="default">
+                      <Link to="/dashboard/check-in" search={flowSearch}>
+                        Go to check-in
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/dashboard/billing/invoice" search={flowSearch}>
+                        View invoice
+                      </Link>
+                    </Button>
+                  )
+                }
               />
             )}
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

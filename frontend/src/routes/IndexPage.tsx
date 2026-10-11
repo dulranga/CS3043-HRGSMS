@@ -1,74 +1,30 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Globe,
+  Hotel,
   Shield,
-  Clock,
   Building2,
   BedDouble,
-  Users,
+  LayoutGrid,
   MapPin,
-  Star,
   ArrowRight,
   CalendarCheck,
   Headphones,
   ChevronRight,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { PropertyCard } from "@/components/project/PropertyCard";
+import { RoomTypeCard } from "@/components/project/RoomTypeCard";
 import { SearchWidget } from "@/components/project/SearchWidget";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PublicHeader } from "@/components/layout/PublicHeader";
+import { fetchShowcase, ShowcaseError, type Showcase } from "@/lib/showcase";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 
-const featuredProperties = [
-  {
-    title: "Hidden Quill Haven",
-    location: "New York, USA",
-    pricePerNight: "$246",
-    guests: 3,
-    beds: 2,
-    baths: 2,
-    image:
-      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
-    rating: 4.9,
-    reviews: 128,
-    tag: "Trending",
-  },
-  {
-    title: "Coastal Haven Lodge",
-    location: "Andalusia, Spain",
-    pricePerNight: "$299",
-    guests: 5,
-    beds: 3,
-    baths: 2,
-    image:
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0262?w=800&q=80",
-    rating: 4.7,
-    reviews: 312,
-    tag: "Top Rated",
-  },
-  {
-    title: "Brass Lantern Inn",
-    location: "Paris, France",
-    pricePerNight: "$325",
-    guests: 6,
-    beds: 3,
-    baths: 2,
-    image:
-      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80",
-    rating: 4.8,
-    reviews: 89,
-  },
-];
-
-const stats = [
-  { icon: Building2, value: "12", label: "Branches" },
-  { icon: BedDouble, value: "1,200+", label: "Rooms" },
-  { icon: Users, value: "50K+", label: "Happy Guests" },
-  { icon: MapPin, value: "8", label: "Countries" },
-];
+const FEATURED_LIMIT = 6;
 
 const features = [
   {
@@ -91,109 +47,62 @@ const features = [
   },
 ];
 
-const testimonials = [
-  {
-    quote:
-      "SkyNest transformed our booking operations. Staff efficiency improved by 40% in the first quarter.",
-    author: "Sarah Chen",
-    role: "Operations Director",
-    rating: 5,
-  },
-  {
-    quote:
-      "The direct booking experience is seamless. Our guests love the instant confirmation and transparent pricing.",
-    author: "Marcus Rivera",
-    role: "General Manager",
-    rating: 5,
-  },
-  {
-    quote:
-      "Finally, a system that handles both internal management and guest reservations under one roof.",
-    author: "Amara Osei",
-    role: "Branch Manager",
-    rating: 5,
-  },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
+function useShowcase() {
+  const [showcase, setShowcase] = useState<Showcase | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const abort = useRef<AbortController | null>(null);
+  const load = useCallback(() => {
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+    setLoading(true);
+    setError("");
+    fetchShowcase(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setShowcase(data);
+      })
+      .catch((reason) => {
+        if (controller.signal.aborted) return;
+        setError(reason instanceof ShowcaseError ? reason.message : "Hotel information could not be loaded. Try again.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+  }, []);
+  useEffect(() => {
+    load();
+    return () => abort.current?.abort();
+  }, [load]);
+  return { showcase, loading, error, reload: load };
+}
+
 export default function IndexPage() {
   const { user } = useAuth();
   const isGuest = user?.kind === "GUEST";
+  const { showcase, loading, error, reload } = useShowcase();
+  const branches = showcase
+    ? [
+        ...new Map(
+          showcase.roomTypes.flatMap((type) => type.branches).map((branch) => [branch.branchId, branch]),
+        ).values(),
+      ].sort((a, b) => a.name.localeCompare(b.name))
+    : [];
+  const featured = showcase?.roomTypes.slice(0, FEATURED_LIMIT) ?? [];
+  const stats = [
+    { icon: Building2, value: showcase?.stats.branchCount, label: "Branches" },
+    { icon: MapPin, value: showcase?.stats.cityCount, label: "Cities" },
+    { icon: BedDouble, value: showcase?.stats.roomCount, label: "Rooms" },
+    { icon: LayoutGrid, value: showcase?.stats.roomTypeCount, label: "Room Types" },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
-      {/* ── Navigation ── */}
-      <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]">
-              <Globe className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-display text-2xl font-bold tracking-tight">
-              SkyNest
-            </span>
-          </a>
-
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/80">
-            <a
-              href="#properties"
-              className="hover:text-foreground transition-colors duration-150"
-            >
-              Stays
-            </a>
-            <a
-              href="#features"
-              className="hover:text-foreground transition-colors duration-150"
-            >
-              Features
-            </a>
-            <a
-              href="#testimonials"
-              className="hover:text-foreground transition-colors duration-150"
-            >
-              Reviews
-            </a>
-            <a
-              href="/dashboard"
-              className="hover:text-foreground transition-colors duration-150"
-            >
-              Dashboard
-            </a>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {isGuest ? (
-              <Button
-                asChild
-                size="sm"
-                className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-              >
-                <Link to="/account">My account</Link>
-              </Button>
-            ) : (
-              <>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-                >
-                  <Link to="/login">Log in</Link>
-                </Button>
-                <Button
-                  asChild
-                  size="sm"
-                  className="rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)]"
-                >
-                  <Link to="/register">Sign up</Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
+      <PublicHeader activePath="/" />
 
       {/* ── Hero ── */}
       <header className="relative overflow-hidden">
@@ -247,10 +156,23 @@ export default function IndexPage() {
       </header>
 
       {/* ── Search Widget ── */}
-      <SearchWidget />
+      <SearchWidget branches={branches} loading={loading} />
+
+      {error && (
+        <section className="max-w-5xl mx-auto px-6 mt-8">
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>{error}</span>
+              <Button size="sm" variant="outline" onClick={reload}>
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </section>
+      )}
 
       {/* ── Stats Bar ── */}
-      <section className="max-w-5xl mx-auto px-6 mt-20 mb-8">
+      <section className="max-w-5xl mx-auto px-6 mt-20 mb-8" aria-busy={loading}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat) => (
             <div
@@ -261,7 +183,7 @@ export default function IndexPage() {
                 <stat.icon className="w-5 h-5 text-primary" />
               </div>
               <span className="font-display text-2xl font-bold tracking-tight text-foreground">
-                {stat.value}
+                {stat.value === undefined ? "—" : stat.value.toLocaleString()}
               </span>
               <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
                 {stat.label}
@@ -271,41 +193,53 @@ export default function IndexPage() {
         </div>
       </section>
 
-      {/* ── Featured Properties ── */}
+      {/* ── Room Types ── */}
       <section id="properties" className="max-w-7xl mx-auto px-6 py-16">
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-              Featured Stays
+              Our Rooms
             </h2>
             <p className="text-muted-foreground mt-2">
-              Handpicked rooms across our branches — book directly at the best
-              rates.
+              Room types available across SkyNest branches — book directly at
+              our published rates.
             </p>
           </div>
-          <a
-            href="/rooms"
+          <Link
+            to="/rooms"
             className="hidden md:inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-foreground transition-colors duration-150"
           >
-            View All
+            Check availability
             <ChevronRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredProperties.map((p) => (
-            <PropertyCard key={p.title} {...p} />
-          ))}
-        </div>
+        {loading && !showcase && (
+          <p role="status" className="text-sm text-muted-foreground">
+            Loading room types…
+          </p>
+        )}
+        {showcase && !featured.length && (
+          <p role="status" className="text-sm text-muted-foreground">
+            No rooms are open for booking right now. Please check back soon.
+          </p>
+        )}
+        {featured.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featured.map((roomType) => (
+              <RoomTypeCard key={roomType.roomTypeId} roomType={roomType} />
+            ))}
+          </div>
+        )}
 
         <div className="mt-8 text-center md:hidden">
-          <a
-            href="/rooms"
+          <Link
+            to="/rooms"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-foreground transition-colors"
           >
-            View All Rooms
+            Check availability
             <ChevronRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -344,88 +278,46 @@ export default function IndexPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ── */}
-      <section
-        id="testimonials"
-        className="max-w-7xl mx-auto px-6 py-16 border-t border-border/30"
-      >
-        <div className="text-center mb-12">
-          <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-            Trusted by Hotel Teams
-          </h2>
-          <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-            Hear from the professionals who run their operations on SkyNest
-            every day.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {testimonials.map((t) => (
-            <div
-              key={t.author}
-              className="rounded-2xl bg-card border-2 border-border p-6 shadow-md hover:shadow-xl transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] hover:-translate-y-1 flex flex-col"
-            >
-              <div className="flex gap-0.5 mb-4">
-                {Array.from({ length: t.rating }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className="w-4 h-4 fill-amber-400 text-amber-400"
-                  />
-                ))}
-              </div>
-              <blockquote className="text-sm text-foreground leading-relaxed mb-6 flex-1">
-                "{t.quote}"
-              </blockquote>
-              <div className="flex items-center gap-3 pt-4 border-t border-border">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                  <span className="text-sm font-bold text-foreground">
-                    {t.author
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {t.author}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{t.role}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ── CTA ── */}
       <section className="max-w-7xl mx-auto px-6 py-16">
         <div className="rounded-3xl bg-primary p-10 md:p-16 text-center shadow-xl">
           <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-primary-foreground mb-4">
-            Ready to Streamline Your Hotel?
+            Ready for Your Next Stay?
           </h2>
           <p className="text-primary-foreground/70 max-w-xl mx-auto mb-8 leading-relaxed">
-            Join hotels worldwide using SkyNest for direct bookings, staff
-            management, and guest services — all from one platform.
+            {isGuest
+              ? "Reserve rooms directly with SkyNest and manage every booking from your account."
+              : "Create a SkyNest guest account to book directly, track your reservations and view your invoices."}
           </p>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Button
               asChild
               size="lg"
               variant="secondary"
               className="rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] px-8 font-semibold"
             >
-              <Link to="/register">
-                Get Started
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
+              {isGuest ? (
+                <Link to="/guest/bookings/new">
+                  Book a Stay
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              ) : (
+                <Link to="/register">
+                  Create an Account
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              )}
             </Button>
             <Button
+              asChild
               size="lg"
               variant="outline"
-              className="rounded-full border-2 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] px-8"
+              className="rounded-full border-2 border-primary-foreground/20 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 ease-[cubic-bezier(0.45,0.15,0.55,0.85)] px-8"
             >
-              <Clock className="w-4 h-4 mr-2" />
-              Book a Demo
+              <Link to="/rooms">
+                <CalendarCheck className="w-4 h-4 mr-2" />
+                Check Availability
+              </Link>
             </Button>
           </div>
         </div>
@@ -434,107 +326,67 @@ export default function IndexPage() {
       {/* ── Footer ── */}
       <footer className="border-t border-border/40 bg-card">
         <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
             {/* Brand */}
-            <div className="md:col-span-1">
-              <a href="/" className="flex items-center gap-2.5 mb-4">
+            <div>
+              <Link to="/" className="flex items-center gap-2.5 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-md">
-                  <Globe className="w-4 h-4 text-primary-foreground" />
+                  <Hotel className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-display text-xl font-bold tracking-tight">
+                <span className="font-display text-xl font-semibold tracking-tight">
                   SkyNest
                 </span>
-              </a>
+              </Link>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Internal &amp; direct hotel reservation and guest services
                 management system.
               </p>
             </div>
 
-            {/* Quick Links */}
+            {/* Guests */}
             <div>
               <h4 className="text-xs font-semibold text-foreground tracking-wide uppercase mb-3">
-                Platform
+                Guests
               </h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a
-                    href="/rooms"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Browse Rooms
-                  </a>
+                  <Link to="/rooms" className="hover:text-foreground transition-colors">
+                    Room Availability
+                  </Link>
                 </li>
                 <li>
-                  <a
-                    href="/dashboard"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Dashboard
-                  </a>
+                  <Link to="/guest/bookings/new" className="hover:text-foreground transition-colors">
+                    Book a Stay
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Reservations
-                  </a>
+                  <Link to="/guest/my-bookings" className="hover:text-foreground transition-colors">
+                    My Bookings
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Guest Services
-                  </a>
+                  <Link to="/account" className="hover:text-foreground transition-colors">
+                    My Account
+                  </Link>
                 </li>
               </ul>
             </div>
 
-            {/* Company */}
+            {/* Staff */}
             <div>
               <h4 className="text-xs font-semibold text-foreground tracking-wide uppercase mb-3">
-                Company
+                Staff
               </h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    About
-                  </a>
+                  <Link to="/dashboard" className="hover:text-foreground transition-colors">
+                    Staff Dashboard
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Press
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Contact
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Legal */}
-            <div>
-              <h4 className="text-xs font-semibold text-foreground tracking-wide uppercase mb-3">
-                Legal
-              </h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Privacy Policy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Terms of Service
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
-                    Cookie Policy
-                  </a>
+                  <Link to="/login" className="hover:text-foreground transition-colors">
+                    Staff Log In
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -542,7 +394,7 @@ export default function IndexPage() {
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-border/40">
             <p className="text-xs text-muted-foreground">
-              &copy; 2026 SkyNest HRGSMS. All rights reserved.
+              &copy; {new Date().getFullYear()} SkyNest HRGSMS. All rights reserved.
             </p>
             <p className="text-xs text-muted-foreground">
               Internal &amp; Direct Hotel Booking System

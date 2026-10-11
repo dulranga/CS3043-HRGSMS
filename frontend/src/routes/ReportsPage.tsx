@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { AppShell } from "@/components/layout/AppShell";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { reportUrl, hasReportAccess, type ReportType } from "@/lib/reportUrl";
 import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
 import { Input } from "@/components/ui/input";
@@ -195,7 +195,6 @@ export default function ReportsPage() {
   ];
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -235,22 +234,20 @@ export default function ReportsPage() {
             </header>
 
             {/* Report Tabs */}
-            <div className="flex flex-wrap gap-2 border-b border-border pb-2">
-              {reportTabs.filter(tab => hasReportAccess(role, tab.id)).map((tab) => (
-                <Button
-                  key={tab.id}
-                  onClick={() => changeReport(tab.id)}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    activeReport === tab.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {tab.label}
-                </Button>
-              ))}
-            </div>
+            <Tabs
+              value={activeReport}
+              onValueChange={(value) => changeReport(value as ReportType)}
+              className="space-y-6"
+            >
+              <TabsList className="flex h-auto flex-wrap gap-2" aria-label="Report type">
+                {reportTabs.filter(tab => hasReportAccess(role, tab.id)).map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
+              <TabsContent value={activeReport} className="space-y-6">
             {/* Filter Controls */}
             <div className="flex flex-wrap items-end gap-4 p-4 rounded-xl bg-card border border-border">
               {(activeReport === "occupancy" ||
@@ -590,9 +587,10 @@ export default function ReportsPage() {
                 </div>
               </div>
             )}
+              </TabsContent>
+            </Tabs>
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

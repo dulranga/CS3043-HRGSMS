@@ -16,6 +16,7 @@ export function createStaffAccountRouter(
   router.patch('/users/:userId', authorization.requireWrite, officers.update);
   router.post('/users/:userId/disable', authorization.requireWrite, officers.disable);
   router.post('/users/:userId/reactivate', authorization.requireWrite, officers.reactivate);
+  router.get('/roles', authorization.requireRead, officers.roles);
 
   return router;
 }

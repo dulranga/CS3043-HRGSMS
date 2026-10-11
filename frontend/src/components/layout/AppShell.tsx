@@ -1,11 +1,11 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BedDouble, Building2, CalendarCheck, ClipboardList, ConciergeBell, Contact, DoorOpen, FileBarChart, Landmark, LayoutDashboard, ReceiptText, Settings, Utensils, Users, type LucideIcon } from "lucide-react";
+import { BedDouble, Building2, CalendarCheck, CalendarX, ClipboardList, ConciergeBell, Contact, CreditCard, DoorClosed, DoorOpen, FileBarChart, Landmark, LayoutDashboard, Receipt, Settings, Utensils, Users, XCircle, type LucideIcon } from "lucide-react";
 import { SessionPanel } from "@/components/auth/SessionPanel";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { homePathFor } from "@/lib/auth";
 import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
-import { canViewStaffPage } from "@/lib/staffNavigation";
+import { canViewStaffPage, primaryActionPath } from "@/lib/staffNavigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
   Sidebar,
@@ -31,46 +31,75 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Front Desk",
     items: [
-      { to: "/rooms", label: "Rooms", icon: BedDouble },
-      { to: "/bookings", label: "Reservations", icon: ClipboardList },
-      { to: "/bookings/new", label: "New Reservation", icon: CalendarCheck },
-      { to: "/check-in", label: "Guest Check-In", icon: CalendarCheck },
-      { to: "/stays", label: "Active Stays", icon: DoorOpen },
-    ],
-  },
-  {
-    label: "Services",
-    items: [
-      { to: "/service-usage", label: "Service Usage", icon: ConciergeBell },
-      { to: "/admin/services", label: "Service Catalogue", icon: Utensils },
-      { to: "/admin/rooms", label: "Room Administration", icon: Building2 },
+      { to: "/dashboard/rooms", label: "Rooms", icon: BedDouble },
+      { to: "/dashboard/bookings", label: "Reservations", icon: ClipboardList },
+      { to: "/dashboard/bookings/new", label: "New Reservation", icon: CalendarCheck },
+      { to: "/dashboard/check-in", label: "Guest Check-In", icon: CalendarCheck },
+      { to: "/dashboard/stays", label: "Active Stays", icon: DoorOpen },
     ],
   },
   {
     label: "Billing",
     items: [
-      { to: "/billing/invoice", label: "Invoice Detail", icon: ReceiptText },
+      { to: "/dashboard/billing/checkout", label: "Checkout", icon: DoorClosed },
+      { to: "/dashboard/billing/cancellation", label: "Cancellation", icon: XCircle },
+      { to: "/dashboard/billing/no-show", label: "No-Show", icon: CalendarX },
+      { to: "/dashboard/billing/invoice", label: "Invoice Detail", icon: Receipt },
+      { to: "/dashboard/billing/payments", label: "Payments", icon: CreditCard },
+    ],
+  },
+  {
+    label: "Services",
+    items: [
+      { to: "/dashboard/service-usage", label: "Service Usage", icon: ConciergeBell },
+      { to: "/dashboard/admin/services", label: "Service Catalogue", icon: Utensils },
+      { to: "/dashboard/admin/rooms", label: "Room Administration", icon: Building2 },
     ],
   },
   {
     label: "Management",
     items: [
-      { to: "/guests", label: "Guests", icon: Contact },
-      { to: "/admin/reports", label: "Reports & CSV", icon: FileBarChart },
-      { to: "/admin/branches", label: "Branches", icon: Landmark },
-      { to: "/admin/users", label: "User Accounts", icon: Users },
-      { to: "/admin/config", label: "System Config", icon: Settings },
-      { to: "/admin/audit", label: "Audit Log", icon: ClipboardList },
+      { to: "/dashboard/guests", label: "Guests", icon: Contact },
+      { to: "/dashboard/admin/reports", label: "Reports & CSV", icon: FileBarChart },
+      { to: "/dashboard/admin/branches", label: "Branches", icon: Landmark },
+      { to: "/dashboard/admin/users", label: "User Accounts", icon: Users },
+      { to: "/dashboard/admin/config", label: "System Config", icon: Settings },
+      { to: "/dashboard/admin/audit", label: "Audit Log", icon: ClipboardList },
     ],
   },
 ];
 
+const NAV_ITEMS_BY_PATH: Record<string, NavItem> = Object.fromEntries(
+  NAV_GROUPS.flatMap(group => group.items).map(item => [item.to, item]),
+);
+
 function StaffNavigation() {
   const { role } = useFeatureSessions();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const groups = NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(item => canViewStaffPage(role, item.to)) })).filter(group => group.items.length > 0);
+  const pinnedPath = primaryActionPath(role);
+  const pinnedItem = pinnedPath ? NAV_ITEMS_BY_PATH[pinnedPath] : undefined;
+  // The pinned action is pulled out of its category so it appears once, at the
+  // top; the remaining groups keep their original order.
+  const groups = NAV_GROUPS
+    .map(group => ({ ...group, items: group.items.filter(item => item.to !== pinnedPath && canViewStaffPage(role, item.to)) }))
+    .filter(group => group.items.length > 0);
   return (
     <nav aria-label="Staff navigation" className="space-y-4">
+      {pinnedItem && (
+        <SidebarGroup>
+          <SidebarGroupLabel>Quick Action</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild variant="primary" isActive={pathname === pinnedItem.to}>
+                <Link to={pinnedItem.to} aria-current={pathname === pinnedItem.to ? "page" : undefined}>
+                  <pinnedItem.icon className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{pinnedItem.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      )}
       {groups.map((group) => (
         <SidebarGroup key={group.label}>
           <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
