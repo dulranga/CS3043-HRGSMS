@@ -397,7 +397,7 @@ export default function RegisterPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="register-email" className={cn(fieldErrors.email && "text-destructive")}>
-                    Email <span className="font-normal text-muted-foreground">(or phone)</span>
+                    Email
                   </Label>
                   <Input
                     ref={emailRef}
@@ -426,7 +426,7 @@ export default function RegisterPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="register-phone" className={cn(fieldErrors.phone && "text-destructive")}>
-                    Phone <span className="font-normal text-muted-foreground">(or email)</span>
+                    Phone
                   </Label>
                   <Input
                     ref={phoneRef}

@@ -4,6 +4,12 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 11 October 2026 — M1-S15 registration label cleanup
+
+- Imandi requested removing the parenthetical alternatives from the new guest registration screen. Existing shadcn labels now read Email and Phone. FR-017 contact validation and form behavior remain unchanged.
+- Verification: reread the rendered label source and FR-017; `npm run build:frontend` passes with the existing bundle-size warning. No new tests for this text-only edit. Manual check: refresh `/register` and confirm the two labels. No contract gaps introduced or task checkbox changes.
+- Proposed human commit: `fix(registration): simplify email and phone labels`. Proposed PR title: `Simplify registration contact labels`. Proposed PR description: `Remove the parenthetical alternatives from the Email and Phone labels on guest registration. Validation remains unchanged. Frontend production build passes.` No Git publication actions performed.
+
 ### 10 October 2026 — remove redundant booking sub-nav from staff booking pages
 
 - At the owner's request, removed the in-page sub-nav strip ("Room availability", "Create staff booking", "Staff booking records", "Room administration") that sat above `/dashboard/bookings/new` and the other staff booking/room-admin pages. It duplicated the sidebar and its buttons sat in a section unrelated to the page content.

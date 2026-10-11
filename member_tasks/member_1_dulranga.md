@@ -42,6 +42,8 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md) for 
 
 ## Completion notes
 
+- 11 October 2026 — M1-S15 copy follow-up: registration labels simplified to Email and Phone at Imandi's request; existing contact validation retained. Frontend production build passes. Manual refresh check pending; details and proposed human Git handoff in `member_work_log.md`.
+
 - **M1-S14 follow-up (10 October 2026):** Sidebar identity now displays the verified staff member's assigned branch beside their role, resolved through M1-S20's existing protected metadata endpoint. Old account responses are aborted/hidden; long names wrap and missing/unavailable metadata is explicit. Session/navigation regressions pass 3/3, frontend build passes, and sample browser states/account switches were checked. See `member_work_log.md` for evidence and proposed human Git handoff; no schema/session authorization changes.
 
 - **M1-S10 / M1-S15 follow-up (8 October 2026):** Increased the shared database pool's connection window from two to 15 seconds after observing repeated connection timeouts while investigating a registration failure. The delayed-connection regression passes 1/1, registration tests pass 3/3, both builds pass, and synthetic registration succeeds against the current application schema with all writes rolled back. The running backend reloaded successfully. The user's own submission still needs a retry; no registration/schema contract or task checkbox changed. Details in `member_work_log.md`.
