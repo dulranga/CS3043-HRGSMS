@@ -1537,6 +1537,13 @@ Related: M4-S11
 
 ## Member 5 — Thusath
 
+### 11 October 2026 — M5-S18/S19 audit entity-filter repair
+
+- Changed `/api/admin/audit-logs` entity search from exact case-sensitive equality to trimmed, case-insensitive literal substring matching. Escaped LIKE metacharacters preserve underscores in entity names and prevent user text from acting as a wildcard. Added audit-ID ordering for stable pagination; existing action/user/date filters and authorization remain in force. No migration or shared application-data mutation.
+- Audit Log screen now cancels/ignores superseded fetches so an older request cannot replace current filter results, clears stale rows and displays a shadcn Alert on failure. Entity input is labelled and gives a partial-name example. Replaced the handbuilt action select with the existing shadcn NativeSelect and aligned choices with CREATE/UPDATE/etc. from Member 1's audit contract.
+- Verification: `npm run test:admin --workspace backend` passes its isolated full-chain production-app test, including partial/exact names, capitalization/whitespace, blank/reset, combined action filtering, literal `%`/`_`, SQL-looking input, empty results, filtered pagination and ordinary-role denial. Backend and final frontend production builds pass; frontend retains its existing bundle-size warning. Sandbox DNS/realpath restrictions required approved escalation for the database test/frontend build. Screen click-through remains the user's next check; M5-S18/S19 remain unchecked pending their wider acceptance.
+- Lecture concepts used: parameterized WHERE predicates, LIKE substring matching with escaped literals, and the existing LEFT JOIN retaining audit events even without a user display name. [Manual data, remaining gaps and proposed human Git handoff](docs/qa/2026-10-11-audit-entity-filter.md).
+
 ### 8 October 2026 — administration/reporting bug-fix audit
 
 - Repaired distinct current occupancy, normalized booking-branch lookup, signed FINAL billed revenue in Asia/Colombo issue months, independent guest payment aggregation and branch-filtered non-void service totals. Shared parameterized queries drive screens/CSV with matching filters, stable order and pagination. Invalid dates/status/IDs/ranges are rejected; export aliases preserve approved role/branch scope. CSV escapes formula text while retaining signed numeric cells.
