@@ -136,9 +136,15 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     `;
     const params: unknown[] = [];
 
-    if (entity_name) {
-      params.push(entity_name);
-      query += ` AND a.entity_name = $${params.length}`;
+    if (entity_name !== undefined && typeof entity_name !== 'string') {
+      res.status(400).json({ error: 'Entity filter must be a single text value.' });
+      return;
+    }
+    if (typeof entity_name === 'string' && entity_name.trim()) {
+      // Treat input as literal text, including underscores in table names.
+      const entity = entity_name.trim().replace(/[\\%_]/g, '\\$&');
+      params.push(`%${entity}%`);
+      query += ` AND a.entity_name ILIKE $${params.length}`;
     }
 
     if (action) {
@@ -165,7 +171,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 25));
     const offset = (pageNum - 1) * limitNum;
 
-    query += ' ORDER BY a.changed_at DESC';
+    query += ' ORDER BY a.changed_at DESC, a.audit_id DESC';
 
     params.push(limitNum);
     query += ` LIMIT $${params.length}`;

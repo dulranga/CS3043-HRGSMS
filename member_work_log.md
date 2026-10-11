@@ -4,6 +4,12 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 11 October 2026 — M1-S15 registration label cleanup
+
+- Imandi requested removing the parenthetical alternatives from the new guest registration screen. Existing shadcn labels now read Email and Phone. FR-017 contact validation and form behavior remain unchanged.
+- Verification: reread the rendered label source and FR-017; `npm run build:frontend` passes with the existing bundle-size warning. No new tests for this text-only edit. Manual check: refresh `/register` and confirm the two labels. No contract gaps introduced or task checkbox changes.
+- Proposed human commit: `fix(registration): simplify email and phone labels`. Proposed PR title: `Simplify registration contact labels`. Proposed PR description: `Remove the parenthetical alternatives from the Email and Phone labels on guest registration. Validation remains unchanged. Frontend production build passes.` No Git publication actions performed.
+
 ### 10 October 2026 — remove redundant booking sub-nav from staff booking pages
 
 - At the owner's request, removed the in-page sub-nav strip ("Room availability", "Create staff booking", "Staff booking records", "Room administration") that sat above `/dashboard/bookings/new` and the other staff booking/room-admin pages. It duplicated the sidebar and its buttons sat in a section unrelated to the page content.
@@ -1536,6 +1542,13 @@ Related: M4-S11
 - Verification: existing `staffNavigation.test.ts` and `m4InvoiceUi.test.ts` pass **6/6**; frontend production build passes with the existing bundle-size warning. No new tests mirroring this small link addition, migrations or billing changes. Manual click-through is the next user check; no additional task checkboxes changed. [Human Git handoff](docs/qa/2026-10-10-invoice-navigation.md).
 
 ## Member 5 — Thusath
+
+### 11 October 2026 — M5-S18/S19 audit entity-filter repair
+
+- Changed `/api/admin/audit-logs` entity search from exact case-sensitive equality to trimmed, case-insensitive literal substring matching. Escaped LIKE metacharacters preserve underscores in entity names and prevent user text from acting as a wildcard. Added audit-ID ordering for stable pagination; existing action/user/date filters and authorization remain in force. No migration or shared application-data mutation.
+- Audit Log screen now cancels/ignores superseded fetches so an older request cannot replace current filter results, clears stale rows and displays a shadcn Alert on failure. Entity input is labelled and gives a partial-name example. Replaced the handbuilt action select with the existing shadcn NativeSelect and aligned choices with CREATE/UPDATE/etc. from Member 1's audit contract.
+- Verification: `npm run test:admin --workspace backend` passes its isolated full-chain production-app test, including partial/exact names, capitalization/whitespace, blank/reset, combined action filtering, literal `%`/`_`, SQL-looking input, empty results, filtered pagination and ordinary-role denial. Backend and final frontend production builds pass; frontend retains its existing bundle-size warning. Sandbox DNS/realpath restrictions required approved escalation for the database test/frontend build. Screen click-through remains the user's next check; M5-S18/S19 remain unchecked pending their wider acceptance.
+- Lecture concepts used: parameterized WHERE predicates, LIKE substring matching with escaped literals, and the existing LEFT JOIN retaining audit events even without a user display name. [Manual data, remaining gaps and proposed human Git handoff](docs/qa/2026-10-11-audit-entity-filter.md).
 
 ### 8 October 2026 — administration/reporting bug-fix audit
 

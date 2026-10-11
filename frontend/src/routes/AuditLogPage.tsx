@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -31,42 +33,54 @@ interface AuditResponse {
   data: AuditRecord[];
 }
 
+// Controlled action names from the shared audit contract (backend/src/audit.ts).
+const AUDIT_ACTIONS = [
+  'CREATE', 'UPDATE', 'DELETE', 'DEACTIVATE', 'REACTIVATE', 'STATUS_CHANGE',
+  'VOID', 'REVERSE', 'PUBLISH', 'LOGIN', 'LOGOUT',
+];
+
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<AuditRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Filters
   const [selectedEntity, setSelectedEntity] = useState<string>("");
   const [selectedAction, setSelectedAction] = useState<string>("");
   const [diffRecord, setDiffRecord] = useState<AuditRecord | null>(null);
 
-  const fetchLogs = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url = new URL("/api/admin/audit-logs", window.location.origin);
-      url.searchParams.append("page", String(page));
-      url.searchParams.append("limit", "15");
-      if (selectedEntity) url.searchParams.append("entity_name", selectedEntity);
-      if (selectedAction) url.searchParams.append("action", selectedAction);
-
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error("Failed to load audit logs");
-      const result: AuditResponse = await res.json();
-
-      setLogs(result.data);
-      setHasMore(result.data.length === 15);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, selectedEntity, selectedAction]);
-
   useEffect(() => {
+    const controller = new AbortController();
+    const fetchLogs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const url = new URL("/api/admin/audit-logs", window.location.origin);
+        url.searchParams.append("page", String(page));
+        url.searchParams.append("limit", "15");
+        if (selectedEntity.trim()) url.searchParams.append("entity_name", selectedEntity.trim());
+        if (selectedAction) url.searchParams.append("action", selectedAction);
+
+        const res = await fetch(url.toString(), { signal: controller.signal });
+        if (!res.ok) throw new Error("Failed to load audit logs");
+        const result: AuditResponse = await res.json();
+        if (controller.signal.aborted) return;
+        setLogs(result.data);
+        setHasMore(result.data.length === 15);
+      } catch {
+        if (controller.signal.aborted) return;
+        setLogs([]);
+        setHasMore(false);
+        setError("Unable to load audit records. Try changing or resetting the filters.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
     fetchLogs();
-  }, [fetchLogs]);
+    return () => controller.abort();
+  }, [page, selectedEntity, selectedAction]);
 
   const getActionBadgeColor = (action: string) => {
     switch (action.toUpperCase()) {
@@ -106,7 +120,8 @@ export default function AuditLogPage() {
             <div className="flex flex-wrap items-center gap-3 bg-card p-4 rounded-xl border border-border">
               <div className="w-48">
                 <Input
-                  placeholder="Filter by entity..."
+                  aria-label="Filter by entity"
+                  placeholder="Entity name, e.g. system"
                   value={selectedEntity}
                   onChange={(e) => {
                     setSelectedEntity(e.target.value);
@@ -116,19 +131,22 @@ export default function AuditLogPage() {
                 />
               </div>
 
-              <select
-                value={selectedAction}
-                onChange={(e) => {
-                  setSelectedAction(e.target.value);
-                  setPage(1);
-                }}
-                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="">All Actions</option>
-                <option value="INSERT">INSERT</option>
-                <option value="UPDATE">UPDATE</option>
-                <option value="DELETE">DELETE</option>
-              </select>
+              <div className="w-40">
+                <NativeSelect
+                  aria-label="Filter by action"
+                  value={selectedAction}
+                  onChange={(e) => {
+                    setSelectedAction(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-9"
+                >
+                  <NativeSelectOption value="">All Actions</NativeSelectOption>
+                  {AUDIT_ACTIONS.map(action => (
+                    <NativeSelectOption key={action} value={action}>{action}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
 
               {(selectedEntity || selectedAction) && (
                 <Button
@@ -145,11 +163,15 @@ export default function AuditLogPage() {
               )}
             </div>
 
+            {error && (
+              <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
+            )}
+
             {/* Audit Log Table */}
             <section className="rounded-2xl border-2 border-border bg-card shadow-md p-4 md:p-6 overflow-x-auto">
               {loading ? (
                 <p className="text-sm text-muted-foreground py-4">Loading audit logs...</p>
-              ) : logs.length === 0 ? (
+              ) : error ? null : logs.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">No audit records found.</p>
               ) : (
                 <table className="w-full text-sm">
