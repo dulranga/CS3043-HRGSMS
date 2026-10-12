@@ -359,6 +359,33 @@ volume). The app forces `Secure` cookies when `NODE_ENV=production`;
 defaults sign in fine. To use plain HTTP from a non-localhost host or Safari, set
 `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false` in `.env`.
 
+### Deploy to Azure Container Apps
+
+`.github/workflows/docker-publish.yml` builds and pushes both images on every
+push to `dev`, then redeploys them to Azure Container Apps. Azure access uses
+GitHub's OIDC federation — GitHub mints a short-lived token, Azure exchanges it,
+and the federated identity holds an RBAC role assignment — so no long-lived
+Azure secret is stored.
+
+One-time Azure setup:
+
+1. Create the identity — an Azure AD **app registration** or a **user-assigned
+   managed identity** — and add a **federated credential** for this repository,
+   e.g. `repo:<owner>/<repo>:ref:refs/heads/dev` (add more for any other
+   refs/environments you deploy from).
+2. Grant that identity an **RBAC role** that can update Container Apps (e.g.
+   **Contributor** on the resource group).
+3. Set repository **secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+   `AZURE_SUBSCRIPTION_ID`.
+4. Set repository **variables**: `AZURE_RESOURCE_GROUP`,
+   `AZURE_CONTAINER_APP_BACKEND`, `AZURE_CONTAINER_APP_FRONTEND` (the container
+   app names).
+
+Per app, the job runs `az containerapp update --image <ghcr image>:<git-sha>`,
+which creates and activates a new revision — i.e. a redeploy. The container apps
+must be able to pull the GHCR images: make the packages public or configure
+registry credentials on each app.
+
 ## 🤝 Project Guidelines
 
 - **Component Rule:** Use only shadcn components from `frontend/src/components/ui/`

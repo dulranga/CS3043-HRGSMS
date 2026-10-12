@@ -3,7 +3,7 @@ name: Build and Push Docker Images
 on:
   push:
     branches:
-      - dev
+      - main
   workflow_dispatch:
 
 # Cancel superseded runs for the same ref.
@@ -79,3 +79,56 @@ jobs:
           # matrices never clobber each other).
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy-containers:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Required for the OIDC token that azure/login exchanges for an Azure
+      # access token (federated identity / workload identity federation).
+      id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: skynest-backend
+            container-app: ${{ vars.AZURE_CONTAINER_APP_BACKEND }}
+          - name: skynest-frontend
+            container-app: ${{ vars.AZURE_CONTAINER_APP_FRONTEND }}
+
+    steps:
+      - name: Azure login (OIDC federated identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Redeploy ${{ matrix.name }} container app
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          CONTAINER_APP: ${{ matrix.container-app }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CONTAINER_APP}" ] || [ -z "${RESOURCE_GROUP}" ]; then
+            echo "::error::Set the repository variables AZURE_RESOURCE_GROUP and AZURE_CONTAINER_APP_BACKEND / AZURE_CONTAINER_APP_FRONTEND before deploying."
+            exit 1
+          fi
+
+          # GitHub repo names may contain uppercase letters; the image path must
+          # be lowercase (matches the tag pushed by the build job).
+          image="ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.name }}:${GITHUB_SHA}"
+          echo "Deploying ${image} to container app ${CONTAINER_APP} (${RESOURCE_GROUP})"
+
+          # Updating the image creates (and, in single-revision mode, activates)
+          # a new revision — i.e. a redeploy.
+          az containerapp update \
+            --name "${CONTAINER_APP}" \
+            --resource-group "${RESOURCE_GROUP}" \
+            --image "${image}" \
+            --query "properties.latestRevisionName" \
+            --output tsv
