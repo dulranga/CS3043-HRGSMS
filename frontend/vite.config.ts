@@ -4,10 +4,22 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig(({ mode }) => {
-  // Load every env var (not just VITE_*) so the proxy target can be configured
-  // with VITE_BACKEND_URL without exposing anything to the client bundle.
+  // The frontend always calls same-origin `/api` (so the HTTP-only session
+  // cookie is sent); the dev and preview servers proxy those calls to the
+  // backend. Point them at a remote backend with VITE_BACKEND_URL — read from
+  // the process environment (containers) or a local .env file (see
+  // frontend/.env.example). Defaults to a local backend on port 4000.
   const env = loadEnv(mode, __dirname, '')
-  const backendUrl = env.VITE_BACKEND_URL?.trim() || 'http://localhost:4000'
+  const backendUrl =
+    (process.env.VITE_BACKEND_URL || env.VITE_BACKEND_URL || '').trim() ||
+    'http://localhost:4000'
+  const proxy = {
+    '/api': {
+      target: backendUrl,
+      changeOrigin: true,
+      secure: true,
+    },
+  }
 
   return {
     plugins: [react(), tailwindcss()],
@@ -16,17 +28,11 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
-    // Same-origin /api calls let the browser send the HTTP-only session cookie.
-    // The dev server proxies those calls to VITE_BACKEND_URL (a local backend by
-    // default, or a deployed one; see frontend/.env.example).
-    server: {
-      proxy: {
-        '/api': {
-          target: backendUrl,
-          changeOrigin: true,
-          secure: true,
-        },
-      },
+    server: { proxy },
+    preview: {
+      host: true,
+      port: 4173,
+      proxy,
     },
   }
 })

@@ -8,9 +8,9 @@
 # the `:latest` tags. Override BACKEND_IMAGE / FRONTEND_IMAGE in .env to pin a
 # tag or use a locally built image.
 #
-# Open http://localhost:8080 for the SPA; it reverse-proxies /api to the
-# backend so the session cookie stays on one origin. Postgres 18 is required
-# because every primary key defaults to the native uuidv7() function.
+# Open http://localhost:8080 for the SPA; the Vite preview server reverse-proxies
+# /api to the backend so the session cookie stays on one origin. Postgres 18 is
+# required because every primary key defaults to the native uuidv7() function.
 name: skynest-hrgsms
 
 # Reused by the backend image, the one-shot migration runner and the seeder so
@@ -88,13 +88,24 @@ services:
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/dulranga/cs3043-hrgsms/skynest-frontend:latest}
     restart: unless-stopped
+    environment:
+      # Backend the preview server proxies /api to (same-origin for the browser,
+      # so the session cookie stays on one origin). Override to target another
+      # backend, e.g. a hosted URL.
+      VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://backend:4000}
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-8080}:4173"
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4173/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 6

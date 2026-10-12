@@ -12,7 +12,7 @@ CS3043-HRGSMS/
 ├── docker-compose.yml  # Full local stack (db + migrations + backend + frontend)
 ├── .env.example        # Docker Compose configuration template
 ├── backend/Dockerfile  # Backend image (Express + TypeScript)
-├── frontend/Dockerfile # Frontend image (Vite build served by nginx)
+├── frontend/Dockerfile # Frontend image (Vite build served by Vite preview)
 ├── DESIGN.md           # Design system reference
 ├── LAYOUT.md           # Layout architecture reference
 ├── CONTEXT.md          # Project context and stack overview
@@ -318,9 +318,9 @@ cd backend && npm start
 
 Run the whole stack with Docker Compose. The application images are pulled from
 GitHub Container Registry (built by `.github/workflows/docker-publish.yml`); the
-frontend is the static Vite build served by nginx, which also reverse-proxies
-`/api` to the Express backend on the same origin, so the HTTP-only session cookie
-works without any cross-site setup.
+frontend is the static Vite build served by Vite's preview server, which also
+reverse-proxies `/api` to the Express backend on the same origin, so the HTTP-only
+session cookie works without any cross-site setup.
 
 ```bash
 cp .env.example .env        # then set SESSION_SECRET (openssl rand -hex 32)

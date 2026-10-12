@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 # ============================================
-# SkyNest HRGSMS frontend image (React + Vite, served by nginx)
+# SkyNest HRGSMS frontend image (React + Vite, served by Vite preview)
 # ============================================
-# The Vite build produces a static SPA (frontend/dist). nginx serves those files
-# and reverse-proxies /api to the backend container, so the browser talks to a
-# single origin and the HTTP-only session cookie is sent unchanged.
+# The Vite build produces a static SPA (frontend/dist). The preview server
+# serves those files and reverse-proxies /api to the backend, so the browser
+# talks to a single origin and the HTTP-only session cookie is sent unchanged.
 
 # ============================================
 # Stage 1: Build the Vite application
@@ -28,15 +28,20 @@ COPY frontend ./frontend
 RUN npm run build --workspace=frontend
 
 # ============================================
-# Stage 2: Serve the static build with nginx
+# Stage 2: Serve the static build with Vite preview
 # ============================================
-FROM nginx:1.27-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 
-# Single-origin static host + /api reverse proxy (SPA history fallback).
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
+ENV NODE_ENV=production
 
-COPY --from=build /app/frontend/dist /usr/share/nginx/html
+# Reuse the build stage's workspace node_modules (which include the `vite`
+# dev dependency the preview server needs) instead of installing again.
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/frontend ./frontend
 
-EXPOSE 80
+# Preview server port; VITE_BACKEND_URL selects the /api proxy target.
+EXPOSE 4173
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "run", "preview", "--workspace=frontend", "--", "--host", "0.0.0.0", "--port", "4173"]
