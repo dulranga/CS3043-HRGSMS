@@ -21,6 +21,25 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  // Vite rejects requests whose Host header it doesn't recognise (DNS-rebinding
+  // protection). Behind a platform ingress (Azure Container Apps, etc.) the Host
+  // is the public domain, so allow the deployed domain(s). Override with a
+  // comma-separated VITE_ALLOWED_HOSTS, or set it to "true"/"*" to allow any
+  // host. Localhost is always allowed.
+  const allowedHosts: string[] | true = (() => {
+    const raw = (
+      process.env.VITE_ALLOWED_HOSTS ||
+      env.VITE_ALLOWED_HOSTS ||
+      ''
+    ).trim()
+    if (!raw) return ['.azurecontainerapps.io']
+    if (raw === 'true' || raw === '*') return true
+    return raw
+      .split(',')
+      .map((host) => host.trim())
+      .filter(Boolean)
+  })()
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -28,11 +47,12 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
-    server: { proxy },
+    server: { proxy, allowedHosts },
     preview: {
       host: true,
       port: 4173,
       proxy,
+      allowedHosts,
     },
   }
 })
