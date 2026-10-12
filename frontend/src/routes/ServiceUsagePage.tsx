@@ -1,13 +1,10 @@
 import { useFeatureSessions } from '@/components/auth/useFeatureSessions';
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { AppShell } from "@/components/layout/AppShell";
+import { BookingFinder } from "@/components/bookings/BookingFinder";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ServiceUsagePanel } from "@/components/usage/ServiceUsagePanel";
 import { parseActiveStays } from "@/lib/activeStayViewModel";
 import {
@@ -49,7 +46,7 @@ const ACTIVE_STAY_PATH = (bookingRef: string) => `/stays/${encodeURIComponent(bo
 
 export default function ServiceUsagePage() {
   const role = useFeatureSessions().role;
-  const [bookingRef, setBookingRef] = useState<string>('');
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [loadedRef, setLoadedRef] = useState<string>('');
   const [records, setRecords] = useState<ServiceUsageRecord[]>([]);
   const [lines, setLines] = useState<UsageLineOption[]>([]);
@@ -157,20 +154,24 @@ export default function ServiceUsagePage() {
     }
   }, []);
 
-  const handleLoad = useCallback(() => {
-    const trimmed = bookingRef.trim();
-    if (!trimmed) {
-      setRecords([]);
-      setSupportFailures([]);
-      setLoadFailure({
-        status: 400,
-        code: 'INVALID_SERVICE_USAGE_INPUT',
-        message: 'Enter a booking reference or booking UUID.',
-      });
-      return;
-    }
-    void load(trimmed);
-  }, [bookingRef, load]);
+  const handleSelect = useCallback(
+    (identifier: string, label: string) => {
+      const trimmed = identifier.trim();
+      setSelectedLabel(label);
+      if (!trimmed) {
+        setRecords([]);
+        setSupportFailures([]);
+        setLoadFailure({
+          status: 400,
+          code: 'INVALID_SERVICE_USAGE_INPUT',
+          message: 'Select or enter a booking reference.',
+        });
+        return;
+      }
+      void load(trimmed);
+    },
+    [load],
+  );
 
   const handleSubmit = useCallback(async () => {
     const validation = validateUsageDraft(draft, lines);
@@ -312,10 +313,9 @@ export default function ServiceUsagePage() {
     setVoidErrors({});
     setVoidFailure(null);
     setVoidResult(null);
-  }, [bookingRef]);
+  }, [selectedLabel]);
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -332,20 +332,12 @@ export default function ServiceUsagePage() {
                 <CardTitle className="text-lg tracking-tight">Find a booking</CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-5 pt-0 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="usage-booking-ref">Booking reference or UUID</Label>
-                    <Input
-                      id="usage-booking-ref"
-                      value={bookingRef}
-                      placeholder="e.g. BK-2026-0001"
-                      onChange={(event) => setBookingRef(event.target.value)}
-                    />
-                  </div>
-                  <Button onClick={handleLoad} disabled={loading}>
-                    {loading ? 'Loading…' : 'Load service usage'}
-                  </Button>
-                </div>
+                <BookingFinder
+                  onSelect={handleSelect}
+                  selectedLabel={selectedLabel}
+                  busy={loading}
+                  searchLabel="Search bookings by reference or guest name"
+                />
                 <p className="text-xs text-muted-foreground tracking-tight">
                   Usage is scoped to your own branch, and only lines that are currently checked in can
                   take room attribution.
@@ -420,6 +412,5 @@ export default function ServiceUsagePage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

@@ -107,7 +107,11 @@ export async function fetchLineCancellationQuote(
         message: payload?.error?.message ?? 'Failed to get quote.',
       };
     }
-    return { ok: true, data: payload as RawCancellationQuote };
+    if (typeof payload?.quote?.is_eligible !== 'boolean' ||
+        !Number.isFinite(payload?.quote?.cancellation_fee)) {
+      return { ok: false, status: res.status, code: 'INVALID_RESPONSE', message: 'Invalid cancellation quote response. Reload and try again.' };
+    }
+    return { ok: true, data: payload.quote as RawCancellationQuote };
   } catch {
     return { ok: false, status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the service.' };
   }
@@ -131,7 +135,11 @@ export async function fetchWholeBookingCancellationQuote(
         message: payload?.error?.message ?? 'Failed to get quote.',
       };
     }
-    return { ok: true, data: payload as RawCancellationQuote };
+    if (typeof payload?.quote?.is_eligible !== 'boolean' ||
+        !Number.isFinite(payload?.quote?.cancellation_fee)) {
+      return { ok: false, status: res.status, code: 'INVALID_RESPONSE', message: 'Invalid cancellation quote response. Reload and try again.' };
+    }
+    return { ok: true, data: payload.quote as RawCancellationQuote };
   } catch {
     return { ok: false, status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the service.' };
   }
@@ -163,7 +171,11 @@ export async function postCancelLine(
         message: payload?.error?.message ?? 'Cancellation failed.',
       };
     }
-    return { ok: true, data: payload as RawCancelLineResult };
+    if (payload?.cancellation?.status !== 'CANCELLED' ||
+        !Number.isFinite(payload?.cancellation?.cancellation_fee)) {
+      return { ok: false, status: res.status, code: 'INVALID_RESPONSE', message: 'Cancellation response could not be read. Reload booking data before retrying.' };
+    }
+    return { ok: true, data: payload.cancellation as RawCancelLineResult };
   } catch {
     return { ok: false, status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the service.' };
   }
@@ -194,7 +206,11 @@ export async function postCancelWholeBooking(
         message: payload?.error?.message ?? 'Cancellation failed.',
       };
     }
-    return { ok: true, data: payload as RawCancelWholeBookingResult };
+    if (!Number.isInteger(payload?.cancellation?.cancelled_lines_count) ||
+        !Number.isFinite(payload?.cancellation?.total_cancellation_fees)) {
+      return { ok: false, status: res.status, code: 'INVALID_RESPONSE', message: 'Cancellation response could not be read. Reload booking data before retrying.' };
+    }
+    return { ok: true, data: payload.cancellation as RawCancelWholeBookingResult };
   } catch {
     return { ok: false, status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the service.' };
   }

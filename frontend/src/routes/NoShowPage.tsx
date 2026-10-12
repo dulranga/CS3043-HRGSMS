@@ -1,13 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { BookingFinder } from '@/components/bookings/BookingFinder';
+import { BillingFlowNav } from '@/components/billing/BillingFlowNav';
+import { NextStepCard } from '@/components/billing/NextStepCard';
 import { NoShowPanel } from '@/components/billing/NoShowPanel';
-import { AppShell } from '@/components/layout/AppShell';
 import { BoundedContainer } from '@/components/layout/BoundedContainer';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   BookingStaySummary,
   StayBookingGroup,
@@ -16,6 +15,8 @@ import {
   parseActiveStays,
   stayRequestPath,
 } from '@/lib/activeStayViewModel';
+import { useBillingBooking } from '@/lib/billingFlow';
+import { formatLkr } from '@/lib/money';
 import {
   describeNoShowError,
   postMarkBookingNoShow,
@@ -23,15 +24,18 @@ import {
 } from '@/lib/noShowViewModel';
 
 const API_BASE = '/api';
+const FLOW_PATH = '/dashboard/billing/no-show' as const;
 
 /**
  * M4-S17: Staff per-line no-show UI.
  *
- * Looks up a booking by UUID, lists eligible lines for no-show transition,
- * checks cutoff times, displays policy quotes, and confirms no-show actions.
+ * Looks up a booking (carried through the billing flow as URL state), lists
+ * eligible lines for no-show transition, checks cutoff times, displays policy
+ * quotes, and confirms no-show actions. After a no-show the page points at the
+ * updated invoice and payments instead of ending the journey.
  */
 export default function NoShowPage() {
-  const [bookingId, setBookingId] = useState('');
+  const { booking, label, select } = useBillingBooking(FLOW_PATH);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,10 +46,10 @@ export default function NoShowPage() {
   const [noShowErrorMsg, setNoShowErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    const trimmed = bookingId.trim();
+  const loadData = useCallback(async (identifier: string) => {
+    const trimmed = identifier.trim();
     if (!trimmed) {
-      setError('Enter a booking UUID.');
+      setError('Select or enter a booking.');
       setGroup(null);
       return;
     }
@@ -93,7 +97,18 @@ export default function NoShowPage() {
     } finally {
       setLoading(false);
     }
-  }, [bookingId]);
+  }, []);
+
+  useEffect(() => {
+    if (booking) void loadData(booking);
+  }, [booking, loadData]);
+
+  const handleSelect = useCallback(
+    (identifier: string, nextLabel: string) => {
+      select(identifier, nextLabel);
+    },
+    [select],
+  );
 
   const handleMarkLineNoShow = useCallback(
     async (lineId: string, reason: string) => {
@@ -112,9 +127,9 @@ export default function NoShowPage() {
         return;
       }
 
-      setSuccessMsg(`Room line marked as no-show successfully. Fee applied: LKR ${result.data.no_show_fee}`);
+      setSuccessMsg(`Room line marked as no-show. Fee applied: ${formatLkr(result.data.no_show_fee)}`);
       setProcessingId(null);
-      await loadData();
+      await loadData(group.bookingId);
     },
     [group, loadData],
   );
@@ -136,15 +151,16 @@ export default function NoShowPage() {
         return;
       }
 
-      setSuccessMsg(`Whole booking marked as no-show successfully. Total fees: LKR ${result.data.total_no_show_fees}`);
+      setSuccessMsg(
+        `Whole booking marked as no-show. Total fees: ${formatLkr(result.data.total_no_show_fees)}`,
+      );
       setProcessingId(null);
-      await loadData();
+      await loadData(group.bookingId);
     },
     [group, loadData],
   );
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -157,35 +173,39 @@ export default function NoShowPage() {
               </p>
             </header>
 
+            <BillingFlowNav current={FLOW_PATH} booking={booking} label={label} />
+
             <Card className="shadow-md" id="no-show-lookup-card">
               <CardHeader className="p-4 md:p-5">
                 <CardTitle className="text-lg tracking-tight">Find booking</CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-5 pt-0 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="no-show-booking-id">Booking UUID</Label>
-                    <Input
-                      id="no-show-booking-id"
-                      value={bookingId}
-                      placeholder="e.g. 01930000-0000-0000-0000-000000000001"
-                      onChange={(e) => setBookingId(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') loadData();
-                      }}
-                    />
-                  </div>
-                  <Button onClick={loadData} disabled={loading}>
-                    {loading ? 'Loading…' : 'Load booking data'}
-                  </Button>
-                </div>
+                <BookingFinder
+                  onSelect={handleSelect}
+                  selectedLabel={label ?? null}
+                  busy={loading}
+                  searchLabel="Search bookings by reference or guest name"
+                  allowReference={false}
+                />
               </CardContent>
             </Card>
 
             {successMsg && (
-              <div className="flex items-center gap-2 text-sm bg-secondary text-foreground p-3 rounded-lg border border-border shadow-sm">
-                <span className="font-semibold text-primary">Success:</span> {successMsg}
-              </div>
+              <NextStepCard
+                tone="success"
+                title="No-show recorded"
+                description={
+                  <>
+                    {successMsg} The updated invoice and any outstanding balance are ready to review.
+                  </>
+                }
+                actions={[
+                  { label: 'View updated invoice', to: '/dashboard/billing/invoice' },
+                  { label: 'View payments', to: '/dashboard/billing/payments', variant: 'outline' },
+                ]}
+                booking={booking}
+                label={label}
+              />
             )}
 
             {error && (
@@ -208,6 +228,5 @@ export default function NoShowPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }

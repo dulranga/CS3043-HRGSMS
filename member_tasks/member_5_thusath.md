@@ -42,3 +42,7 @@ Handoff: Member 5 supplies report reconciliation evidence and export parity with
 ## Completion notes
 
 When checking a row, add a brief evidence note here and the detailed entry under Member 5 in `member_work_log.md`. No subtasks are marked complete by this plan.
+
+### 11 October 2026 — M5-S18/S19 audit entity-filter repair
+
+Imandi's manual test exposed exact, case-sensitive entity matching and competing in-flight UI requests. Entity search now uses trimmed, case-insensitive literal substring matching on the server; stale UI requests are aborted/ignored, failed reads show feedback, and action choices match the shared audit contract. The existing isolated production-app administration test passes with added filter, pagination, literal-wildcard and authorization cases; both production builds pass. This scoped fix does not complete all M5-S18/S19 acceptance. Manual screen confirmation remains pending. See [QA and human Git handoff](../docs/qa/2026-10-11-audit-entity-filter.md).

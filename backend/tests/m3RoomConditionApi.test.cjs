@@ -210,6 +210,70 @@ test('M3-S18 API changes condition for own-branch staff and refuses everyone els
   });
 });
 
+test('M3 room-history repair preserves legacy events and restores atomic condition writes', async () => {
+  await withChain(async ({ client, fixture, schema }) => {
+    const { patchRoomCondition } = await import('../src/controllers/roomConditionController.ts');
+    const request = (condition, reason) => requestFor(fixture.branchManagerId, fixture.freeRoomId, { condition, reason });
+    for (const condition of ['CLEANING', 'READY']) {
+      const result = response();
+      await patchRoomCondition(request(condition, 'Existing event'), result);
+      assert.equal(result.statusCode, 200);
+    }
+    // Reproduce the installed pre-baseline table, including populated history.
+    await client.query(`
+      CREATE TYPE room_condition AS ENUM ('READY', 'CLEANING', 'OUT_OF_SERVICE');
+      ALTER TABLE room_status_history DROP CONSTRAINT room_status_history_change_check;
+      ALTER TABLE room_status_history
+        ALTER COLUMN old_status TYPE room_condition USING old_status::text::room_condition,
+        ALTER COLUMN new_status TYPE room_condition USING new_status::text::room_condition;
+      ALTER TABLE room_status_history DROP COLUMN reason;
+      ALTER TABLE room_status_history ALTER COLUMN old_status SET NOT NULL;
+      ALTER TABLE room_status_history ADD CONSTRAINT room_status_history_change_check
+        CHECK (old_status <> new_status);
+    `);
+    const historySql = `SELECT room_history_id, room_id, old_status::text, new_status::text,
+      changed_by, changed_at FROM room_status_history ORDER BY room_history_id`;
+    const before = (await client.query(historySql)).rows;
+    const failed = response();
+    await patchRoomCondition(request('CLEANING', 'QA cleaning test'), failed);
+    assert.equal(failed.statusCode, 500);
+    assert.match(failed.body.error.message, /reason/);
+    assert.equal((await client.query('SELECT operational_status FROM room WHERE room_id = $1', [fixture.freeRoomId])).rows[0].operational_status, 'READY');
+    assert.deepEqual((await client.query(historySql)).rows, before, 'failed change must roll back room and history together');
+
+    const repair = fs.readFileSync(path.join(sourceDir, 'm3_007_reconcile_room_history_condition.sql'), 'utf8');
+    await client.query(repair);
+    assert.deepEqual((await client.query(historySql)).rows, before, 'repair preserves every original event field');
+    const columns = (await client.query(`SELECT column_name, udt_name, is_nullable FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = 'room_status_history'`, [schema])).rows;
+    assert.equal(columns.find((row) => row.column_name === 'old_status').udt_name, 'room_condition_enum');
+    assert.equal(columns.find((row) => row.column_name === 'new_status').udt_name, 'room_condition_enum');
+    assert.equal(columns.find((row) => row.column_name === 'old_status').is_nullable, 'YES');
+    assert.ok(columns.some((row) => row.column_name === 'reason'));
+
+    const changed = response();
+    await patchRoomCondition(request('CLEANING', 'QA cleaning test'), changed);
+    assert.equal(changed.statusCode, 200);
+    assert.equal(changed.body.condition, 'CLEANING');
+    const event = (await client.query('SELECT reason, changed_by FROM room_status_history WHERE room_history_id = $1', [changed.body.history_id])).rows[0];
+    assert.deepEqual(event, { reason: 'QA cleaning test', changed_by: fixture.branchManagerId });
+    const repeated = response();
+    await patchRoomCondition(request('CLEANING', 'No-op'), repeated);
+    assert.equal(repeated.statusCode, 200);
+    assert.equal(repeated.body.changed, false);
+    assert.equal((await client.query('SELECT count(*)::int AS count FROM room_status_history')).rows[0].count, 3);
+    for (const sql of ['UPDATE room_status_history SET reason = reason', 'DELETE FROM room_status_history']) {
+      await assert.rejects(client.query(sql), (error) => error.code === '42501');
+    }
+    const conflict = response();
+    await patchRoomCondition(requestFor(fixture.branchManagerId, fixture.busyRoomId, { condition: 'OUT_OF_SERVICE', reason: 'Blocked outage' }), conflict);
+    assert.equal(conflict.statusCode, 409);
+    const repairedHistory = (await client.query('SELECT * FROM room_status_history ORDER BY room_history_id')).rows;
+    await client.query(repair);
+    assert.deepEqual((await client.query('SELECT * FROM room_status_history ORDER BY room_history_id')).rows, repairedHistory, 're-running repair is harmless');
+  });
+});
+
 test('M3-S18 route factory keeps injected session authorization in front of the controller', async () => {
   await withChain(async ({ fixture }) => {
     const { createRoomConditionRouter } = await import('../src/routes/roomConditionRoutes.ts');

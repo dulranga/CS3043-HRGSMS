@@ -318,8 +318,7 @@ export async function getCancellationQuote(
       JOIN billing_policy bp ON bp.billing_policy_id = inv.billing_policy_id
      WHERE l.booking_id = $1
        AND ($2::uuid IS NULL OR l.line_id = $2::uuid)
-     ORDER BY l.line_id
-     LIMIT 1;
+     ORDER BY l.line_id;
   `;
 
   const res = await db.query<{
@@ -343,53 +342,38 @@ export async function getCancellationQuote(
     };
   }
 
-  const row = res.rows[0];
-  const fee = Number(row.cancellation_fee);
-  const cutoff = new Date(row.cutoff_deadline).getTime();
-  const now = new Date(row.now_time).getTime();
-
-  if (row.invoice_status === 'FINAL') {
-    return {
-      booking_id: bookingId,
-      line_id: row.line_id,
-      is_eligible: false,
-      stay_start_date: row.stay_start_date,
-      cutoff_deadline: row.cutoff_deadline,
-      cancellation_fee: fee,
-      rejection_reason: 'Invoice is already FINAL',
-    };
-  }
-
-  if (row.status !== 'BOOKED') {
-    return {
-      booking_id: bookingId,
-      line_id: row.line_id,
-      is_eligible: false,
-      stay_start_date: row.stay_start_date,
-      cutoff_deadline: row.cutoff_deadline,
-      cancellation_fee: fee,
-      rejection_reason: `Line is in ${row.status} status; only BOOKED lines may be cancelled`,
-    };
-  }
-
-  if (now >= cutoff) {
-    return {
-      booking_id: bookingId,
-      line_id: row.line_id,
-      is_eligible: false,
-      stay_start_date: row.stay_start_date,
-      cutoff_deadline: row.cutoff_deadline,
-      cancellation_fee: fee,
-      rejection_reason: 'Cancellation deadline (no-show cutoff) has passed',
-    };
+  // Whole-booking cancellation must inspect every line, just like the write
+  // transaction. Sum integer cents to preserve the two-decimal policy amounts.
+  const fee = res.rows.reduce((sum, row) => sum + Math.round(Number(row.cancellation_fee) * 100), 0) / 100;
+  const earliest = res.rows.reduce((first, row) =>
+    new Date(row.cutoff_deadline).getTime() < new Date(first.cutoff_deadline).getTime() ? row : first);
+  for (const row of res.rows) {
+    const rejection = row.invoice_status === 'FINAL'
+      ? 'Invoice is already FINAL'
+      : row.status !== 'BOOKED'
+      ? `Line is in ${row.status} status; only BOOKED lines may be cancelled`
+      : new Date(row.now_time).getTime() >= new Date(row.cutoff_deadline).getTime()
+      ? 'Cancellation deadline (no-show cutoff) has passed'
+      : undefined;
+    if (rejection) {
+      return {
+        booking_id: bookingId,
+        line_id: lineId,
+        is_eligible: false,
+        stay_start_date: row.stay_start_date,
+        cutoff_deadline: row.cutoff_deadline,
+        cancellation_fee: fee,
+        rejection_reason: lineId ? rejection : `Whole-booking cancellation denied: ${rejection} (room line ${row.line_id}).`,
+      };
+    }
   }
 
   return {
     booking_id: bookingId,
-    line_id: row.line_id,
+    line_id: lineId,
     is_eligible: true,
-    stay_start_date: row.stay_start_date,
-    cutoff_deadline: row.cutoff_deadline,
+    stay_start_date: earliest.stay_start_date,
+    cutoff_deadline: earliest.cutoff_deadline,
     cancellation_fee: fee,
   };
 }

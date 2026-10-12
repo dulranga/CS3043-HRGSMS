@@ -1,0 +1,24 @@
+# Build context is the repository root for both images (npm workspace with a
+# single root lockfile). Keep the context small and never ship local secrets.
+.git
+.gitignore
+.dockerignore
+
+**/node_modules
+**/dist
+**/build
+
+# Local environment files (secrets / host database URL). Examples stay.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Documentation and agent-only folders are not needed to build either image.
+docs
+member_tasks
+.agents
+.scratch
+
+.DS_Store
+*.log
+npm-debug.log*

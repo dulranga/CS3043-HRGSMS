@@ -50,3 +50,15 @@ test('empty results, loading, conflict and field validation states provide recov
   assert.match(markup, /aria-invalid="true"/); assert.match(markup, /aria-describedby=/);
   assert.match(markup, /Enter 1–32767 guests/);
 });
+
+test('date-first staff variant includes the room-type filter and reveals rooms above the selection', () => {
+  const dateFirst = (patch: Partial<AvailabilityState> = {}) => renderToStaticMarkup(
+    <AvailabilityPanel state={{ ...initialAvailabilityState(), options, draft, ...patch }} actions={actions} variant="date-first" showHeader={false} />);
+  const form = dateFirst();
+  for (const label of ['Stay dates', 'Arrival date', 'Departure date', 'Guests for this room', 'Room type filter', 'Any type', 'Show available rooms', ...options.roomTypes.map(type => type.name)]) assert.ok(form.includes(label), label);
+  // The staff branch remains fixed; results and selection appear after searching.
+  for (const hidden of ['Search one room line', 'SkyNest branch', 'immediate check-in', 'Your room selection', 'Available rooms']) assert.ok(!form.includes(hidden), hidden);
+  const searched = dateFirst({ results: { search, rooms: [single] }, selected: [{ selectionId: 'a', room: single, search, check: 'available' as const, issue: null }] });
+  assert.ok(searched.includes('Room 101') && searched.includes('Add to selection'));
+  assert.ok(searched.indexOf('Available rooms') < searched.indexOf('Your room selection'));
+});

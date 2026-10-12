@@ -9,7 +9,7 @@ const actions = { async loadList() {}, async open() {}, back() {}, async next() 
 test('booking list shows each multi-room reference once and clearly derives mixed line progress', () => {
   const markup = renderToStaticMarkup(<StaffBookingReadPanel state={{ ...initialStaffBookingReadState(), page: page() }} actions={actions} />);
   assert.equal((markup.match(/<h3[^>]*>SN-SAMPLE-MULTI<\/h3>/g) ?? []).length, 1);
-  for (const text of ['Mixed line states', '2 room lines', '1 BOOKED', '1 CHECKED_IN', 'View all room lines', 'page size 20', 'Asia/Colombo']) assert.ok(markup.includes(text), text);
+  for (const text of ['Mixed', '2 rooms', '1 Booked', '1 Checked in', 'Cancelled', 'Front desk', 'View all room lines', 'page size 20', 'Asia/Colombo']) assert.ok(markup.includes(text), text);
   assert.match(markup, /grid-cols-1/); assert.match(markup, /lg:grid-cols-3/);
 });
 test('detail renders every line plus old/current assignments, occupancy and rate/date revision evidence', () => {
@@ -17,7 +17,7 @@ test('detail renders every line plus old/current assignments, occupancy and rate
   for (const text of ['Room 101', 'Room 103', 'Room 102', 'Closed assignment', 'Current assignment', 'Actual occupancy began', 'Actual occupancy ended', 'LKR 10,000.50', 'LKR 11,000.00', 'LKR 18,000.00', 'Before:', 'After:', 'Guest arrived', 'Guest extended reserved stay', 'physical condition READY', 'physical condition CLEANING', 'Currently occupied', 'Assigned; not currently checked in']) assert.ok(markup.includes(text), text);
   assert.doesNotMatch(markup, /Cancel booking|Confirm booking|<input|NIC/);
   const terminal = renderToStaticMarkup(<StaffBookingDetailPanel booking={terminalDetail} />);
-  assert.match(terminal, /CANCELLED/); assert.match(terminal, /No open room assignment/); assert.match(terminal, /Room 102/);
+  assert.match(terminal, /Cancelled/); assert.match(terminal, /No open room assignment/); assert.match(terminal, /Room 102/);
 });
 test('loading, empty, denied and failed reads have accessible messages and recovery controls without stale detail', () => {
   const render = (patch: object) => renderToStaticMarkup(<StaffBookingReadPanel state={{ ...initialStaffBookingReadState(), ...patch }} actions={actions} />);

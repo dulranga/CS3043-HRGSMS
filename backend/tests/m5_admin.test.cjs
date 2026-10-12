@@ -50,7 +50,12 @@ test('production app mounts feature routes and audits administration with sessio
     assert.equal((await request('frontdesk','/api/services')).status,200);
     assert.equal((await request('frontdesk','/api/stays/missing')).status,404);
     assert.equal((await request('frontdesk','/api/bookings/missing/lines/invalid/checkin','POST',{})).status,400);
+    for (const path of ['/api/bookings/missing/cancel', '/api/bookings/missing/no-show']) {
+      assert.equal((await request('service',path,'POST',{})).status,403,path);
+    }
     assert.equal((await request('service','/api/rooms/invalid/condition','PATCH',{})).status,400);
+    assert.equal((await request('chain','/api/rooms/invalid/condition','PATCH',{})).status,403);
+    assert.equal((await request('chain','/api/services')).status,200);
     const created = await request('admin','/api/admin/branches','POST',{name:'QA, Branch',city:'QA City'});
     assert.equal(created.status,201,created.content);
     const branchId = created.json.data.branchId;
@@ -67,6 +72,32 @@ test('production app mounts feature routes and audits administration with sessio
     const config = await request('admin','/api/admin/configs/session_idle_timeout_minutes','PUT',{config_value:'40'});
     assert.equal(config.status,200,config.content);
     assert.equal(config.json.updated_by,actors.admin);
+    const audit = await request('admin','/api/admin/audit-logs?entity_name=%20SyStEm%20');
+    assert.equal(audit.status,200,audit.content);
+    assert.ok(audit.json.data.length > 0,'partial entity name finds saved configuration audit');
+    assert.ok(audit.json.data.every(row => row.entity_name.toLowerCase().includes('system')));
+    const exactAudit = await request('admin','/api/admin/audit-logs?entity_name=system_config');
+    assert.deepEqual(exactAudit.json.data.map(row => row.audit_id),audit.json.data.map(row => row.audit_id));
+    const allAudit = await request('admin','/api/admin/audit-logs?limit=100');
+    const blankAudit = await request('admin','/api/admin/audit-logs?entity_name=%20%20&limit=100');
+    assert.deepEqual(blankAudit.json.data,allAudit.json.data,'clearing the entity filter restores unfiltered records');
+    const accountLogins = await request('auditor','/api/admin/audit-logs?entity_name=ACCOUNT&action=LOGIN');
+    assert.equal(accountLogins.status,200);
+    assert.ok(accountLogins.json.data.length > 0);
+    assert.ok(accountLogins.json.data.every(row => row.entity_name.includes('account') && row.action === 'LOGIN'));
+    for (const text of ['no-such-entity', '%', "' OR TRUE --", 'user_account%']) {
+      const missingAudit = await request('admin',`/api/admin/audit-logs?entity_name=${encodeURIComponent(text)}`);
+      assert.equal(missingAudit.status,200);
+      assert.deepEqual(missingAudit.json.data,[],'input is literal text, not SQL or wildcard syntax');
+    }
+    const underscoreAudit = await request('admin','/api/admin/audit-logs?entity_name=_&limit=100');
+    assert.deepEqual(underscoreAudit.json.data,allAudit.json.data.filter(row => row.entity_name.includes('_')));
+    const firstPage = await request('admin','/api/admin/audit-logs?entity_name=account&limit=2&page=1');
+    const secondPage = await request('admin','/api/admin/audit-logs?entity_name=account&limit=2&page=2');
+    const accountRows = await request('admin','/api/admin/audit-logs?entity_name=account&limit=100');
+    assert.deepEqual([...firstPage.json.data,...secondPage.json.data],accountRows.json.data.slice(0,4));
+    assert.equal((await request('admin','/api/admin/audit-logs?entity_name=a&entity_name=b')).status,400);
+    assert.equal((await request('frontdesk','/api/admin/audit-logs?entity_name=system')).status,403);
     assert.equal((await request('admin','/api/admin/configs/session_idle_timeout_minutes','PUT',{config_value:'45',updated_by:actors.chain})).status,400);
     assert.equal((await request('admin','/api/admin/configs/tax_rate','PUT',{config_value:'9'})).status,400);
     assert.equal((await request('auditor',`/api/admin/users/${actors.frontdesk}/status`,'PATCH',{active:false})).status,403);

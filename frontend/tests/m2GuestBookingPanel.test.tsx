@@ -37,6 +37,6 @@ test('production screen gates unverified or staff identity and uses a guest acco
 });
 test('direct reservation navigation contains only guest-facing destinations', () => {
   const markup = renderToStaticMarkup(<GuestReservationNavigation />);
-  assert.match(markup, /SkyNest home/); assert.match(markup, /Browse rooms/); assert.match(markup, /Book directly/);
+  assert.match(markup, />Home</); assert.match(markup, /Browse rooms/); assert.match(markup, /Book directly/);
   assert.doesNotMatch(markup, /check-in|admin\/|Staff booking|Service Usage|Reports|Payments/);
 });

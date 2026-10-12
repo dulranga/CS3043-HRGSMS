@@ -1,12 +1,11 @@
 import * as React from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import {
   Check,
   CircleAlert,
   Hotel,
   Info,
   LoaderCircle,
-  LogOut,
   Pencil,
   ShieldAlert,
   X,
@@ -34,6 +33,7 @@ import {
   type GuestAccountUpdateInput,
 } from "@/lib/guestAccount";
 import { GuestReservations } from "@/components/account/GuestReservations";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { cn } from "@/lib/utils";
 
 // M1-S17 online guest own-profile UI. Guest-only and free of staff search or
@@ -61,8 +61,7 @@ function normalizeServerFields(fields: Record<string, string> | undefined): Fiel
 }
 
 export default function AccountPage() {
-  const { status, user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { status, user } = useAuth();
   const isGuest = user?.kind === "GUEST" && Boolean(user.guestId);
 
   const [profile, setProfile] = React.useState<GuestAccountProfile | null>(null);
@@ -212,32 +211,6 @@ export default function AccountPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleSignOut() {
-    await signOut();
-    await navigate({ to: "/" });
-  }
-
-  function GuestTopBar() {
-    return (
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
-          <Link to="/" className="flex items-center gap-2.5">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-              <Hotel className="size-5" aria-hidden="true" />
-            </span>
-            <span className="font-display text-xl font-semibold tracking-tight">SkyNest</span>
-          </Link>
-          {isGuest && (
-            <Button variant="outline" size="sm" onClick={() => void handleSignOut()}>
-              <LogOut aria-hidden="true" />
-              Sign out
-            </Button>
-          )}
-        </div>
-      </header>
-    );
   }
 
   function StateCard({
@@ -605,7 +578,7 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground antialiased">
-      <GuestTopBar />
+      <PublicHeader activePath="/account" />
       <main className="mx-auto flex max-w-7xl justify-center px-4 py-8 md:px-6 md:py-12">{renderContent()}</main>
     </div>
   );

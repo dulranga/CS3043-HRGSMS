@@ -9,6 +9,10 @@ CS3043-HRGSMS/
 ├── frontend/           # React + Vite frontend application
 ├── backend/            # Express.js backend API
 ├── package.json        # Root workspace configuration
+├── docker-compose.yml  # Full local stack (db + migrations + backend + frontend)
+├── .env.example        # Docker Compose configuration template
+├── backend/Dockerfile  # Backend image (Express + TypeScript)
+├── frontend/Dockerfile # Frontend image (Vite build served by Vite preview)
 ├── DESIGN.md           # Design system reference
 ├── LAYOUT.md           # Layout architecture reference
 ├── CONTEXT.md          # Project context and stack overview
@@ -309,6 +313,78 @@ Then run with:
 ```bash
 cd backend && npm start
 ```
+
+## 🐳 Docker (frontend + backend + PostgreSQL)
+
+Run the whole stack with Docker Compose. The application images are pulled from
+GitHub Container Registry (built by `.github/workflows/docker-publish.yml`); the
+frontend is the static Vite build served by Vite's preview server, which also
+reverse-proxies `/api` to the Express backend on the same origin, so the HTTP-only
+session cookie works without any cross-site setup.
+
+```bash
+cp .env.example .env        # then set SESSION_SECRET (openssl rand -hex 32)
+docker compose pull         # optional: refresh the :latest app images
+docker compose up           # db -> one-shot migrations -> backend -> frontend
+```
+
+- Open the app at **http://localhost:8080** (override with `FRONTEND_PORT`).
+- The backend is also published on `http://localhost:4000` (`BACKEND_PORT`).
+- PostgreSQL 18 is required (its native `uuidv7()` is the default for every
+  primary key); data lives in the `db-data` volume and is published on
+  `POSTGRES_PORT`.
+
+Images and layout:
+
+- `docker-compose.yml` — pulls
+  `ghcr.io/dulranga/cs3043-hrgsms/skynest-backend:latest` and
+  `ghcr.io/dulranga/cs3043-hrgsms/skynest-frontend:latest` (multi-arch:
+  `linux/amd64` + `linux/arm64`; override `BACKEND_IMAGE` / `FRONTEND_IMAGE` in
+  `.env` to pin a tag or use a local build), plus `db` (healthchecked), `migrate`
+  (one-shot, idempotent SQL runner invoked as `backend/dist/migrations/cli.js`)
+  and an optional `seed` profile.
+- `backend/Dockerfile` and `frontend/Dockerfile` build those images (in CI, or
+  locally with `docker build -f backend/Dockerfile .`).
+
+Load the idempotent demonstration dataset into the running stack:
+
+```bash
+docker compose --profile seed run --rm seed
+# then sign in with demo.frontdesk / SkyNest#2026 (see the seeding notes above)
+```
+
+Stop the stack with `docker compose down` (add `-v` to also delete the database
+volume). The app forces `Secure` cookies when `NODE_ENV=production`;
+`http://localhost` is treated as a secure context by Chrome/Firefox/Edge, so the
+defaults sign in fine. To use plain HTTP from a non-localhost host or Safari, set
+`NODE_ENV=development` and `SESSION_COOKIE_SECURE=false` in `.env`.
+
+### Deploy to Azure Container Apps
+
+`.github/workflows/docker-publish.yml` builds and pushes both images on every
+push to `dev`, then redeploys them to Azure Container Apps. Azure access uses
+GitHub's OIDC federation — GitHub mints a short-lived token, Azure exchanges it,
+and the federated identity holds an RBAC role assignment — so no long-lived
+Azure secret is stored.
+
+One-time Azure setup:
+
+1. Create the identity — an Azure AD **app registration** or a **user-assigned
+   managed identity** — and add a **federated credential** for this repository,
+   e.g. `repo:<owner>/<repo>:ref:refs/heads/dev` (add more for any other
+   refs/environments you deploy from).
+2. Grant that identity an **RBAC role** that can update Container Apps (e.g.
+   **Contributor** on the resource group).
+3. Set repository **secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+   `AZURE_SUBSCRIPTION_ID`.
+4. Set repository **variables**: `AZURE_RESOURCE_GROUP`,
+   `AZURE_CONTAINER_APP_BACKEND`, `AZURE_CONTAINER_APP_FRONTEND` (the container
+   app names).
+
+Per app, the job runs `az containerapp update --image <ghcr image>:<git-sha>`,
+which creates and activates a new revision — i.e. a redeploy. The container apps
+must be able to pull the GHCR images: make the packages public or configure
+registry credentials on each app.
 
 ## 🤝 Project Guidelines
 

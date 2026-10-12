@@ -1,18 +1,15 @@
 import { useCallback, useState } from "react";
 
+import { BookingFinder } from "@/components/bookings/BookingFinder";
 import {
   ActiveStayBranchDenial,
   ActiveStayEmptyState,
   ActiveStayLoadFailure,
   ActiveStayPanel,
 } from "@/components/stay/ActiveStayPanel";
-import { AppShell } from "@/components/layout/AppShell";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   BookingStaySummary,
   StayBookingGroup,
@@ -30,7 +27,7 @@ const API_BASE = "/api";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ActiveStayPage() {
-  const [bookingRef, setBookingRef] = useState<string>("");
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [booking, setBooking] = useState<BookingStaySummary | null>(null);
   const [groups, setGroups] = useState<StayBookingGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -44,10 +41,10 @@ export default function ActiveStayPage() {
     setDenied(null);
   }, []);
 
-  const loadStay = useCallback(async () => {
-    const trimmed = bookingRef.trim();
+  const loadStay = useCallback(async (identifier: string) => {
+    const trimmed = identifier.trim();
     if (!trimmed) {
-      setError("Enter a booking reference or booking UUID.");
+      setError("Select or enter a booking reference.");
       reset();
       return;
     }
@@ -112,12 +109,19 @@ export default function ActiveStayPage() {
     } finally {
       setLoading(false);
     }
-  }, [bookingRef, reset]);
+  }, [reset]);
+
+  const handleSelect = useCallback(
+    (identifier: string, label: string) => {
+      setSelectedLabel(label);
+      void loadStay(identifier);
+    },
+    [loadStay],
+  );
 
   const totals = summarizeStay(groups);
 
   return (
-    <AppShell>
       <PageContainer>
         <BoundedContainer>
           <div className="space-y-6">
@@ -134,23 +138,15 @@ export default function ActiveStayPage() {
                 <CardTitle className="text-lg tracking-tight">Find a stay</CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-5 pt-0 space-y-3">
-                <div className="flex flex-col md:flex-row md:items-end gap-3">
-                  <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="stay-booking-ref">Booking reference or UUID</Label>
-                    <Input
-                      id="stay-booking-ref"
-                      value={bookingRef}
-                      placeholder="e.g. BK-2026-0001"
-                      onChange={(event) => setBookingRef(event.target.value)}
-                    />
-                  </div>
-                  <Button onClick={loadStay} disabled={loading}>
-                    {loading ? "Loading…" : "Load active stay"}
-                  </Button>
-                </div>
+                <BookingFinder
+                  onSelect={handleSelect}
+                  selectedLabel={selectedLabel}
+                  busy={loading}
+                  searchLabel="Search bookings by reference or guest name"
+                />
                 <p className="text-xs text-muted-foreground tracking-tight">
-                  A booking UUID also loads every remaining line, so rooms still awaiting check-in appear
-                  alongside occupied rooms.
+                  Choosing a booking also loads every remaining line, so rooms still awaiting check-in
+                  appear alongside occupied rooms.
                 </p>
               </CardContent>
             </Card>
@@ -176,6 +172,5 @@ export default function ActiveStayPage() {
           </div>
         </BoundedContainer>
       </PageContainer>
-    </AppShell>
   );
 }
