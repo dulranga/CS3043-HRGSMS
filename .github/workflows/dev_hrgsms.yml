@@ -1,0 +1,62 @@
+# Repaired workflow from d6399de (the run supplied by Imandi).
+name: Build and deploy SkyNest to Azure Web App - hrgsms
+
+on:
+  push:
+    # Temporary test deployment. Restore main when reviews/merges resume.
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: azure-webapp-hrgsms
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/ci.yml
+    with:
+      package-web: true
+
+  deploy:
+    needs: build
+    # A manual run must select dev too; never deploy another branch accidentally.
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download validated deployment ZIP
+        uses: actions/download-artifact@v7
+        with:
+          name: node-app
+      - name: Login to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_06738518A9A04C36B1E4DCC526B4088D }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B237E82A1D614C439FBBBCB7805C2C70 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B8BB40E9C3FF42FA9E9487846F0F3131 }}
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: hrgsms
+          slot-name: Production
+          package: webapp.zip
+          startup-command: npm start
+      - name: Smoke test the deployed frontend and API
+        env:
+          APP_URL: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 12 --retry-all-errors \
+            --retry-delay 5 -H 'Accept: text/html' "${APP_URL}/" -o home.html
+          grep -q '<div id="root">' home.html
+          status=$(curl --silent --show-error -o session.json -w '%{http_code}' \
+            "${APP_URL}/api/auth/session")
+          # The protected API must refuse an anonymous request with JSON.
+          test "$status" = 401
+          node -e "JSON.parse(require('fs').readFileSync('session.json', 'utf8'))"

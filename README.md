@@ -95,6 +95,50 @@ this check uses the configured database with read-only SQL through a local delay
 
 ## 📝 Available Commands
 
+### Temporary dev deployment to Azure Web App
+
+Imandi authorized deploying `dev` on 13 October 2026 for immediate testing while
+team review/merging is unavailable. `.github/workflows/dev_hrgsms.yml` deploys
+the Azure Web App **hrgsms** on pushes to `dev`, or a manual run with `dev`
+selected. Other branches cannot enter its deployment job. Restore both the
+push branch and deployment-job branch guard to `main` when this temporary
+arrangement ends.
+
+The shared `.github/workflows/ci.yml` installs with `npm ci`, builds both
+workspaces, verifies the single-port web server and runs the complete frontend
+and backend suite against a clean PostgreSQL 18 service. A failed build/test
+stops deployment. Pull requests to `dev` and `main` also run these checks.
+The existing Docker/Container Apps workflow remains a separate `main` deployment
+and now requires the same validation; it is not the Web App run in the supplied log.
+
+The Web App ZIP contains the compiled backend, frontend static files, SQL
+migrations and production dependencies. It excludes local `.env` files,
+source tests and repository metadata. `npm start` serves the frontend and API
+on Azure's `PORT`; browser routes such as `/rooms` and `/dashboard` load the SPA,
+while `/api/*` keeps the existing API/session behavior. Deployment checks that
+the homepage serves the frontend and an anonymous session request returns 401.
+
+In Azure App Service **Configuration**, use the Node.js 22 Linux runtime and set
+`NODE_ENV=production`, a direct/session-capable deployed-database `PG_URL`, and
+a persistent `SESSION_SECRET` of at least 32 characters. Keep secure session
+cookies enabled and HTTPS enforced. Set `SCM_DO_BUILD_DURING_DEPLOYMENT=false`
+because the ZIP is already built with runtime dependencies; startup is `npm start`.
+The CI service's disposable database credentials are never deployed.
+
+The workflow retains the three `AZUREAPPSERVICE_*` secret names from the original
+teammate-generated workflow. Its Azure federated credential must trust this
+repository's `dev` branch (for the normal branch subject:
+`repo:dulranga/CS3043-HRGSMS:ref:refs/heads/dev`). See
+[Microsoft's GitHub OIDC setup](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect).
+Switch that trust back to `main` with the workflow when testing ends.
+
+Migrations are included but are **not automatically applied to the deployed
+database**. Confirm its existing schema is current before testing; any necessary
+migration uses the normal backup and migration procedure. To roll back application
+code, redeploy a previously successful `node-app` ZIP using the same startup
+command. Database recovery remains a separate operation. This temporary branch
+exception does not claim the remaining SRS staging/backup acceptance is complete.
+
 ### Root Level Commands
 
 ```bash

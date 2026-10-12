@@ -4,6 +4,44 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 13 October 2026 — shared CI / Azure Web App dev deployment repair
+
+- Imandi supplied the failing Actions log and authorized temporary `dev`
+  deployment while member review/merging is unavailable. Recovered the exact
+  `dev_hrgsms.yml` from logged commit `d6399de`; this checkout previously had only
+  the separate Docker/Container Apps workflow. The Web App `hrgsms` now has a
+  `dev` push trigger and manual-run deployment guard, with its original generated
+  Azure secret names preserved.
+- Added reusable CI with disposable PostgreSQL 18 and explicit `PG_TEST_URL` /
+  `PG_URL`, `npm ci`, both production builds, the full existing suite and focused
+  deployment tests. Both deployment workflows require validation. Updated the
+  Web App action runtimes for the deprecation warning and fixed all five npm
+  vulnerabilities with compatible lockfile updates (audit: zero).
+- Added root `build` / `start` commands and a single-port frontend/API server.
+  Package only compiled backend, frontend build, migrations, manifests, startup
+  scripts and production dependencies; preserve API/auth failures and JSON legacy
+  reads. Added deployed homepage and anonymous-session smoke checks.
+- Verification: both builds passed; frontend 254/254, backend 213/213 and deployment 2/2
+  passed; actionlint 1.7.7 and `git diff --check` passed. An independently installed
+  production-only package (no source or local `.env`) starts and serves homepage,
+  rooms, deep dashboard routes and JS assets, while API session access returns
+  401 JSON. The backend run covered clean ordered migrations, failed-migration
+  rollback, idempotent seed, authorization, financial reconciliation and concurrent
+  room/payment guards; no failures/skips. Existing frontend bundle-size warning remains.
+- Docker Desktop could not start the Linux engine, so local database verification
+  uses the existing temporary-schema suites on the configured PostgreSQL instance.
+  CI itself provisions a fresh PostgreSQL 18 service. No deployed database migration
+  or cloud configuration was performed; GitHub/Azure execution and confirmation of
+  Node 22, deployed `PG_URL`, durable `SESSION_SECRET`, branch OIDC trust and disabled
+  server-side rebuild remain hosting handoffs. No checklist acceptance was changed.
+- Recorded the temporary branch exception in SRS §6.3 and setup/reversal steps in
+  README. Lecture concepts used: real database integrity, atomicity and concurrent
+  isolation checks remain deployment gates; no DDL/owner contract changed.
+- Proposed commit: `fix(ci): repair Azure dev deployment and database test setup`.
+  Proposed PR title: `Repair Azure Web App deployment from dev`. Copy-ready
+  description and detailed verification/handoffs:
+  [deployment repair](docs/qa/2026-10-13-deployment-repair.md). No Git publication.
+
 ### 11 October 2026 — M1-S15 registration label cleanup
 
 - Imandi requested removing the parenthetical alternatives from the new guest registration screen. Existing shadcn labels now read Email and Phone. FR-017 contact validation and form behavior remain unchanged.

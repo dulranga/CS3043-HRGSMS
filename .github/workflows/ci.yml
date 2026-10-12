@@ -1,0 +1,74 @@
+name: Build and test SkyNest
+
+on:
+  pull_request:
+    branches: [dev, main]
+  workflow_call:
+    inputs:
+      package-web:
+        description: Prepare the Azure Web App deployment ZIP
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: skynest
+          POSTGRES_PASSWORD: skynest_ci
+          POSTGRES_DB: skynest_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U skynest -d skynest_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # Disposable service credentials, never the deployed database.
+      PG_URL: postgresql://skynest:skynest_ci@localhost:5432/skynest_test
+      PG_TEST_URL: postgresql://skynest:skynest_ci@localhost:5432/skynest_test
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build both workspaces
+        run: npm run build
+      - name: Verify single-port web deployment
+        run: npm run test:deployment
+      - name: Run frontend and database integration tests
+        run: npm test
+      - name: Package compiled application with production dependencies
+        if: ${{ inputs.package-web == true }}
+        run: |
+          set -euo pipefail
+          mkdir -p .scratch/webapp/{backend,frontend,scripts}
+          cp package.json package-lock.json .scratch/webapp/
+          cp backend/package.json .scratch/webapp/backend/
+          cp frontend/package.json .scratch/webapp/frontend/
+          cp -r backend/dist backend/migrations .scratch/webapp/backend/
+          cp -r frontend/dist .scratch/webapp/frontend/
+          cp scripts/start-web.cjs scripts/web-app.cjs .scratch/webapp/scripts/
+          npm ci --omit=dev --prefix .scratch/webapp
+          cd .scratch/webapp
+          zip -qr ../../webapp.zip .
+      - name: Upload deployable ZIP
+        if: ${{ inputs.package-web == true }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: node-app
+          path: webapp.zip
+          if-no-files-found: error
+          retention-days: 3
