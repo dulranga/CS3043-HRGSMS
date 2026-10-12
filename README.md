@@ -9,6 +9,10 @@ CS3043-HRGSMS/
 ├── frontend/           # React + Vite frontend application
 ├── backend/            # Express.js backend API
 ├── package.json        # Root workspace configuration
+├── docker-compose.yml  # Full local stack (db + migrations + backend + frontend)
+├── .env.example        # Docker Compose configuration template
+├── backend/Dockerfile  # Backend image (Express + TypeScript)
+├── frontend/Dockerfile # Frontend image (Vite build served by nginx)
 ├── DESIGN.md           # Design system reference
 ├── LAYOUT.md           # Layout architecture reference
 ├── CONTEXT.md          # Project context and stack overview
@@ -309,6 +313,47 @@ Then run with:
 ```bash
 cd backend && npm start
 ```
+
+## 🐳 Docker (frontend + backend + PostgreSQL)
+
+Run the whole stack with Docker Compose. The frontend is the static Vite build
+served by nginx, which also reverse-proxies `/api` to the Express backend on the
+same origin, so the HTTP-only session cookie works without any cross-site setup.
+
+```bash
+cp .env.example .env        # then set SESSION_SECRET (openssl rand -hex 32)
+docker compose up --build   # db -> one-shot migrations -> backend -> frontend
+```
+
+- Open the app at **http://localhost:8080** (override with `FRONTEND_PORT`).
+- The backend is also published on `http://localhost:4000` (`BACKEND_PORT`).
+- PostgreSQL 18 is required (its native `uuidv7()` is the default for every
+  primary key); data lives in the `db-data` volume and is published on
+  `POSTGRES_PORT`.
+
+What each file does:
+
+- `backend/Dockerfile` — installs the npm workspace, compiles TypeScript to
+  `backend/dist`, ships production-only dependencies and runs
+  `node backend/dist/index.js` as the non-root `node` user.
+- `frontend/Dockerfile` — runs the Vite build (`tsc && vite build`), then nginx
+  serves `frontend/dist` with an SPA history fallback (`frontend/nginx.conf`).
+- `docker-compose.yml` — `db` (healthchecked), `migrate` (one-shot, idempotent
+  SQL runner invoked as `backend/dist/migrations/cli.js`), `backend`, and
+  `frontend`, all sharing the single backend image.
+
+Load the idempotent demonstration dataset into the running stack:
+
+```bash
+docker compose --profile seed run --rm seed
+# then sign in with demo.frontdesk / SkyNest#2026 (see the seeding notes above)
+```
+
+Stop the stack with `docker compose down` (add `-v` to also delete the database
+volume). The app forces `Secure` cookies when `NODE_ENV=production`;
+`http://localhost` is treated as a secure context by Chrome/Firefox/Edge, so the
+defaults sign in fine. To use plain HTTP from a non-localhost host or Safari, set
+`NODE_ENV=development` and `SESSION_COOKIE_SECURE=false` in `.env`.
 
 ## 🤝 Project Guidelines
 
