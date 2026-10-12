@@ -15,13 +15,7 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  validate:
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-
   build-and-push:
-    needs: validate
     runs-on: ubuntu-latest
 
     permissions:
@@ -42,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       # GitHub repo names can contain uppercase letters, but Docker image names
       # must be lowercase, so normalise the full path here. The value is emitted
@@ -107,7 +101,7 @@ jobs:
 
     steps:
       - name: Azure login (OIDC federated identity)
-        uses: azure/login@v3
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}

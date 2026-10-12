@@ -4,9 +4,6 @@
   "private": true,
   "workspaces": ["frontend", "backend"],
   "scripts": {
-    "build": "npm run build:backend && npm run build:frontend",
-    "start": "node scripts/start-web.cjs",
-    "test:deployment": "node --test scripts/web-app.test.cjs",
     "test": "node scripts/test-all.cjs",
     "test:frontend": "node scripts/test-all.cjs frontend",
     "test:backend": "node scripts/test-all.cjs backend",

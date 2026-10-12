@@ -1690,14 +1690,6 @@ flowchart LR
 | DR-012 | The team shall document application rollback and database recovery procedures.                               | High; Document review            |
 | DR-013 | Secrets shall be provided by the CI/CD secret store and never printed in logs.                               | Critical; Security inspection    |
 
-Deployment handoff note (13 October 2026): Imandi authorized the Azure Web App
-`hrgsms` to temporarily deploy `dev` while member review/merging to `main` is
-unavailable. The repaired workflow keeps production builds and the complete
-frontend/database test suite as deployment gates. Restore the Web App trigger,
-manual-run branch guard and Azure branch trust to `main` when this test period
-ends. This temporary exception does not waive the staging, backup/recovery or
-remaining release acceptance requirements above.
-
 ## 6.4 Test Requirements
 
 **Table 52 - Required Test Levels**
