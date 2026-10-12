@@ -46,6 +46,9 @@ jobs:
         id: image
         run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}/${{ matrix.name }}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -61,6 +64,9 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          # Publish a multi-arch manifest so Apple Silicon (arm64) and x86_64
+          # hosts both pull a native image.
+          platforms: linux/amd64,linux/arm64
           push: true
           # `latest` plus an immutable per-commit tag.
           tags: |

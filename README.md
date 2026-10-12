@@ -316,13 +316,16 @@ cd backend && npm start
 
 ## 🐳 Docker (frontend + backend + PostgreSQL)
 
-Run the whole stack with Docker Compose. The frontend is the static Vite build
-served by nginx, which also reverse-proxies `/api` to the Express backend on the
-same origin, so the HTTP-only session cookie works without any cross-site setup.
+Run the whole stack with Docker Compose. The application images are pulled from
+GitHub Container Registry (built by `.github/workflows/docker-publish.yml`); the
+frontend is the static Vite build served by nginx, which also reverse-proxies
+`/api` to the Express backend on the same origin, so the HTTP-only session cookie
+works without any cross-site setup.
 
 ```bash
 cp .env.example .env        # then set SESSION_SECRET (openssl rand -hex 32)
-docker compose up --build   # db -> one-shot migrations -> backend -> frontend
+docker compose pull         # optional: refresh the :latest app images
+docker compose up           # db -> one-shot migrations -> backend -> frontend
 ```
 
 - Open the app at **http://localhost:8080** (override with `FRONTEND_PORT`).
@@ -331,16 +334,17 @@ docker compose up --build   # db -> one-shot migrations -> backend -> frontend
   primary key); data lives in the `db-data` volume and is published on
   `POSTGRES_PORT`.
 
-What each file does:
+Images and layout:
 
-- `backend/Dockerfile` — installs the npm workspace, compiles TypeScript to
-  `backend/dist`, ships production-only dependencies and runs
-  `node backend/dist/index.js` as the non-root `node` user.
-- `frontend/Dockerfile` — runs the Vite build (`tsc && vite build`), then nginx
-  serves `frontend/dist` with an SPA history fallback (`frontend/nginx.conf`).
-- `docker-compose.yml` — `db` (healthchecked), `migrate` (one-shot, idempotent
-  SQL runner invoked as `backend/dist/migrations/cli.js`), `backend`, and
-  `frontend`, all sharing the single backend image.
+- `docker-compose.yml` — pulls
+  `ghcr.io/dulranga/cs3043-hrgsms/skynest-backend:latest` and
+  `ghcr.io/dulranga/cs3043-hrgsms/skynest-frontend:latest` (multi-arch:
+  `linux/amd64` + `linux/arm64`; override `BACKEND_IMAGE` / `FRONTEND_IMAGE` in
+  `.env` to pin a tag or use a local build), plus `db` (healthchecked), `migrate`
+  (one-shot, idempotent SQL runner invoked as `backend/dist/migrations/cli.js`)
+  and an optional `seed` profile.
+- `backend/Dockerfile` and `frontend/Dockerfile` build those images (in CI, or
+  locally with `docker build -f backend/Dockerfile .`).
 
 Load the idempotent demonstration dataset into the running stack:
 

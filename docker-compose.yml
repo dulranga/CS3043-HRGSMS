@@ -1,7 +1,12 @@
 # SkyNest HRGSMS — full local stack.
 #
 #   cp .env.example .env      # then set SESSION_SECRET
-#   docker compose up --build
+#   docker compose up
+#
+# App images are pulled from GitHub Container Registry (built and pushed by
+# .github/workflows/docker-publish.yml). Run `docker compose pull` to refresh
+# the `:latest` tags. Override BACKEND_IMAGE / FRONTEND_IMAGE in .env to pin a
+# tag or use a locally built image.
 #
 # Open http://localhost:8080 for the SPA; it reverse-proxies /api to the
 # backend so the session cookie stays on one origin. Postgres 18 is required
@@ -9,12 +14,9 @@
 name: skynest-hrgsms
 
 # Reused by the backend image, the one-shot migration runner and the seeder so
-# only one image is ever built.
+# every backend-based service runs the exact same image.
 x-backend: &backend
-  image: skynest-backend:local
-  build:
-    context: .
-    dockerfile: backend/Dockerfile
+  image: ${BACKEND_IMAGE:-ghcr.io/dulranga/cs3043-hrgsms/skynest-backend:latest}
 
 services:
   db:
@@ -84,10 +86,7 @@ services:
       start_period: 20s
 
   frontend:
-    image: skynest-frontend:local
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: ${FRONTEND_IMAGE:-ghcr.io/dulranga/cs3043-hrgsms/skynest-frontend:latest}
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-8080}:80"
