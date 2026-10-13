@@ -9,7 +9,7 @@ CS3043-HRGSMS/
 ├── frontend/           # React + Vite frontend application
 ├── backend/            # Express.js backend API
 ├── package.json        # Root workspace configuration
-├── docker-compose.yml  # Full local stack (db + migrations + backend + frontend)
+├── docker-compose.yml  # App stack (migrations + backend + frontend) against an external DB
 ├── .env.example        # Docker Compose configuration template
 ├── backend/Dockerfile  # Backend image (Express + TypeScript)
 ├── frontend/Dockerfile # Frontend image (Vite build served by Vite preview)
@@ -314,25 +314,28 @@ Then run with:
 cd backend && npm start
 ```
 
-## 🐳 Docker (frontend + backend + PostgreSQL)
+## 🐳 Docker (frontend + backend against an external PostgreSQL)
 
-Run the whole stack with Docker Compose. The application images are pulled from
+Run the app stack with Docker Compose. The application images are pulled from
 GitHub Container Registry (built by `.github/workflows/docker-publish.yml`); the
 frontend is the static Vite build served by Vite's preview server, which also
 reverse-proxies `/api` to the Express backend on the same origin, so the HTTP-only
 session cookie works without any cross-site setup.
 
+Compose does **not** start a database. `PG_URL` must point at an existing,
+reachable PostgreSQL 18 instance (native `uuidv7()` is the default for every
+primary key); managed hosts that enforce TLS need `?sslmode=require`. The one-shot
+`migrate` service applies `backend/migrations` to that database before the backend
+starts.
+
 ```bash
-cp .env.example .env        # then set SESSION_SECRET (openssl rand -hex 32)
+cp .env.example .env        # then set SESSION_SECRET (openssl rand -hex 32) and PG_URL
 docker compose pull         # optional: refresh the :latest app images
-docker compose up           # db -> one-shot migrations -> backend -> frontend
+docker compose up           # one-shot migrations -> backend -> frontend
 ```
 
 - Open the app at **http://localhost:8080** (override with `FRONTEND_PORT`).
 - The backend is also published on `http://localhost:4000` (`BACKEND_PORT`).
-- PostgreSQL 18 is required (its native `uuidv7()` is the default for every
-  primary key); data lives in the `db-data` volume and is published on
-  `POSTGRES_PORT`.
 
 Images and layout:
 
@@ -340,7 +343,7 @@ Images and layout:
   `ghcr.io/dulranga/cs3043-hrgsms/skynest-backend:latest` and
   `ghcr.io/dulranga/cs3043-hrgsms/skynest-frontend:latest` (multi-arch:
   `linux/amd64` + `linux/arm64`; override `BACKEND_IMAGE` / `FRONTEND_IMAGE` in
-  `.env` to pin a tag or use a local build), plus `db` (healthchecked), `migrate`
+  `.env` to pin a tag or use a local build), plus `migrate`
   (one-shot, idempotent SQL runner invoked as `backend/dist/migrations/cli.js`)
   and an optional `seed` profile.
 - `backend/Dockerfile` and `frontend/Dockerfile` build those images (in CI, or
@@ -353,8 +356,8 @@ docker compose --profile seed run --rm seed
 # then sign in with demo.frontdesk / SkyNest#2026 (see the seeding notes above)
 ```
 
-Stop the stack with `docker compose down` (add `-v` to also delete the database
-volume). The app forces `Secure` cookies when `NODE_ENV=production`;
+Stop the stack with `docker compose down`. The app forces `Secure` cookies when
+`NODE_ENV=production`;
 `http://localhost` is treated as a secure context by Chrome/Firefox/Edge, so the
 defaults sign in fine. To use plain HTTP from a non-localhost host or Safari, set
 `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false` in `.env`.

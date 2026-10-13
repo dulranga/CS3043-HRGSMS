@@ -4,6 +4,15 @@ Record actual project-task work here for all five members, including partial or 
 
 ## Member 1 — Dulranga
 
+### 13 October 2026 — make the `dev` Azure Web App workflow build this monorepo (not a named subtask)
+
+- `.github/workflows/dev_hrgsms.yml` is Azure's auto-generated App Service build-and-deploy template (`build` → upload `node-app` artifact → `azure/login` → `azure/webapps-deploy` to the `hrgsms` app, `Production` slot, `package: .`). Its generic root commands did not build this npm-workspace monorepo: the root has no `build` script (`npm run build --if-present` was a no-op; `build:frontend`/`build:backend` exist instead) and the root `npm test` runs the backend suites, which require PostgreSQL.
+- Kept the App Service mechanism, both jobs, and every Azure step/secret unchanged (`build`/`deploy` jobs, `node-app` artifact, `AZUREAPPSERVICE_CLIENTID_*`/`TENANTID_*`/`SUBSCRIPTIONID_*`, `app-name: hrgsms`, `slot-name: Production`, `package: .`). Only the build job changed: added a `postgres:18-alpine` service (provides the native `uuidv7()` the migrations rely on) plus `PG_TEST_URL`/`SESSION_SECRET` env, and the run block now uses the workspace scripts (`npm install`, `npm run build:frontend`, `npm run build:backend`, `npm test`).
+- No application code, schema, authorization or session changes; no DB/SQL work; no lecture concepts applied.
+- Verification: `.github/workflows/dev_hrgsms.yml` parses as valid YAML (`ruby -ryaml` → OK). The pipeline itself cannot run locally (needs GitHub Actions + Azure); end-to-end proof is the next push to `dev`. Remaining handoff: since the repo root has no `start` script, the deployed `hrgsms` Web App needs a startup command for the built app (e.g. `node backend/dist/index.js`) and a serving strategy for `frontend/dist`; `docker-publish.yml` continues to handle the container deploys on `main`.
+- Proposed commit: `ci(dev): build the monorepo in the Azure Web App workflow`.
+- Proposed PR title: `Fit the dev Azure Web App workflow to the monorepo`. Description: `Update .github/workflows/dev_hrgsms.yml so its build job works for this npm-workspace monorepo while keeping the existing Azure App Service deploy mechanism (artifact upload + webapps-deploy to hrgsms/Production) untouched. Replace the no-op root "npm run build" with the build:frontend/build:backend scripts, run the root "npm test" against a postgres:18 service (the backend suites need the database and a session secret), and leave the deploy job and its secrets as-is. Workflow validated as YAML; runtime proof requires the next dev push and an App Service startup command for the built app.` No Git publication actions performed.
+
 ### 11 October 2026 — M1-S15 registration label cleanup
 
 - Imandi requested removing the parenthetical alternatives from the new guest registration screen. Existing shadcn labels now read Email and Phone. FR-017 contact validation and form behavior remain unchanged.
