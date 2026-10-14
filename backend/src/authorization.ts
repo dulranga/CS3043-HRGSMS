@@ -134,14 +134,6 @@ export const ROLE_GRANTS: Record<
     "branch.read": "CHAIN",
   },
   SYSTEM_ADMINISTRATOR: {
-    // 14 October 2026 decision: the administrator is the deliberate full-set
-    // superuser — every operation is granted chain-wide, including the
-    // financial and catalogue writes the SRS §6.1.4 working mapping reserved
-    // for other roles (TBD-15 sign-off of that deviation stays open).
-    // Defense-in-depth database guards below this matrix still apply:
-    // billing-policy publication keeps its CHAIN_MANAGER-only trigger and
-    // staff booking create/modify keep Member 2's FRONT_DESK/BRANCH_MANAGER
-    // actor checks.
     "catalogue.write": "CHAIN",
     "room.read": "CHAIN",
     "room.write": "CHAIN",

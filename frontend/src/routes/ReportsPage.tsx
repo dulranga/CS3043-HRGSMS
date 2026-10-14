@@ -4,6 +4,8 @@ import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { reportUrl, hasReportAccess, type ReportType } from "@/lib/reportUrl";
+import { isChartReport } from "@/lib/reportCharts";
+import { ReportChart } from "@/components/reports/ReportChart";
 import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +52,6 @@ export default function ReportsPage() {
   const API_BASE = "/api";
   useEffect(() => {
     if (role === 'BRANCH_MANAGER' && staff?.branchId) setSelectedBranch(staff.branchId);
-    if (role === 'SYSTEM_ADMINISTRATOR') setActiveReport('audit-logs');
   }, [role, staff?.branchId]);
 
   // 1. Fetch branches
@@ -510,6 +511,16 @@ export default function ReportsPage() {
                   ))}
                 </div>
               )}
+
+            {/* Chart summary for the reports whose rows aggregate into a series */}
+            {isChartReport(activeReport) && !loading && !error && data.length > 0 && (
+              <ReportChart
+                report={activeReport}
+                rows={data}
+                rankBy={trendsSortBy}
+                limit={activeReport === "preference-trends" ? Number(trendsLimit) : undefined}
+              />
+            )}
 
             {/* Data Table */}
             {generatedAt && <p className="text-xs text-muted-foreground">Scope: {selectedBranch ? branches.find(branch => branch.branch_id === selectedBranch)?.name ?? 'Assigned branch' : 'All branches'}. {activeReport === 'revenue' ? `Year: ${selectedYear}. ` : activeReport === 'occupancy' ? 'Current occupancy. ' : 'All recorded dates. '}Generated: {new Date(generatedAt).toLocaleString()}.</p>}

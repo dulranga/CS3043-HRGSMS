@@ -81,6 +81,7 @@ export function AvailabilityPanel({
   showHeader = true,
   variant = "full",
   selectionAction,
+  selectionFooter,
   hideSearch = false,
 }: {
   state: AvailabilityState;
@@ -92,6 +93,8 @@ export function AvailabilityPanel({
   showHeader?: boolean;
   variant?: "full" | "date-first";
   selectionAction?: ReactNode;
+  /** Rendered below the room grid inside the selection card (e.g. quote request). */
+  selectionFooter?: ReactNode;
   /** Show only the current selection (search form and results hidden). */
   hideSearch?: boolean;
 }) {
@@ -114,7 +117,12 @@ export function AvailabilityPanel({
     <section className="space-y-4" aria-label="Selected room lines">
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Your room selection</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-xl">
+            Your room selection
+            <Badge variant="secondary">
+              {selected.length} {selected.length === 1 ? "room" : "rooms"}
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p role="status" className="text-sm">
@@ -199,6 +207,7 @@ export function AvailabilityPanel({
               </Card>
             ))}
           </div>
+          {selectionFooter}
         </CardContent>
       </Card>
     </section>
@@ -499,7 +508,10 @@ export function AvailabilityPanel({
         </>
       ) : (
         <>
-          {selectionSection}
+          {/* The selection summary only appears once a room is added, so the
+              guest flow starts with the search, not an empty "0 room lines"
+              card. */}
+          {!!selected.length && selectionSection}
           {resultsSection}
         </>
       )}
