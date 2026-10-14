@@ -213,7 +213,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       echoRouter([
         ['get', '/branches'], ['post', '/branches'], ['patch', '/branches/:id'],
         ['get', '/users'], ['patch', '/users/:id/status'], ['get', '/audit-logs'],
-        ['get', '/configs'], ['put', '/configs/:key'], ['delete', '/branches/:id'],
+        ['get', '/configs'], ['put', '/configs/:key'], ['get', '/billing-policy'], ['delete', '/branches/:id'],
       ]),
     );
     app.use(
@@ -467,6 +467,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       ['GET', '/api/admin/audit-logs', new Set(['SYSTEM_ADMINISTRATOR', 'AUDITOR'])],
       ['GET', '/api/admin/configs', new Set(['SYSTEM_ADMINISTRATOR', 'AUDITOR'])],
       ['PUT', '/api/admin/configs/session_idle_timeout_minutes', new Set(['SYSTEM_ADMINISTRATOR'])],
+      ['GET', '/api/admin/billing-policy', new Set(['SYSTEM_ADMINISTRATOR', 'AUDITOR'])],
       ['DELETE', `/api/admin/branches/${branchA}`, new Set()],
     ];
     for (const [method, pathname, allowed] of adminCases) {

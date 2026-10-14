@@ -8,6 +8,7 @@ import {
   getAuditLogs,
   getAllConfigs,
   updateConfig,
+  getCurrentBillingPolicy,
 } from '../controllers/adminController';
 
 const router = Router();
@@ -27,5 +28,6 @@ router.get('/audit-logs', getAuditLogs);
 // 4. Policy & Billing Configuration Screens
 router.get('/configs', getAllConfigs);
 router.put('/configs/:key', updateConfig);
+router.get('/billing-policy', getCurrentBillingPolicy);
 
 export default router;

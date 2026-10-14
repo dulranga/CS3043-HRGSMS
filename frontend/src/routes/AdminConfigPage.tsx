@@ -6,7 +6,35 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useFeatureSessions } from "@/components/auth/useFeatureSessions";
+import { formatLkr } from "@/lib/money";
+
+interface BillingPolicy {
+  billingPolicyId: string;
+  effectiveFrom: string;
+  taxPercent: string;
+  serviceChargePercent: string;
+  maxDiscountPercent: string;
+  cancellationFee: string;
+  noShowFee: string;
+  lateCheckoutFee: string;
+  noShowGraceDays: number;
+  isDemo: boolean;
+  createdAt: string;
+}
+
+function billingPolicyRows(policy: BillingPolicy): Array<{ label: string; key: string; value: string }> {
+  return [
+    { label: "Tax", key: "tax_percent", value: `${policy.taxPercent}%` },
+    { label: "Service charge", key: "service_charge_percent", value: `${policy.serviceChargePercent}%` },
+    { label: "Maximum discount", key: "max_discount_percent", value: `${policy.maxDiscountPercent}%` },
+    { label: "Cancellation fee", key: "cancellation_fee", value: formatLkr(policy.cancellationFee) },
+    { label: "No-show fee", key: "no_show_fee", value: formatLkr(policy.noShowFee) },
+    { label: "Late checkout fee", key: "late_checkout_fee", value: formatLkr(policy.lateCheckoutFee) },
+    { label: "No-show grace period", key: "no_show_grace_days", value: `${policy.noShowGraceDays} ${policy.noShowGraceDays === 1 ? "day" : "days"}` },
+  ];
+}
 
 interface ConfigItem {
   config_key: string;
@@ -27,6 +55,28 @@ export default function AdminConfigPage() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [policy, setPolicy] = useState<BillingPolicy | null>(null);
+  const [policyState, setPolicyState] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/billing-policy");
+        if (!res.ok) throw new Error("Failed to load");
+        const body = await res.json();
+        if (!cancelled) {
+          setPolicy(body.data ?? null);
+          setPolicyState("ready");
+        }
+      } catch {
+        if (!cancelled) setPolicyState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchConfigs = async () => {
     try {
@@ -193,6 +243,54 @@ export default function AdminConfigPage() {
                 </Table>
               )}
             </Card>
+
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight">Billing policy</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  The current chain-wide policy applied to new bookings. Read-only here; existing bookings keep the policy they were confirmed under.
+                </p>
+              </div>
+              <Card className="p-4 md:p-6">
+                {policyState === "loading" ? (
+                  <p className="text-sm text-muted-foreground py-4">Loading billing policy...</p>
+                ) : policyState === "error" ? (
+                  <Alert variant="destructive"><AlertDescription>Failed to load the billing policy.</AlertDescription></Alert>
+                ) : !policy ? (
+                  <p className="text-sm text-muted-foreground py-4">No billing policy is in effect, so new bookings cannot be confirmed.</p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Effective from {policy.effectiveFrom}</span>
+                      <span>Published {new Date(policy.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Colombo" })} (Asia/Colombo)</span>
+                      {policy.isDemo && <Badge variant="secondary">Demo policy</Badge>}
+                    </div>
+                    <Table className="w-full text-sm">
+                      <TableHeader>
+                        <TableRow className="border-b-2 border-border text-muted-foreground">
+                          <TableHead className="text-left py-3 px-3 font-semibold">Setting</TableHead>
+                          <TableHead className="text-left py-3 px-3 font-semibold">Policy Field</TableHead>
+                          <TableHead className="text-left py-3 px-3 font-semibold">Value</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {billingPolicyRows(policy).map((row) => (
+                          <TableRow key={row.key} className="border-b border-border last:border-0">
+                            <TableCell className="py-3 px-3 font-semibold text-foreground">{row.label}</TableCell>
+                            <TableCell className="py-3 px-3 font-mono text-xs text-muted-foreground">{row.key}</TableCell>
+                            <TableCell className="py-3 px-3">
+                              <span className="inline-flex items-center font-semibold text-foreground bg-muted px-2.5 py-1 rounded-md text-xs">
+                                {row.value}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </Card>
+            </section>
           </div>
         </BoundedContainer>
       </PageContainer>
