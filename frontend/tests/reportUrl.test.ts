@@ -12,12 +12,15 @@ test('all report exports retain the exact screen filters on the current origin',
     assert.ok(csv.pathname.endsWith('/export'));
   }
 });
-test('report discovery follows branch, chain, and audit permissions', () => {
+test('report discovery follows the backend role-grant matrix', () => {
   assert.equal(hasReportAccess('BRANCH_MANAGER', 'billing'), true);
   assert.equal(hasReportAccess('BRANCH_MANAGER', 'service-usage'), false);
+  assert.equal(hasReportAccess('BRANCH_MANAGER', 'audit-logs'), false);
   assert.equal(hasReportAccess('CHAIN_MANAGER', 'audit-logs'), false);
   assert.equal(hasReportAccess('SYSTEM_ADMINISTRATOR', 'audit-logs'), true);
-  assert.equal(hasReportAccess('SYSTEM_ADMINISTRATOR', 'revenue'), false);
+  assert.equal(hasReportAccess('SYSTEM_ADMINISTRATOR', 'revenue'), true);
+  assert.equal(hasReportAccess('SYSTEM_ADMINISTRATOR', 'guest-history'), true);
   assert.equal(hasReportAccess('AUDITOR', 'revenue'), true);
+  assert.equal(hasReportAccess('FRONT_DESK', 'occupancy'), false);
   assert.equal(hasReportAccess(null, 'occupancy'), false);
 });

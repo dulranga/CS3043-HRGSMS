@@ -24,8 +24,28 @@ function GuestBookingGate({ message = 'Sign in to your SkyNest guest account to 
     </div>
   </CardContent></Card>;
 }
-export function GuestBookingPanel({ state, actions, disabled = false, branchName }: {
+/** Quote request actions rendered directly below the selected room lines —
+ * either inside the availability selection card footer (screen composition)
+ * or as the panel's own block before the quote review. */
+export function GuestQuoteRequestActions({ state, disabled = false, onRequestQuote }: {
+  state: GuestBookingState; disabled?: boolean; onRequestQuote(): void;
+}) {
+  const locked = disabled || state.creating || state.uncertain || !!state.created;
+  return <div className="space-y-3 border-t-2 border-border pt-4">
+    <Button className="h-auto min-h-11 whitespace-normal" disabled={locked || state.quoting || !state.lines.length} onClick={onRequestQuote}>
+      {state.quoting ? 'Getting your quote…' : 'Get fresh combined quote'}
+    </Button>
+    <p className="text-xs leading-relaxed text-muted-foreground">The hotel links your reservation to your signed-in guest account. Choose all rooms from one SkyNest branch.</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">{PAYMENT_MESSAGE}</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">Removing a room from this selection edits only your unconfirmed draft. Selected rooms are reserved together when confirmation succeeds.</p>
+  </div>;
+}
+
+export function GuestBookingPanel({ state, actions, disabled = false, branchName, embedded = false }: {
   state: GuestBookingState; actions: Actions; disabled?: boolean; branchName?: string;
+  /** The screen embeds the quote-request actions inside the availability
+   * selection card footer, so the panel skips its own standalone block. */
+  embedded?: boolean;
 }) {
   if (state.denied) return <GuestBookingGate message={state.failure?.message} />;
   const locked = disabled || state.creating || state.uncertain || !!state.created;
@@ -47,12 +67,7 @@ export function GuestBookingPanel({ state, actions, disabled = false, branchName
     {state.failure && <Card className="border-destructive"><CardContent className="p-4"><p role="alert" className="text-sm text-destructive">{state.failure.message}</p></CardContent></Card>}
     {state.notice && <p role="status" className="text-sm">{state.notice}</p>}
     {state.uncertain && <p role="alert" className="text-sm text-destructive">Another confirmation is blocked. Contact the hotel to check whether your reservation was created before starting another booking.</p>}
-    <Card><CardHeader><CardTitle>Your direct reservation</CardTitle></CardHeader><CardContent className="space-y-4 text-sm">
-      <p>The hotel links your reservation to your signed-in guest account. Choose all rooms from one SkyNest branch.</p>
-      <p>{PAYMENT_MESSAGE}</p>
-      <p className="text-muted-foreground">Removing a room from this selection edits only your unconfirmed draft. Selected rooms are reserved together when confirmation succeeds.</p>
-      <Button className="h-auto min-h-11 whitespace-normal" disabled={locked || state.quoting || !state.lines.length} onClick={() => void actions.requestQuote()}>{state.quoting ? 'Getting your quote…' : 'Get fresh combined quote'}</Button>
-    </CardContent></Card>
+    {!embedded && <GuestQuoteRequestActions state={state} disabled={disabled} onRequestQuote={() => void actions.requestQuote()} />}
     {quote && totals && <Card><CardHeader><CardTitle>Review your rooms and booking terms</CardTitle></CardHeader><CardContent className="space-y-4 text-sm">
       <p>{branchName ?? 'Selected SkyNest branch'} · {quote.lines.length} rooms · {quote.lines.reduce((sum, l) => sum + l.guestCount, 0)} guests across rooms</p>
       <div className={GRID}>{quote.lines.map((line, index) => <Card key={`${line.roomId}-${line.checkIn}`} className="min-w-0 shadow-none">
@@ -118,6 +133,11 @@ export function GuestBookingScreen({ session, client, availabilityClient, signed
     return () => { unsubscribe(); availability.cancelPending(); model.cancelPending(); };
   }, [allowed, availability, model]);
   if (!allowed) return <GuestBookingGate signedIn={signedIn} message={signedIn ? 'Direct online booking is available to SkyNest guest accounts. Staff create bookings from the staff dashboard.' : undefined} />;
+  const requestQuoteNow = async () => {
+    if (availability.getSnapshot().rechecking) return;
+    model.setLines(availability.getSnapshot().selected);
+    await model.requestQuote();
+  };
   return <div className="min-w-0 space-y-6 @container">
     {!state.created && !state.denied && <AvailabilityPanel state={searchState} actions={availability} locked={state.quoting || state.creating || state.uncertain}
       allowImmediateCheckIn={false} hideSearch={hideSearch}
@@ -126,8 +146,9 @@ export function GuestBookingScreen({ session, client, availabilityClient, signed
         ? 'These are the rooms you chose. We checked they are still available; review the quote below and confirm.'
         : 'Choose a SkyNest branch and add each room with its own dates and guest count. Review one combined quote and reserve all rooms under one reference.'}
       selectionAction={hideSearch && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={state.quoting || state.creating || state.uncertain}
-        onClick={() => { setSearchOpen(true); void availability.search(); }}>Add or change rooms</Button>} />}
-    <GuestBookingPanel state={state} disabled={searchState.rechecking} branchName={searchState.options?.branches.find(b => b.branchId === state.quote?.branchId)?.name}
+        onClick={() => { setSearchOpen(true); void availability.search(); }}>Add or change rooms</Button>}
+      selectionFooter={<GuestQuoteRequestActions state={state} disabled={searchState.rechecking} onRequestQuote={() => void requestQuoteNow()} />} />}
+    <GuestBookingPanel state={state} embedded disabled={searchState.rechecking} branchName={searchState.options?.branches.find(b => b.branchId === state.quote?.branchId)?.name}
       actions={{ acknowledge: model.acknowledge.bind(model), requestQuote: async () => {
         if (availability.getSnapshot().rechecking) return; model.setLines(availability.getSnapshot().selected); await model.requestQuote();
       }, confirm: async () => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AlertCircle, ReceiptText } from "lucide-react";
 
 import { BookingFinder } from "@/components/bookings/BookingFinder";
 import { BillingFlowNav } from "@/components/billing/BillingFlowNav";
@@ -6,6 +7,7 @@ import { InvoiceDetailPanel } from "@/components/billing/InvoiceDetailPanel";
 import { NextStepCard } from "@/components/billing/NextStepCard";
 import { BoundedContainer } from "@/components/layout/BoundedContainer";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBillingBooking } from "@/lib/billingFlow";
 import {
@@ -77,12 +79,17 @@ export default function InvoiceDetailPage() {
         <BoundedContainer>
           <div className="space-y-6">
             {/* Page header */}
-            <header>
-              <h1 className="text-2xl font-bold tracking-tight">Invoice Detail</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                View a booking's DRAFT provisional invoice or finalized FINAL invoice, including
-                per-room line charges, booking-wide fees, and consolidated payment totals.
-              </p>
+            <header className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-secondary shadow-sm">
+                <ReceiptText className="size-6" aria-hidden="true" />
+              </div>
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold tracking-tight">Invoice Detail</h1>
+                <p className="text-sm text-muted-foreground">
+                  View a booking's DRAFT provisional invoice or finalized FINAL invoice, including
+                  per-room line charges, booking-wide fees, and consolidated payment totals.
+                </p>
+              </div>
             </header>
 
             <BillingFlowNav current={FLOW_PATH} booking={booking} label={label} />
@@ -109,11 +116,11 @@ export default function InvoiceDetailPage() {
 
             {/* Error state */}
             {error && (
-              <Card className="shadow-md border-destructive" id="invoice-error-card">
-                <CardContent className="p-4 text-sm text-destructive">
-                  {error}
-                </CardContent>
-              </Card>
+              <Alert variant="destructive" id="invoice-error">
+                <AlertCircle />
+                <AlertTitle>Could not load invoice</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             {/* Invoice detail panel */}
