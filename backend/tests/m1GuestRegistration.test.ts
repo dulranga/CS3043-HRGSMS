@@ -287,12 +287,17 @@ test('M1-S10 online registration, verified linking and takeover protection (FR-0
     assert.equal(await count('SELECT count(*)::int AS n FROM guest_account WHERE guest_id = $1', [existing]), 0);
     assert.equal(await failures('10.0.0.3'), 3, 'refusals are audited');
 
-    // 4. Only FRONT_DESK may issue a link code.
+    // 4. Only FRONT_DESK — and, since 14 October 2026, the full-set
+    // administrator — may issue a link code.
     assert.equal((await api(`/api/guests/${existing}/link-code`, { method: 'POST' })).status, 401);
-    for (const role of STAFF_ROLES.filter((r) => r !== 'FRONT_DESK')) {
+    for (const role of STAFF_ROLES.filter((r) => r !== 'FRONT_DESK' && r !== 'SYSTEM_ADMINISTRATOR')) {
       const { cookie } = await login(role.toLowerCase());
       assert.equal((await api(`/api/guests/${existing}/link-code`, { method: 'POST', cookie })).status, 403, role);
     }
+    // The administrator passes the authorization gate: a malformed guest id
+    // now fails guest lookup (404) instead of the permission check (403).
+    const sysAdmin = await login('system_administrator');
+    assert.equal((await api('/api/guests/not-a-uuid/link-code', { method: 'POST', cookie: sysAdmin.cookie })).status, 404, 'administrator holds guest.link.issue since 14 October 2026');
     const desk = await login('front_desk');
     assert.equal((await api('/api/guests/not-a-uuid/link-code', { method: 'POST', cookie: desk.cookie })).status, 404);
     assert.equal((await api(`/api/guests/${OTHER_GUEST_ID}/link-code`, { method: 'POST', cookie: desk.cookie })).status, 404);

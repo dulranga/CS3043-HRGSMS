@@ -7,7 +7,8 @@ import { ROLE_GRANTS } from './rolePermissions.generated';
  * they either pick a branch booking from a searchable list or type the
  * human-readable booking reference (FR-029), which the backend resolves.
  *
- * Only FRONT_DESK holds `booking.manage`, so only it may call the branch list
+ * Only roles holding `booking.manage` (FRONT_DESK and, since 14 October 2026,
+ * the full-set SYSTEM_ADMINISTRATOR) may call the branch list
  * `GET /api/bookings`. Every other role still gets the reference field, whose
  * value the resource endpoint resolves server-side.
  */
