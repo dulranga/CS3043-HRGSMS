@@ -453,6 +453,64 @@ CREATE TABLE IF NOT EXISTS billing_policy (
         REFERENCES user_account(user_id) ON UPDATE RESTRICT ON DELETE RESTRICT
 );`;
 
+test('m1_008 lets an active SYSTEM_ADMINISTRATOR publish; other roles stay denied', async () => {
+  assert.ok(process.env.PG_URL, 'PG_URL must point to a PostgreSQL 18 test-capable database');
+  const client = new Client({ connectionString: process.env.PG_URL });
+  const schema = `m1_policy_admin_${randomBytes(8).toString('hex')}`;
+  await client.connect();
+
+  try {
+    await client.query('BEGIN');
+    await client.query(`CREATE SCHEMA "${schema}"`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
+    await applyMigrations(client);
+    await client.query(
+      readFileSync(path.join(migrationsDir, 'm1_008_allow_admin_billing_policy_publish.sql'), 'utf8'),
+    );
+    const today = (
+      await client.query("SELECT ((now() AT TIME ZONE 'Asia/Colombo')::date)::text AS d")
+    ).rows[0].d as string;
+
+    const sysAdmin = await createOfficer(client, 'sys.admin', 'SYSTEM_ADMINISTRATOR');
+    const chainManager = await createOfficer(client, 'chain.manager', 'CHAIN_MANAGER');
+    const inactiveAdmin = await createOfficer(client, 'old.admin', 'SYSTEM_ADMINISTRATOR', false);
+    const frontDesk = await createOfficer(client, 'front.desk', 'FRONT_DESK');
+    const auditor = await createOfficer(client, 'auditor', 'AUDITOR');
+    const systemUserId = (
+      await client.query("SELECT user_id FROM user_account WHERE username = 'system'")
+    ).rows[0].user_id as string;
+
+    for (const actor of [inactiveAdmin, frontDesk, auditor, systemUserId]) {
+      await expectPromiseSqlError(
+        client,
+        () => publishBillingPolicy(client, policy({ effectiveFrom: today }), actor, DEV),
+        '42501',
+      );
+    }
+
+    const byAdmin = await publishBillingPolicy(client, policy({ effectiveFrom: today, taxPercent: '12.50' }), sysAdmin, DEV);
+    assert.equal(byAdmin.createdBy, sysAdmin);
+    assert.equal((await findEffectiveBillingPolicy(client, DEV))?.billingPolicyId, byAdmin.billingPolicyId);
+    const audit = await client.query(
+      `SELECT user_id, action FROM audit_log WHERE entity_name = 'billing_policy' AND entity_id = $1`,
+      [byAdmin.billingPolicyId],
+    );
+    assert.deepEqual(audit.rows, [{ user_id: sysAdmin, action: 'PUBLISH' }]);
+
+    const byChain = await publishBillingPolicy(client, policy({ effectiveFrom: today }), chainManager, DEV);
+    assert.equal((await findEffectiveBillingPolicy(client, DEV))?.billingPolicyId, byChain.billingPolicyId);
+
+    // Still append-only.
+    await expectSqlError(client, 'UPDATE billing_policy SET tax_percent = 1 WHERE billing_policy_id = $1', [byAdmin.billingPolicyId], '55000');
+  } finally {
+    try {
+      await client.query('ROLLBACK');
+    } finally {
+      await client.end();
+    }
+  }
+});
+
 test('M1-S19 upgrades the dev-branch mock table in place and re-runs idempotently', async () => {
   assert.ok(process.env.PG_URL, 'PG_URL must point to a PostgreSQL 18 test-capable database');
   const client = new Client({ connectionString: process.env.PG_URL });

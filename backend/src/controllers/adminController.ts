@@ -3,7 +3,13 @@ import { pool } from '../db';
 import { createBranches } from '../branches';
 import { createStaffAccounts } from '../staffAccounts';
 import { setSystemConfig, SystemConfigValidationError } from '../systemConfig';
-import { findEffectiveBillingPolicy, isProductionEnvironment } from '../billingPolicy';
+import {
+  BILLING_POLICY_TIME_ZONE,
+  BillingPolicyValidationError,
+  findEffectiveBillingPolicy,
+  isProductionEnvironment,
+  publishBillingPolicy,
+} from '../billingPolicy';
 
 import {
   Branch,
@@ -221,6 +227,61 @@ export const getCurrentBillingPolicy = async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('Get Billing Policy Error:', err);
     res.status(500).json({ error: 'Failed to fetch the billing policy' });
+  }
+};
+
+const POLICY_FIELDS = [
+  'taxPercent',
+  'serviceChargePercent',
+  'maxDiscountPercent',
+  'cancellationFee',
+  'noShowFee',
+  'lateCheckoutFee',
+  'noShowGraceDays',
+] as const;
+
+// "Updating" the policy publishes a new immutable version effective today
+// (Asia/Colombo); bookings already confirmed keep their linked version.
+export const publishCurrentBillingPolicy = async (req: Request, res: Response) => {
+  const body = req.body ?? {};
+  if (!req.user || typeof body !== 'object' || Object.keys(body).some((key) => !(POLICY_FIELDS as readonly string[]).includes(key))) {
+    res.status(400).json({ error: `Provide only ${POLICY_FIELDS.join(', ')}; the effective date and publisher are server controlled.` });
+    return;
+  }
+  const effectiveFrom = new Intl.DateTimeFormat('en-CA', { timeZone: BILLING_POLICY_TIME_ZONE }).format(new Date());
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const policy = await publishBillingPolicy(
+      client,
+      {
+        effectiveFrom,
+        taxPercent: body.taxPercent,
+        serviceChargePercent: body.serviceChargePercent,
+        maxDiscountPercent: body.maxDiscountPercent,
+        cancellationFee: body.cancellationFee,
+        noShowFee: body.noShowFee,
+        lateCheckoutFee: body.lateCheckoutFee,
+        noShowGraceDays: body.noShowGraceDays,
+        isDemo: false,
+      },
+      req.user.userId,
+      { production: isProductionEnvironment() },
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ data: policy });
+  } catch (error) {
+    await client?.query('ROLLBACK').catch(() => undefined);
+    if (error instanceof BillingPolicyValidationError) {
+      res.status(400).json({ error: 'Invalid billing policy.', fieldErrors: error.fieldErrors });
+    } else {
+      const code = (error as { code?: string }).code;
+      if (code !== '42501' && code !== '23514') console.error('Publish Billing Policy Error:', error);
+      res.status(code === '42501' ? 403 : code === '23514' ? 400 : 500).json({ error: 'Unable to publish the billing policy.' });
+    }
+  } finally {
+    client?.release();
   }
 };
 
