@@ -445,6 +445,11 @@ export const ADMIN_ROUTE_POLICY: readonly RoutePolicyRule[] = [
     permissions: "config.write",
   },
   { method: "GET", path: /^\/billing-policy\/?$/, permissions: "config.read" },
+  {
+    method: "POST",
+    path: /^\/billing-policy\/?$/,
+    permissions: "billing_policy.publish",
+  },
 ];
 
 // Branch managers get only the reports whose queries filter by branch_id;

@@ -9,6 +9,7 @@ import {
   getAllConfigs,
   updateConfig,
   getCurrentBillingPolicy,
+  publishCurrentBillingPolicy,
 } from '../controllers/adminController';
 
 const router = Router();
@@ -29,5 +30,6 @@ router.get('/audit-logs', getAuditLogs);
 router.get('/configs', getAllConfigs);
 router.put('/configs/:key', updateConfig);
 router.get('/billing-policy', getCurrentBillingPolicy);
+router.post('/billing-policy', publishCurrentBillingPolicy);
 
 export default router;
