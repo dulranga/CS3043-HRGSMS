@@ -3,6 +3,7 @@ import { pool } from '../db';
 import { createBranches } from '../branches';
 import { createStaffAccounts } from '../staffAccounts';
 import { setSystemConfig, SystemConfigValidationError } from '../systemConfig';
+import { findEffectiveBillingPolicy, isProductionEnvironment } from '../billingPolicy';
 
 import {
   Branch,
@@ -209,6 +210,17 @@ export const getAllConfigs = async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('Get Config Error:', err);
     res.status(500).json({ error: 'Failed to fetch system configurations' });
+  }
+};
+
+// Read-only view of the billing policy version that new confirmations would use now.
+export const getCurrentBillingPolicy = async (_req: Request, res: Response) => {
+  try {
+    const policy = await findEffectiveBillingPolicy(pool, { production: isProductionEnvironment() });
+    res.json({ data: policy });
+  } catch (err) {
+    console.error('Get Billing Policy Error:', err);
+    res.status(500).json({ error: 'Failed to fetch the billing policy' });
   }
 };
 
