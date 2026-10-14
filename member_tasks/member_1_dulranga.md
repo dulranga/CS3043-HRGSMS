@@ -42,6 +42,8 @@ Use [Imandi's amended reservation contract](m2_s01_reservation_contract.md) for 
 
 ## Completion notes
 
+- **M1-S09 follow-up (14 October 2026):** Owner decision — `SYSTEM_ADMINISTRATOR` now holds the full operation set at CHAIN scope in `ROLE_GRANTS` (including the financial/catalogue writes the SRS working mapping reserved for other roles), the frontend grant map was regenerated, and the affected backend/frontend tests were updated to the new contract; database guards (billing-policy publication, booking create/modify actor checks) are unchanged and TBD-15 sign-off stays open. All affected suites and both builds pass; details and the hardcoded-frontend-client handoffs in `member_work_log.md`.
+
 - 11 October 2026 — M1-S15 copy follow-up: registration labels simplified to Email and Phone at Imandi's request; existing contact validation retained. Frontend production build passes. Manual refresh check pending; details and proposed human Git handoff in `member_work_log.md`.
 
 - **M1-S14 follow-up (10 October 2026):** Sidebar identity now displays the verified staff member's assigned branch beside their role, resolved through M1-S20's existing protected metadata endpoint. Old account responses are aborted/hidden; long names wrap and missing/unavailable metadata is explicit. Session/navigation regressions pass 3/3, frontend build passes, and sample browser states/account switches were checked. See `member_work_log.md` for evidence and proposed human Git handoff; no schema/session authorization changes.

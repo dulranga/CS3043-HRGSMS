@@ -59,7 +59,8 @@ test('M1-S09 permission matrix matches the SRS §6.1.4 working mapping for every
     SERVICE_STAFF: ['room.read', 'room.condition.write', 'service_usage.record', 'invoice.read.branch', 'branch.read'],
     BRANCH_MANAGER: ['room.read', 'room.write', 'room.condition.write', 'booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'service_usage.void', 'invoice.read.branch', 'discount.apply', 'report.read.branch', 'branch.read'],
     CHAIN_MANAGER: ['catalogue.write', 'booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'service_usage.void', 'invoice.read.chain', 'report.read.chain', 'billing_policy.publish', 'branch.read'],
-    SYSTEM_ADMINISTRATOR: ['booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'service_usage.void', 'audit.read', 'branch.read', 'branch.write', 'account.read', 'account.write', 'config.read', 'config.write'],
+    // 14 October 2026 decision: the administrator is the full-set superuser.
+    SYSTEM_ADMINISTRATOR: ['catalogue.write', 'room.read', 'room.write', 'room.condition.write', 'service_usage.record', 'service_usage.void', 'booking.manage', 'booking.check_in', 'booking.cancel', 'booking.no_show', 'checkout.perform', 'payment.record', 'invoice.read.branch', 'invoice.read.chain', 'discount.apply', 'guest.link.issue', 'guest.manage', 'report.read.branch', 'report.read.chain', 'audit.read', 'billing_policy.publish', 'branch.read', 'branch.write', 'account.read', 'account.write', 'config.read', 'config.write'],
     AUDITOR: ['invoice.read.chain', 'report.read.chain', 'audit.read', 'branch.read', 'account.read', 'config.read'],
   };
   const permissions = Object.keys(PERMISSIONS) as Array<keyof typeof PERMISSIONS>;
@@ -67,10 +68,12 @@ test('M1-S09 permission matrix matches the SRS §6.1.4 working mapping for every
     const granted = permissions.filter((permission) => roleHasPermission(role, permission)).sort();
     assert.deepEqual(granted, [...expected[role]].sort(), role);
   }
-  // Only CHAIN_MANAGER edits shared catalogues/prices; SYSTEM_ADMINISTRATOR has no financial permission.
-  assert.deepEqual(PERMISSIONS['catalogue.write'].roles, ['CHAIN_MANAGER']);
+  // Since 14 October 2026 the administrator holds every operation chain-wide,
+  // including the shared catalogue and the financial operations the SRS
+  // working mapping reserved for other roles; AUDITOR still has none of them.
+  assert.deepEqual(PERMISSIONS['catalogue.write'].roles, ['CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR']);
   for (const financial of ['payment.record', 'discount.apply', 'billing_policy.publish', 'catalogue.write'] as const) {
-    assert.equal(roleHasPermission('SYSTEM_ADMINISTRATOR', financial), false, financial);
+    assert.equal(roleHasPermission('SYSTEM_ADMINISTRATOR', financial), true, financial);
     assert.equal(roleHasPermission('AUDITOR', financial), false, financial);
   }
   // Checkout is branch-scoped for desk/manager staff and chain-wide for chain
@@ -303,7 +306,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
     const roomTypeId = created.json.data.roomTypeId as string;
     const amenity = await api('chain_manager', '/api/amenities', { method: 'POST', body: { name: 'Authz Balcony' } });
     assert.equal(amenity.status, 201);
-    for (const role of STAFF_ROLES.filter((r) => r !== 'CHAIN_MANAGER')) {
+    for (const role of STAFF_ROLES.filter((r) => r !== 'CHAIN_MANAGER' && r !== 'SYSTEM_ADMINISTRATOR')) {
       const createDenied = await api(roleUser(role), '/api/room-types', {
         method: 'POST',
         body: { name: `Denied ${role}`, capacity: 2, baseDailyRate: '1.00' },
@@ -336,6 +339,23 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       body: { baseDailyRate: '16000.00' },
     });
     assert.equal(rateChange.status, 200);
+    // Since 14 October 2026 the administrator also holds catalogue.write
+    // (CHAIN), so it can create and edit the shared catalogue.
+    const adminType = await api('system_administrator', '/api/room-types', {
+      method: 'POST',
+      body: { name: 'Admin Suite', capacity: 4, baseDailyRate: '42000.00' },
+    });
+    assert.equal(adminType.status, 201, 'admin creates a room type');
+    const adminRate = await api('system_administrator', `/api/room-types/${adminType.json.data.roomTypeId}`, {
+      method: 'PATCH',
+      body: { baseDailyRate: '44000.00' },
+    });
+    assert.equal(adminRate.status, 200, 'admin changes a rate');
+    const adminAmenity = await api('system_administrator', `/api/amenities/${amenity.json.data.amenityId}`, {
+      method: 'PATCH',
+      body: { description: 'polished by admin' },
+    });
+    assert.equal(adminAmenity.status, 200, 'admin edits an amenity');
 
     // Rooms/blocks: only BRANCH_MANAGER writes, only in the assigned branch.
     const roomA = await api('branch_manager', '/api/rooms', { method: 'POST', body: { roomNumber: 'A-1', roomTypeId } });
@@ -351,7 +371,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
     });
     assert.equal(injectedBranch.status, 400, 'a client-supplied branch is rejected');
 
-    for (const role of STAFF_ROLES.filter((r) => r !== 'BRANCH_MANAGER')) {
+    for (const role of STAFF_ROLES.filter((r) => r !== 'BRANCH_MANAGER' && r !== 'SYSTEM_ADMINISTRATOR')) {
       const denied = await api(roleUser(role), '/api/rooms', { method: 'POST', body: { roomNumber: `X-${role}`, roomTypeId } });
       assert.equal(denied.status, 403, `${role} create room`);
       const blockDenied = await api(roleUser(role), `/api/rooms/${roomAId}/blocks`, {
@@ -389,16 +409,39 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       assert.deepEqual(list.json.data.map((r: { roomId: string }) => r.roomId), [roomAId], `${role} sees own branch only`);
     }
     assert.equal((await api('front_desk.kandy', `/api/rooms/${roomAId}`)).status, 404, 'cross-branch read hidden');
-    for (const as of ['chain_manager', 'system_administrator', 'auditor', 'guest.one']) {
+    for (const as of ['chain_manager', 'auditor', 'guest.one']) {
       assert.equal((await api(as, '/api/rooms')).status, 403, `${as} room read`);
     }
+    // The administrator's room grants are CHAIN-scoped (14 October 2026), but
+    // the room-inventory router still pins reads and writes to the session
+    // branch for every staff writer, exactly like a branch manager.
+    const adminRoomList = await api('system_administrator', '/api/rooms');
+    assert.equal(adminRoomList.status, 200, 'admin room read');
+    assert.deepEqual(
+      adminRoomList.json.data.map((r: { roomId: string }) => r.roomId),
+      [roomAId],
+      'admin room read stays session-branch scoped',
+    );
+    const adminRoom = await api('system_administrator', '/api/rooms', {
+      method: 'POST',
+      body: { roomNumber: 'ADMIN-1', roomTypeId },
+    });
+    assert.equal(adminRoom.status, 201, 'admin creates a room');
+    assert.equal(adminRoom.json.data.branchId, branchA, 'branch comes from the session');
+    const adminBlock = await api('system_administrator', `/api/rooms/${adminRoom.json.data.roomId}/blocks`, {
+      method: 'POST',
+      body: { startDate: '2027-03-05', endDate: '2027-03-06', reason: 'Admin inspection' },
+    });
+    assert.equal(adminBlock.status, 201, 'admin creates a block');
 
-    // Payments: FRONT_DESK only. Checkout/cancel/no-show: branch staff
+    // Payments: FRONT_DESK and, since 14 October 2026, the full-set
+    // administrator. Checkout/cancel/no-show: branch staff
     // (FRONT_DESK, BRANCH_MANAGER) own-branch and chain managers chain-wide,
     // matching the checkout/cancellation/no-show services.
     const branchOpsAllowed = new Set(['FRONT_DESK', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR']);
+    const paymentAllowed = new Set(['FRONT_DESK', 'SYSTEM_ADMINISTRATOR']);
     for (const role of STAFF_ROLES) {
-      assert.equal((await api(roleUser(role), '/api/bookings/x/payments', { method: 'POST', body: {} })).status, role === 'FRONT_DESK' ? 200 : 403, `${role} payment`);
+      assert.equal((await api(roleUser(role), '/api/bookings/x/payments', { method: 'POST', body: {} })).status, paymentAllowed.has(role) ? 200 : 403, `${role} payment`);
       assert.equal((await api(roleUser(role), '/api/bookings/x/checkout', { method: 'POST', body: {} })).status, branchOpsAllowed.has(role) ? 200 : 403, `${role} checkout`);
       assert.equal((await api(roleUser(role), '/api/bookings/x/cancel', { method: 'POST', body: {} })).status, branchOpsAllowed.has(role) ? 200 : 403, `${role} cancel`);
       assert.equal((await api(roleUser(role), '/api/bookings/x/no-show', { method: 'POST', body: {} })).status, branchOpsAllowed.has(role) ? 200 : 403, `${role} no-show`);
@@ -408,7 +451,7 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
     assert.equal((await api('guest.one', '/api/bookings/x/cancel', { method: 'POST', body: {} })).status, 200, 'guests may request cancellation; ownership is checked downstream');
     assert.equal((await api('guest.one', '/api/bookings/x/no-show', { method: 'POST', body: {} })).status, 403, 'guests may never mark a no-show');
     // Invoice reads: guests (ownership checked downstream) and finance/report readers.
-    const invoiceReaders = new Set(['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR']);
+    const invoiceReaders = new Set(['FRONT_DESK', 'SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR']);
     for (const role of STAFF_ROLES) {
       assert.equal((await api(roleUser(role), '/api/bookings/x/invoice')).status, invoiceReaders.has(role) ? 200 : 403, `${role} invoice`);
     }
@@ -460,9 +503,14 @@ test('M1-S09 server-side role/branch authorization across protected routers (AT-
       assert.equal((await api('chain_manager', pathname)).status, 200, `CM ${pathname}`);
       assert.equal((await api('auditor', pathname)).status, 200, `AUDITOR ${pathname}`);
     }
-    for (const role of ['FRONT_DESK', 'SERVICE_STAFF', 'SYSTEM_ADMINISTRATOR'] as const) {
+    for (const role of ['FRONT_DESK', 'SERVICE_STAFF'] as const) {
       assert.equal((await api(roleUser(role), '/api/reports/occupancy')).status, 403, `${role} reports`);
     }
+    // The administrator reads chain-wide reports since 14 October 2026 and is
+    // not branch-pinned.
+    const adminOccupancy = await api('system_administrator', '/api/reports/occupancy');
+    assert.equal(adminOccupancy.status, 200, 'admin reports');
+    assert.equal(adminOccupancy.json.query.branch_id, undefined, 'admin report read is not narrowed');
     assert.equal((await api('system_administrator', '/api/reports/audit-logs')).status, 200);
     assert.equal((await api('chain_manager', '/api/reports/audit-logs')).status, 403);
     assert.equal((await api('guest.one', '/api/reports/occupancy')).status, 403);

@@ -8,8 +8,10 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/admin/users'), true);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/admin/branches'), false);
   assert.equal(canViewStaffPage('AUDITOR', '/dashboard/admin/users'), true);
-  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/bookings/new'), false);
-  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/admin/reports'), false);
+  // Since 14 October 2026 the administrator holds the full grant set, so it
+  // also reaches the operational, report and invoice pages.
+  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/bookings/new'), true);
+  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/admin/reports'), true);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/bookings/new'), true);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/admin/branches'), false);
   assert.equal(canViewStaffPage('FRONT_DESK', '/dashboard/admin/users'), false);
@@ -36,7 +38,7 @@ test('navigation separates staff operations, account administration, and chain f
   assert.equal(canViewStaffPage('SERVICE_STAFF', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('BRANCH_MANAGER', '/dashboard/billing/invoice'), true);
   assert.equal(canViewStaffPage('CHAIN_MANAGER', '/dashboard/billing/invoice'), true);
-  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/billing/invoice'), false);
+  assert.equal(canViewStaffPage('SYSTEM_ADMINISTRATOR', '/dashboard/billing/invoice'), true);
 });
 
 test('every staff role has a highlighted primary action it is allowed to open', () => {

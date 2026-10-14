@@ -173,7 +173,8 @@ test('M1-S11 staff guest search/create/update/deactivate with privacy and permis
       [guestId],
     )).rows;
 
-    // 1. Only FRONT_DESK reaches any route; guests and other roles are denied.
+    // 1. Only FRONT_DESK — and, since 14 October 2026, the full-set
+    // administrator — reaches any route; guests and other roles are denied.
     const routes: { method: string; path: string; body?: unknown }[] = [
       { method: 'POST', path: '/api/guests/search', body: { query: 'Kamala' } },
       { method: 'POST', path: '/api/guests', body: { fullName: 'X', email: 'x@example.com' } },
@@ -185,7 +186,7 @@ test('M1-S11 staff guest search/create/update/deactivate with privacy and permis
     for (const route of routes) {
       assert.equal((await api(route.path, { method: route.method, body: route.body })).status, 401, `${route.path} anonymous`);
     }
-    const denied = [...STAFF_ROLES.filter((r) => r !== 'FRONT_DESK').map((r) => r.toLowerCase()), 'ona'];
+    const denied = [...STAFF_ROLES.filter((r) => r !== 'FRONT_DESK' && r !== 'SYSTEM_ADMINISTRATOR').map((r) => r.toLowerCase()), 'ona'];
     for (const username of denied) {
       const cookie = await login(username);
       for (const route of routes) {
@@ -195,6 +196,10 @@ test('M1-S11 staff guest search/create/update/deactivate with privacy and permis
     }
     assert.equal((await admin.query('SELECT full_name FROM guest WHERE guest_id = $1', [kamala])).rows[0].full_name, 'Kamala Silva');
     assert.equal(await admin.query('SELECT count(*)::int AS n FROM guest').then((r) => r.rows[0].n), 2, 'denied requests created nothing');
+    const adminCookie = await login('system_administrator');
+    const adminSearch = await api('/api/guests/search', { method: 'POST', cookie: adminCookie, body: { query: 'silv' } });
+    assert.equal(adminSearch.status, 200, 'administrator holds guest.manage since 14 October 2026');
+    assert.equal(adminSearch.json.data.length, 1);
 
     const desk = await login('front_desk');
     const deskId = officerIds.FRONT_DESK;

@@ -247,7 +247,6 @@ test('M3-S18 refuses wrong roles, wrong branch, inactive officers and guests wit
     for (const [label, actorId] of [
       ['FRONT_DESK', fixture.frontDeskId],
       ['CHAIN_MANAGER', fixture.chainManagerId],
-      ['SYSTEM_ADMINISTRATOR', fixture.systemAdminId],
       ['AUDITOR', fixture.auditorId],
       ['other-branch SERVICE_STAFF', fixture.otherServiceStaffId],
       ['inactive SERVICE_STAFF', fixture.inactiveServiceStaffId],
@@ -268,6 +267,26 @@ test('M3-S18 refuses wrong roles, wrong branch, inactive officers and guests wit
     const allowed = await changeRoomCondition(client, { roomId, condition: 'CLEANING', actorId: fixture.serviceStaffId });
     assert.equal(allowed.changed, true);
     assert.equal(await historyFor(client, roomId).then((rows) => rows.length), 1);
+  });
+});
+
+test('M3-S18 allows the chain-wide SYSTEM_ADMINISTRATOR room-condition grant (14 October 2026 matrix change)', async () => {
+  await withChain(async ({ client }) => {
+    const fixture = await seed(client);
+    const roomId = fixture.freeRoomId;
+
+    const changed = await changeRoomCondition(client, {
+      roomId,
+      condition: 'CLEANING',
+      actorId: fixture.systemAdminId,
+      reason: 'Administrator inspection',
+    });
+    assert.equal(changed.changed, true);
+    assert.equal(await conditionOf(client, roomId), 'CLEANING');
+    const history = await historyFor(client, roomId);
+    assert.equal(history.length, 1);
+    assert.equal(history[0].new_status, 'CLEANING');
+    assert.equal(history[0].changed_by, fixture.systemAdminId);
   });
 });
 

@@ -47,9 +47,11 @@ function listPayload(): unknown {
   };
 }
 
-test('only FRONT_DESK holds the booking list permission', () => {
+test('FRONT_DESK and the full-set administrator hold the booking list permission', () => {
   assert.equal(canSearchBookings('FRONT_DESK'), true);
-  for (const role of ['SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'SYSTEM_ADMINISTRATOR', 'AUDITOR'] as const) {
+  // Since 14 October 2026 the administrator holds every operation.
+  assert.equal(canSearchBookings('SYSTEM_ADMINISTRATOR'), true);
+  for (const role of ['SERVICE_STAFF', 'BRANCH_MANAGER', 'CHAIN_MANAGER', 'AUDITOR'] as const) {
     assert.equal(canSearchBookings(role), false, `${role} cannot list bookings`);
   }
   assert.equal(canSearchBookings(null), false);
